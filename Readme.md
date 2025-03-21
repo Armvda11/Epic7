@@ -152,6 +152,13 @@ epic7
 
 ---
 
-Si vous avez des **problèmes**, ouvrez une **issue** ou contactez l'équipe. 🚀
-Mais je conseil en cas d'Urgence de contacter les autorités compétentes
-**GoatHagimont**  - **GrandChefBoris**
+Si vous avez des problèmes, ouvrez une issue ou contactez l'équipe. 🚀
+Mais si le bug est trop ancien, trop profond, né des ténèbres du legacy code… alors il est peut-être déjà trop tard.
+
+Dans ce cas, une seule solution : gravir les montagnes sacrées du Git Rebase, affronter le dragon du Merge Conflict, et réciter l’incantation interdite du --force.
+
+Et si tout échoue…
+
+Invoquez GoatHagimont ou ChefBoris.
+
+⚠️ Mais attention : leur aide ne sera accordée qu’aux élus… ceux qui n’ont jamais push **un code qui ne fonctionne que sur leur machine**.
