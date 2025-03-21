@@ -12,7 +12,7 @@ Avant de commencer, assurez-vous d’avoir installé :
 ## 🛠 **Installation Backend**
 ### **1️⃣ Cloner le projet**
 ```sh
-git clone https://github.com/votre-repo/epic7.git
+git clone https://github.com/Armvda11/Epic7.git
 cd epic7/backend
 ```
 
@@ -99,7 +99,7 @@ Accédez à **http://localhost:5173**.
 ## 🔄 **Arrêter les services**
 | Service | Mac | Linux | Windows |
 |---------|-----|-------|---------|
-| PostgreSQL | `brew services stop postgresql` | `brew services stop postgresql` | Arrêter via pgAdmin ou le gestionnaire de services |
+| PostgreSQL | `brew services stop postgresql` | `sudo systemctl stop postgresql` | Arrêter via pgAdmin ou le gestionnaire de services |
 | Backend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
 | Frontend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
 
