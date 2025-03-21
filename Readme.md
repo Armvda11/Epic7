@@ -99,7 +99,7 @@ Accédez à **http://localhost:5173**.
 ## 🔄 **Arrêter les services**
 | Service | Mac | Linux | Windows |
 |---------|-----|-------|---------|
-| PostgreSQL | `brew services stop postgresql` | `brew services stop postgresql` | Arrêter via pgAdmin ou le gestionnaire de services |
+| PostgreSQL | `brew services stop postgresql` | `sudo systemctl stop postgresql` | Arrêter via pgAdmin ou le gestionnaire de services |
 | Backend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
 | Frontend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
 
