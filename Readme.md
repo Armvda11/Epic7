@@ -12,7 +12,7 @@ Avant de commencer, assurez-vous d’avoir installé :
 ## 🛠 **Installation Backend**
 ### **1️⃣ Cloner le projet**
 ```sh
-git clone https://github.com/votre-repo/epic7.git
+git clone https://github.com/Armvda11/Epic7.git
 cd epic7/backend
 ```
 
