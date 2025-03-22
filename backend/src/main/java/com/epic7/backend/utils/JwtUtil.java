@@ -2,6 +2,8 @@ package com.epic7.backend.utils;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -39,4 +41,18 @@ public class JwtUtil {
             return false;
         }
     }
+
+    /**
+     * Extrait le token JWT du header Authorization 
+     * @param request
+     * @return
+     */
+    public String extractTokenFromHeader(HttpServletRequest request) {
+    String bearer = request.getHeader("Authorization");
+    if (bearer != null && bearer.startsWith("Bearer ")) {
+        return bearer.substring(7);
+    }
+    throw new RuntimeException("Token JWT manquant ou invalide");
+}
+
 }

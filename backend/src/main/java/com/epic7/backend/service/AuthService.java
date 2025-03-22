@@ -5,6 +5,7 @@ import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import com.epic7.backend.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -78,4 +79,10 @@ public class AuthService {
     public String extractEmail(String token) {
         return jwtUtil.extractEmail(token);
     }
+
+    public User getUserByEmail(String email) {
+    return userRepository.findByEmail(email)
+        .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé avec l'email : " + email));
+}
+
 }

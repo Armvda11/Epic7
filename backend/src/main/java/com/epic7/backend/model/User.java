@@ -1,5 +1,8 @@
 package com.epic7.backend.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +29,12 @@ public class User {
     @Column(nullable = false)
     @NotBlank(message = "Le mot de passe est obligatoire")
     private String password;
+
+
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PlayerHero> ownedHeroes = new ArrayList<>();
+
 
     public User(String email, String password) {
         this.email = email;
