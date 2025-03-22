@@ -1,11 +1,13 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.RegisterRequest;
 import com.epic7.backend.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +51,18 @@ public ResponseEntity<String> checkToken(@RequestHeader("Authorization") String 
 public String infoSensible(Authentication auth) {
     return "Bienvenue " + auth.getName() + ", vous êtes authentifié.";
 }
+
+
+ @PostMapping("/register")
+    public ResponseEntity<?> register(@Validated @RequestBody RegisterRequest request) {
+        Optional<String> tokenOpt = authService.register(request);
+        
+        if (tokenOpt.isPresent()) {
+            return ResponseEntity.ok(Map.of("message", "Inscription réussie", "token", tokenOpt.get()));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email déjà utilisé"));
+        }
+    }
 
 
 }
