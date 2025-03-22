@@ -5,14 +5,11 @@ import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import com.epic7.backend.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -26,55 +23,59 @@ public class AuthService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    /**
+     * Connexion : vérifie email + mot de passe et renvoie un token JWT
+     */
     public Optional<String> loginAndGetToken(String email, String rawPassword) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
-    
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-    
-            // Utiliser PasswordEncoder pour comparer le mot de passe en clair avec le hash
-            if (passwordEncoder.matches(rawPassword, user.getPassword())) {
-                String token = jwtUtil.generateToken(email);
-                return Optional.of(token);
-            }
-        }
-    
-        return Optional.empty();
+        return userRepository.findByEmail(email)
+                .filter(user -> passwordEncoder.matches(rawPassword, user.getPassword()))
+                .map(user -> jwtUtil.generateToken(email));
     }
 
-    @GetMapping("/check-token")
-public ResponseEntity<String> checkToken(@RequestHeader("Authorization") String authHeader) {
-    String token = authHeader.replace("Bearer ", "");
-    boolean isValid = jwtUtil.validateToken(token);
-    if (isValid) {
-        String email = jwtUtil.extractEmail(token);
-        return ResponseEntity.ok("✅ Token valide pour : " + email);
-    } else {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("❌ Token invalide");
-    }
-}
-
-public boolean validateToken(String token) {
-    return jwtUtil.validateToken(token);
-}
-
-public String extractEmail(String token) {
-    return jwtUtil.extractEmail(token);
-}
- public Optional<String> register(RegisterRequest request) {
-        // Vérifier si l'email est déjà utilisé
+    /**
+     * Enregistrement : crée un utilisateur avec un nom unique et retourne un JWT
+     */
+    public Optional<String> register(RegisterRequest request) {
+        // Vérifier l'unicité de l'email
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             return Optional.empty();
         }
 
-        // Hachage du mot de passe
         String hashedPassword = passwordEncoder.encode(request.getPassword());
-        User newUser = new User(request.getEmail(), hashedPassword);
-        userRepository.save(newUser);
 
-        // Génération d'un token JWT pour l'utilisateur enregistré
-        String token = jwtUtil.generateToken(newUser.getEmail());
-        return Optional.of(token);
+        // Générer un username unique
+        String username = generateUniqueUsername();
+
+        User newUser = new User();
+        newUser.setEmail(request.getEmail());
+        newUser.setPassword(hashedPassword);
+        newUser.setUsername(username);
+        newUser.setLevel(1);
+        newUser.setGold(0);
+        newUser.setDiamonds(0);
+
+        userRepository.save(newUser);
+        return Optional.of(jwtUtil.generateToken(newUser.getEmail()));
     }
 
+    /**
+     * Génère un username unique du type epic7A1B2
+     */
+    private String generateUniqueUsername() {
+        String username;
+        do {
+            String suffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+            username = "epic7" + suffix;
+        } while (userRepository.findByUsername(username).isPresent());
+
+        return username;
+    }
+
+    public boolean validateToken(String token) {
+        return jwtUtil.validateToken(token);
+    }
+
+    public String extractEmail(String token) {
+        return jwtUtil.extractEmail(token);
+    }
 }

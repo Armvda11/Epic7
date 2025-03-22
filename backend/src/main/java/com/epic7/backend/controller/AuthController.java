@@ -52,7 +52,7 @@ public String infoSensible(Authentication auth) {
     return "Bienvenue " + auth.getName() + ", vous êtes authentifié.";
 }
 
-
+// register pour l'inscription et la création de token
  @PostMapping("/register")
     public ResponseEntity<?> register(@Validated @RequestBody RegisterRequest request) {
         Optional<String> tokenOpt = authService.register(request);
@@ -64,5 +64,5 @@ public String infoSensible(Authentication auth) {
         }
     }
 
-
+   
 }
