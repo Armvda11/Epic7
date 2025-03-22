@@ -30,3 +30,9 @@ export const getAuthHeaders = () => {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
+
+export const register = async (email, password) => {
+  const response = await axios.post(`${API_URL}/auth/register`, { email, password });
+  return response.data;
+};

@@ -16,7 +16,7 @@ html, body {
   background: url('splashArt.jpeg') no-repeat center center;
   background-size: cover;
   position: fixed;
-  animation: backgroundZoom 6s infinite alternate ease-in-out;
+  animation: backgroundZoom 4s infinite alternate ease-in-out;
 }
 
 /* Animation de zoom sans flou excessif */

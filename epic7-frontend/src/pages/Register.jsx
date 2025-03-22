@@ -1,31 +1,31 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login } from "../services/authService";
+import { register } from "../services/authService";
 import "../styles/Login.css";
 
-function Login() {
+function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const response = await login(email, password);
+      const response = await register(email, password);
       localStorage.setItem("token", response.token);
-      setMessage("Connexion réussie !");
+      setMessage("Inscription réussie !");
       navigate("/dashboard");
     } catch (error) {
-      setMessage("Échec de la connexion. Vérifie tes identifiants.");
+      setMessage("Erreur : cet email est déjà utilisé.");
     }
   };
 
   return (
     <div className="login-container">
       <div className="login-overlay">
-        <form className="login-form" onSubmit={handleLogin}>
-          <h2>Connexion</h2>
+        <form className="login-form" onSubmit={handleRegister}>
+          <h2>Inscription</h2>
           <input
             type="email"
             placeholder="Adresse e-mail"
@@ -35,14 +35,14 @@ function Login() {
           />
           <input
             type="password"
-            placeholder="Mot de passe"
+            placeholder="Mot de passe (min. 6 caractères)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="submit">Se connecter</button>
+          <button type="submit">Créer un compte</button>
           <p className="form-switch">
-            Pas encore de compte ? <Link to="/register">S’inscrire</Link>
+            Déjà inscrit ? <Link to="/">Se connecter</Link>
           </p>
           {message && <p className="message">{message}</p>}
         </form>
@@ -51,4 +51,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default Register;
