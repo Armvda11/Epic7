@@ -33,4 +33,16 @@ public class Equipment {
 
     @Column(name = "speed_bonus")
     private int speedBonus;
+
+    @Column(name = "health_bonus")
+    private int healthBonus;
+
+    @Column(name ="level")
+    private int level;
+
+    @Column(name = "experience")
+    private int experience;
+
+    @Column(name = "in_use")
+    private boolean in_use;
 }

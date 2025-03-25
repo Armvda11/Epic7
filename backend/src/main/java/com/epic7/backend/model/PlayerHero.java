@@ -1,5 +1,8 @@
 package com.epic7.backend.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,4 +34,12 @@ public class PlayerHero {
 
     @Column(nullable = false)
     private boolean isLocked = false;
+
+    @OneToMany(mappedBy = "player_heroes", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Equipment> ownerdEquipements = new ArrayList<>();
+
+    public PlayerHero(User user, Hero hero) {
+        this.user = user;
+        this.hero = hero;
+    }
 }
