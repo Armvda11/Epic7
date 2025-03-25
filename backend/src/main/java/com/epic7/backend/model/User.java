@@ -1,45 +1,40 @@
 package com.epic7.backend.model;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class User {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(unique = true, nullable = false)
-    @NotBlank(message = "L'email est obligatoire")
-    @Email(message = "L'email doit être valide")
-    private String email;
-
-    @Column(nullable = false)
-    @NotBlank(message = "Le mot de passe est obligatoire")
-    private String password;
-
-
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PlayerHero> ownedHeroes = new ArrayList<>();
 
 
     public User(String email, String password) {
         this.email = email;
         this.password = password;
     }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    @NotBlank
+    @Email
+    private String email;
+
+    @Column(nullable = false)
+    @NotBlank
+    private String password;
 
     @Column(nullable = false, unique = true)
     private String username;
@@ -53,69 +48,18 @@ public class User {
     @Column(nullable = false)
     private int diamonds = 0;
 
+    @Column(nullable = false)
+    private Integer energy = 100;
 
+    @Column(name = "last_energy_update")
+    private Instant lastEnergyUpdate = Instant.now();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PlayerHero> ownedHeroes = new ArrayList<>();
 
-    public String getEmail() {
-        return email;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GuildMembership> guildMemberships = new ArrayList<>();
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public int getLevel() {
-        return level;
-    }
-
-    public void setLevel(int level) {
-        this.level = level;
-    }
-
-    public int getGold() {
-        return gold;
-    }
-
-
-    public void setGold(int gold) {
-        this.gold = gold;
-    }
-
-
-    public int getDiamonds() {
-        return diamonds;
-    }
-
-
-    public void setDiamonds(int diamonds) {
-        this.diamonds = diamonds;
-    }
-
-
-
-
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Summon> summons = new ArrayList<>();
 }

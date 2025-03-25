@@ -3,13 +3,17 @@ package com.epic7.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
+
+
+
 @Entity
-@Table(name = "player_heroes")
+@Table(name = "summons")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PlayerHero {
+public class Summon {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,12 +27,8 @@ public class PlayerHero {
     @JoinColumn(name = "hero_id")
     private Hero hero;
 
-    @Column(nullable = false)
-    private int level = 1;
+    @Column(name = "summon_date")
+    private Instant summonDate = Instant.now();
 
-    @Column(nullable = false)
-    private int experience = 0;
-
-    @Column(nullable = false)
-    private boolean isLocked = false;
+    private boolean success = true;
 }

@@ -3,13 +3,17 @@ package com.epic7.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
+
 @Entity
-@Table(name = "player_heroes")
+@Table(name = "guild_membership", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"user_id", "guild_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PlayerHero {
+public class GuildMembership {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,15 +24,12 @@ public class PlayerHero {
     private User user;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "hero_id")
-    private Hero hero;
+    @JoinColumn(name = "guild_id")
+    private Guild guild;
 
     @Column(nullable = false)
-    private int level = 1;
+    private String role; // leader, officer, member
 
-    @Column(nullable = false)
-    private int experience = 0;
-
-    @Column(nullable = false)
-    private boolean isLocked = false;
+    @Column(name = "join_date")
+    private Instant joinDate = Instant.now();
 }

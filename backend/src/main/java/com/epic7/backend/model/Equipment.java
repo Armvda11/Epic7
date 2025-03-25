@@ -22,6 +22,8 @@ public class Equipment {
     @Enumerated(EnumType.STRING)
     private EquipmentType type;
 
+    @Column(nullable = false)
+    private String rarity;
 
     @Column(name = "attack_bonus")
     private int attackBonus;
@@ -31,8 +33,4 @@ public class Equipment {
 
     @Column(name = "speed_bonus")
     private int speedBonus;
-
-    @ManyToOne
-    @JoinColumn(name = "player_hero_id")
-    private PlayerHero equippedTo;
 }

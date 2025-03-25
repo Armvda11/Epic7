@@ -19,7 +19,7 @@ public class Hero {
     private String name;
 
     @Column(nullable = false)
-    private String element; // Ex: Fire, Water, Wind, Dark
+    private String element; // Fire, Ice, Earth, Dark, Light...
 
     @Column(name = "base_attack", nullable = false)
     private int baseAttack;
@@ -29,4 +29,7 @@ public class Hero {
 
     @Column(name = "base_speed", nullable = false)
     private int baseSpeed;
+
+    @Column(nullable = false)
+    private String rarity; // Normal, Rare, Epic, Legendary
 }
