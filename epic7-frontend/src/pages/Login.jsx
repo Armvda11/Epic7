@@ -31,7 +31,7 @@ function Login() {
     <div className="fixed inset-0 overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center animate-backgroundZoom z-0"
-        style={{ backgroundImage: "url('./splashArt.jpeg')" }}
+        style={{ backgroundImage: "url('./mavuika.jpg')" }}
       ></div>
 
       <div className="absolute inset-0 bg-black bg-opacity-60 flex justify-center items-center z-10">
