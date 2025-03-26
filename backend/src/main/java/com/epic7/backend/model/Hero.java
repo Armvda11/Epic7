@@ -21,6 +21,9 @@ public class Hero {
     @Column(nullable = false)
     private String element; // Fire, Ice, Earth, Dark, Light...
 
+    @Column(nullable = false)
+    private Integer health;
+
     @Column(name = "base_attack", nullable = false)
     private int baseAttack;
 

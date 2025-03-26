@@ -61,5 +61,10 @@ public class User {
     private List<GuildMembership> guildMemberships = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Summon> summons = new ArrayList<>();
+    private List<Summoner> summons = new ArrayList<>();
+
+    public void addHero(PlayerHero playerHero) {
+        ownedHeroes.add(playerHero);
+        playerHero.setUser(this);
+    }
 }
