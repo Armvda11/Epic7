@@ -35,8 +35,9 @@ public class PlayerHero {
     @Column(nullable = false)
     private boolean isLocked = false;
 
-    @OneToMany(mappedBy = "player_heroes", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Equipment> ownerdEquipements = new ArrayList<>();
+
+    @OneToMany(mappedBy = "playerHero", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PlayerEquipment> ownedEquipements = new ArrayList<>();
 
     public PlayerHero(User user, Hero hero) {
         this.user = user;
