@@ -6,6 +6,7 @@ import com.epic7.backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -15,12 +16,24 @@ public class SummonService {
 
     private final HeroRepository heroRepository;
     private final PlayerHeroRepository playerHeroRepository;
+    private final BannerRepository bannerRepository;
+
 
     public SummonService(HeroRepository heroRepository,
-                         PlayerHeroRepository playerHeroRepository) {
-        this.heroRepository = heroRepository;
-        this.playerHeroRepository = playerHeroRepository;
-    }
+    PlayerHeroRepository playerHeroRepository,
+    BannerRepository bannerRepository) {
+this.heroRepository = heroRepository;
+this.playerHeroRepository = playerHeroRepository;
+this.bannerRepository = bannerRepository;
+}
+
+
+public Optional<Banner> getActiveBanner() {
+    LocalDateTime now = LocalDateTime.now();
+    return bannerRepository.findFirstByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now);
+}
+
+
     private double getProbabilityByRarity(Rarity rarity) {
         return switch (rarity) {
             case NORMAL -> 0.5;
@@ -33,31 +46,29 @@ public class SummonService {
 
     @Transactional
     public Optional<PlayerHero> performSummon(User user, Hero hero) {
-        int summonCost = SUMMON_COST;
-
-
-        
-
-        if (user.getDiamonds() < summonCost) {
-            return Optional.empty(); // pas assez de diamant
+        Optional<Banner> activeBanner = getActiveBanner();
+        if (activeBanner.isEmpty() || !activeBanner.get().getFeaturedHeroes().contains(hero)) {
+            return Optional.empty(); // Héros non disponible
         }
-
+    
+        if (user.getDiamonds() < SUMMON_COST) {
+            return Optional.empty();
+        }
+    
         double probability = getProbabilityByRarity(hero.getRarity());
         double draw = Math.random();
-
-        // retirer des diamants
-        user.setDiamonds(user.getDiamonds() - summonCost);
-
-        // Toujours ajouter à la liste même si c'est un doublon
+    
+        user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+    
         if (draw < probability) {
             PlayerHero playerHero = new PlayerHero(user, hero);
             playerHeroRepository.save(playerHero);
             return Optional.of(playerHero);
         }
-
-        return Optional.empty(); // Invocation échouée
+    
+        return Optional.empty();
     }
-
+    
 
     public Optional<Hero> getHeroById(String code) {
         return heroRepository.findByCode(code);

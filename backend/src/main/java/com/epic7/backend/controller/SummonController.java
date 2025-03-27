@@ -1,5 +1,6 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.model.Banner;
 import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
@@ -26,9 +27,14 @@ public class SummonController {
         this.summonService = summonService;
     }
 
+    /**
+     * Invoque un héros spécifique via son code.
+     */
     @PostMapping("/code/{heroCode}")
     public ResponseEntity<String> summonByCode(@PathVariable String heroCode, HttpServletRequest request) {
-        User user = authService.getUserByEmail(jwtUtil.extractEmail(jwtUtil.extractTokenFromHeader(request)));
+        String token = jwtUtil.extractTokenFromHeader(request);
+        String email = jwtUtil.extractEmail(token);
+        User user = authService.getUserByEmail(email);
 
         Optional<Hero> heroOpt = summonService.getHeroById(heroCode);
         if (heroOpt.isEmpty()) {
@@ -40,5 +46,25 @@ public class SummonController {
         return result.isPresent()
                 ? ResponseEntity.ok("✅ Héros invoqué !")
                 : ResponseEntity.ok("❌ Invocation échouée");
+    }
+
+    /**
+     * Récupère la bannière d'invocation actuelle avec les héros mis en avant.
+     */
+    @GetMapping("/banner")
+    public ResponseEntity<?> getCurrentBanner(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        String email = jwtUtil.extractEmail(token);
+        User user = authService.getUserByEmail(email);
+
+        System.out.println("✅ Utilisateur authentifié : " + user.getUsername());
+
+        Optional<Banner> bannerOpt = summonService.getActiveBanner();
+        if (bannerOpt.isEmpty()) {
+            System.out.println("⚠️ Aucune bannière active trouvée.");
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes());
     }
 }
