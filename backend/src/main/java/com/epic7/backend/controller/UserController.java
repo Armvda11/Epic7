@@ -3,27 +3,31 @@ package com.epic7.backend.controller;
 import com.epic7.backend.dto.UserProfileResponse;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
+import com.epic7.backend.service.UserEnergyService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
+    private final AuthService authService;
+    private final UserEnergyService energyService;
 
-    @Autowired
-    private AuthService authService;
+    public UserController(JwtUtil jwtUtil, AuthService authService, UserEnergyService energyService) {
+        this.jwtUtil = jwtUtil;
+        this.authService = authService;
+        this.energyService = energyService;
+    }
 
     @GetMapping("/me")
-    public UserProfileResponse getUserProfile(HttpServletRequest request) {
+    public UserProfileResponse getProfile(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
-        String email = jwtUtil.extractEmail(token);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
 
-        User user = authService.getUserByEmail(email);
+        energyService.updateEnergy(user); // Mise à jour à la volée
 
         return new UserProfileResponse(
                 user.getUsername(),

@@ -25,8 +25,9 @@ public class Equipment {
     @Column(nullable = false)
     private String rarity;
 
+    
     @Column(name = "attack_bonus")
-    private int attackBonus;
+    private int attackBonus = 100;
 
     @Column(name = "defense_bonus")
     private int defenseBonus;
@@ -37,12 +38,12 @@ public class Equipment {
     @Column(name = "health_bonus")
     private int healthBonus;
 
+    
     @Column(name ="level")
     private int level;
 
     @Column(name = "experience")
     private int experience;
 
-    @Column(name = "in_use")
-    private boolean in_use;
+
 }

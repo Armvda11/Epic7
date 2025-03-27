@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface GuildRepository extends JpaRepository<Guild, Long> {
     Optional<Guild> findByName(String name);
+    boolean existsByName(String name);
 }

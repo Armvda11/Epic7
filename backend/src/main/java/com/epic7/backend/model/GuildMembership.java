@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.time.Instant;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "guild_membership", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"user_id", "guild_id"})
@@ -21,10 +23,12 @@ public class GuildMembership {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
+    @JsonIgnore 
     private User user;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "guild_id")
+    @JsonIgnore     
     private Guild guild;
 
     @Column(nullable = false)

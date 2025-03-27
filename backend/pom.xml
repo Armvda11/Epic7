@@ -31,11 +31,11 @@
 	</properties>
 	<dependencies>
 		<!-- ajout de la dépendance flyway-core -->
-	<dependency>
+	<!-- <dependency>
     <groupId>org.flywaydb</groupId>
     <artifactId>flyway-core</artifactId>
     <version>9.22.3</version>
-</dependency>
+</dependency> -->
 
 		<!-- ajout de la dépendance spring-boot-starter-data-jpa -->
 		<dependency>
