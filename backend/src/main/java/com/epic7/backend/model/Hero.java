@@ -62,6 +62,9 @@ public class Hero {
     }
 
     private String generateCodeFromName() {
-        return (name.substring(0, Math.min(3, name.length())).toUpperCase() + "-" + UUID.randomUUID().toString().substring(0, 8));
+        return name
+            .toUpperCase()
+            .replaceAll("\\s+", "-")
+            .replaceAll("[^A-Z0-9\\-]", "");
     }
 }

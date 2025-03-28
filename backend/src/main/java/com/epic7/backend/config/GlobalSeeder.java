@@ -70,8 +70,9 @@ public class GlobalSeeder {
     private void seedHeroes() {
         if (heroRepo.count() == 0) {
             heroRepo.saveAll(List.of(
-                hero("Armin", Element.EARTH, Rarity.RARE),
-                hero("Luna", Element.ICE, Rarity.EPIC),
+                hero("Hwayoung", Element.DARK, Rarity.LEGENDARY),
+                hero("Ml Piera", Element.DARK, Rarity.EPIC),
+                hero("Mavuika", Element.ICE, Rarity.EPIC),
                 hero("Krau", Element.LIGHT, Rarity.NORMAL)
             ));
             System.out.println("✅ Héros créés.");
