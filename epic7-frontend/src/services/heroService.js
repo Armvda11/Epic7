@@ -1,17 +1,12 @@
-import axios from 'axios';
+import API from "../api/axiosInstance";
 
-const API_BASE_URL = 'http://localhost:8080/api/player-hero';
-
-export const getMyHeroes = async (token) => {
+// Récupère les héros de l'utilisateur connecté
+export const getMyHeroes = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/my`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    const response = await API.get("/player-hero/my");
     return response.data;
   } catch (error) {
-    console.error("Erreur lors de la récupération des héros :", error);
+    console.error("❌ Erreur lors de la récupération des héros :", error);
     throw error;
   }
 };

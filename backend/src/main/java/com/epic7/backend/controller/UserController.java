@@ -33,7 +33,8 @@ public class UserController {
                 user.getUsername(),
                 user.getLevel(),
                 user.getGold(),
-                user.getDiamonds()
+                user.getDiamonds(),
+                user.getEnergy()
         );
     }
 }

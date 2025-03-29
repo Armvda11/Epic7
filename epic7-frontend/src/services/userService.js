@@ -1,20 +1,12 @@
-// src/services/userService.js
-import axios from 'axios';
-import { getToken } from './authService';
+import API from "../api/axiosInstance";
 
-const API_BASE_URL = 'http://localhost:8080/api/user';
-
-export async function fetchUserProfile() {
-  const token = getToken();
+// Récupère le profil de l'utilisateur
+export const fetchUserProfile = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await API.get("/user/me");
     return response.data;
   } catch (error) {
-    console.error("Erreur lors de la récupération du profil utilisateur :", error);
+    console.error("❌ Erreur lors du chargement du profil utilisateur :", error);
     throw error;
   }
-}
+};

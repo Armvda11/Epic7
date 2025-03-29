@@ -10,4 +10,5 @@ public class UserProfileResponse {
     private int level;
     private int gold;
     private int diamonds;
+    private int energy;
 }
