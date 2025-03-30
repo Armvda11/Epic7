@@ -7,10 +7,8 @@ import java.util.Optional;
 
 /**
  * Interface de gestion des bannières dans la base de données.
-
+ * Permet d'effectuer des opérations CRUD sur les bannières.
  */
 public interface BannerRepository extends JpaRepository<Banner, Long> {
-    // Rechercher une bannière active dans la base de données
-    // en fonction de la date actuelle
-    Optional<Banner> findActiveBannerByDateRange(LocalDateTime now1, LocalDateTime now2); 
+    Optional<Banner> findFirstByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(LocalDateTime now1, LocalDateTime now2);
 }

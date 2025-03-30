@@ -50,7 +50,7 @@ public class SummonService {
     public Optional<Banner> getActiveBanner() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime end = now.plusDays(1);
-        return bannerRepository.findActiveBannerByDateRange(now, end);
+        return bannerRepository.findFirstByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, end);
     }
 
     /**
