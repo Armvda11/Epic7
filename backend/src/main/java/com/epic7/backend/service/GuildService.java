@@ -78,15 +78,20 @@ public class GuildService {
         Guild guild = guildRepository.findById(guildId)
                 .orElseThrow(() -> new IllegalArgumentException("Guilde introuvable"));
 
-        // Vérifier si l'utilisateur est déjà membre de la guilde
+        // Générer l'adhésion de l'utilisateur à la guilde
         GuildMembership membership = new GuildMembership();
         membership.setGuild(guild);
         membership.setUser(user);
         membership.setRole("member");
         membership.setJoinDate(Instant.now());
 
+        guild.addMember(membership); // Ajout à la liste des membres de la guilde
+        user.setGuildMembership(membership); //  de l'utilisateur
+
+         // Pas besoin d'appeler guildMembershipRepository.save(membership)
+        // Hibernate synchronisera automatiquement les modifications
         // Enregistrer l'adhésion
-        guildMembershipRepository.save(membership);
+        // guildMembershipRepository.save(membership);
     }
 
     /**
@@ -104,9 +109,15 @@ public class GuildService {
         if (memberships.get(0).getRole().equals("leader")) {
             throw new IllegalStateException("Le leader de la guilde ne peut pas quitter la guilde sans la dissoudre.");
         }
+
+        GuildMembership currentMembership =  user.getGuildMembership();
+
+        currentMembership.getGuild().removeMember(currentMembership); // Retirer l'utilisateur de la guilde
+        user.setGuildMembership(null); // Supprimer l'adhésion de l'utilisateur
+
         // Supprimer l'adhésion de l'utilisateur à la guilde
         // (on suppose qu'un utilisateur ne peut appartenir qu'à une seule guilde)
-        guildMembershipRepository.delete(memberships.get(0));
+        // guildMembershipRepository.delete(memberships.get(0));
     }
 
     /**
@@ -116,10 +127,22 @@ public class GuildService {
      */
     @Transactional(readOnly = true)
     public Optional<Guild> getGuildOfUser(User user) {
-        return guildMembershipRepository.findByUser(user)
-                .stream()
-                .map(GuildMembership::getGuild)
-                .findFirst();
+
+        // Vérifier si l'utilisateur appartient à une guilde
+        Guild guild = user.getGuildMembership().getGuild();
+
+        if (guild == null) {
+            // Si l'utilisateur n'appartient à aucune guilde, retourner une valeur vide
+            return Optional.empty();
+        } else {
+            // Sinon, retourner la guilde
+            return Optional.of(guild);
+        }
+        // Alternative avec le repository
+        // return guildMembershipRepository.findByUser(user)
+        //         .stream()
+        //         .map(GuildMembership::getGuild)
+        //         .findFirst();
     }
 
     /**
@@ -135,7 +158,19 @@ public class GuildService {
     }
 
     /**
-     * Vérifie si l'utilisateur est membre d'une guilde.
+     * Récupère tous les membres d'une guilde via son nom.
+     * @param guildName Le nom de la guilde.
+     * @return La liste des membres de la guilde.
+     */
+    @Transactional(readOnly = true)
+    public List<GuildMembership> getMembers(String guildName) {
+        Guild guild = guildRepository.findByName(guildName)
+                .orElseThrow(() -> new IllegalArgumentException("Guilde introuvable"));
+        return guild.getMembers();
+    }
+
+    /**
+     * Vérifie si l'utilisateur est membre d'une guilde spécifique.
      * @param user    L'utilisateur à vérifier.
      * @param guildId L'identifiant de la guilde.
      * @return true si l'utilisateur est membre de la guilde, false sinon.
@@ -143,4 +178,16 @@ public class GuildService {
     public boolean isMemberOfGuild(User user, Long guildId) {
         return guildMembershipRepository.findByUserIdAndGuildId(user.getId(), guildId).isPresent();
     }
+
+    /**
+     * Vérifie si l'utilisateur est membre d'une guilde spécifique via son nom.
+     * @param user        L'utilisateur à vérifier.
+     * @param guildName   Le nom de la guilde.
+     * @return true si l'utilisateur est membre de la guilde, false sinon.
+     */
+    public boolean isMemberOfGuild(User user, String guildName) {
+        Guild guild = guildRepository.findByName(guildName)
+                .orElseThrow(() -> new IllegalArgumentException("Guilde introuvable"));
+        return guildMembershipRepository.findByUserIdAndGuildId(user.getId(), guild.getId()).isPresent();
+}
 }
