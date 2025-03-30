@@ -3,6 +3,7 @@ package com.epic7.backend.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Null;
 import lombok.*;
 
 import java.time.Instant;
@@ -55,20 +56,26 @@ public class User {
     //( l'énergie se régénère automatiquement au fil du temps, et peut être achetée dans la boutique)
 
 
-    
     @Column(name = "last_energy_update")
     private Instant lastEnergyUpdate = Instant.now(); // Date de la dernière mise à jour de l'énergie
-    // (a modifier lorsque l'énergie est utiliser , achetée, ou régénérée)
+    // (a modifier lorsque l'énergie est utilisée , achetée, ou régénérée)
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerHero> ownedHeroes = new ArrayList<>(); // Liste des héros possédés par l'utilisateur
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<GuildMembership> guildMemberships = new ArrayList<>(); // Liste des guildes auxquelles l'utilisateur appartient
+    private GuildMembership guildMembership = null; // Liste des guildes auxquelles l'utilisateur appartient
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerEquipment> equipments = new ArrayList<>(); // Liste des équipements possédés par l'utilisateur
 
+    @Column(name = "friends")
+    private List<User> friends; // Liste des amis de l'utilisateur
+    // (a modifier lorsque l'utilisateur ajoute ou supprime un ami)
+
+    @Column(name = "last_login")
+    private Instant lastLogin = Instant.now(); // Date de la dernière connexion de l'utilisateur
+    // (a modifier lorsque l'utilisateur se connecte, ou se déconnecte)
 
     /**
      * Ajoute un héros à la liste des héros possédés par l'utilisateur.
@@ -77,5 +84,17 @@ public class User {
     public void addHero(PlayerHero playerHero) {
         ownedHeroes.add(playerHero);
         playerHero.setUser(this);
+    }
+
+    public void addFriend(User friend) {
+        if (friends == null) {
+            friends = new ArrayList<>();
+        }
+        friends.add(friend);
+    }
+    public void removeFriend(User friend) {
+        if (friends != null) {
+            friends.remove(friend);
+        }
     }
 }
