@@ -8,6 +8,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 
+/**
+ * Service de gestion de l'énergie des utilisateurs.
+ * 
+ * Ce service gère la régénération de l'énergie des utilisateurs dans le jeu.
+ * Il met à jour l'énergie d'un utilisateur en fonction du temps écoulé depuis
+ * la dernière mise à jour de son énergie.
+ * @author hermas
+ */
 @Service
 public class UserEnergyService {
 
@@ -17,6 +25,12 @@ public class UserEnergyService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * Met à jour l'énergie de l'utilisateur en fonction du temps écoulé depuis
+     * la dernière mise à jour.
+     * 
+     * @param user L'utilisateur dont l'énergie doit être mise à jour.
+     */
     @Transactional
     public void updateEnergy(User user) {
         if (user.getEnergy() >= 100) return;

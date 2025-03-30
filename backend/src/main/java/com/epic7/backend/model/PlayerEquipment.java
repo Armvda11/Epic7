@@ -1,10 +1,14 @@
 package com.epic7.backend.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.*;
 import lombok.*;
 
+/**
+ * Représente l'équipement d'un joueur dans le jeu.
+ * Contient des informations sur l'utilisateur, l'équipement de base,
+ * le héros sur lequel l'équipement est utilisé, ainsi que les niveaux et bonus associés.
+ * @author hermas
+ */
 @Entity
 @Table(name = "player_equipment")
 @Getter
@@ -20,8 +24,7 @@ public class PlayerEquipment {
 
     // L'utilisateur qui possède l'équipement
     @ManyToOne(optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore 
+    @JoinColumn(name = "user_id", nullable = false) 
     private User user;
 
     // L'équipement de base (ex. "Épée du feu", "Bottes d'acier")
@@ -32,7 +35,6 @@ public class PlayerEquipment {
     // Le héros sur lequel l’équipement est utilisé (nullable si en inventaire)
     @ManyToOne
     @JoinColumn(name = "player_hero_id")
-    @JsonIgnore
     private PlayerHero playerHero;
     
 
@@ -45,7 +47,7 @@ public class PlayerEquipment {
     private int experience = 0;
 
     @Column(name = "bonus_attack")
-    private int bonusAttack;
+    private int bonusAttack; 
 
     @Column(name = "bonus_defense")
     private int bonusDefense;

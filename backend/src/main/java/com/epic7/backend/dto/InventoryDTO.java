@@ -6,6 +6,11 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Représente l'inventaire d'un joueur dans le jeu.
+ * Contient une liste d'équipements disponibles pour le joueur.
+ * @author hermas
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

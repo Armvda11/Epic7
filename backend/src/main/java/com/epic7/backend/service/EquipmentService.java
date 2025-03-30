@@ -11,6 +11,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Service de gestion des équipements.
+ * 
+ * Ce service gère les opérations liées aux équipements, y compris l'équipement,
+ * la déséquipement, le calcul des statistiques finales et la récupération de l'inventaire.
+ * 
+ * @author hermas
+ */
 @Service
 public class EquipmentService {
 

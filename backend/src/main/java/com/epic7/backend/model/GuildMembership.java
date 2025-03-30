@@ -5,8 +5,12 @@ import lombok.*;
 
 import java.time.Instant;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
+/**
+ * Représente l'adhésion d'un utilisateur à une guilde.
+ * Contient des informations sur le rôle de l'utilisateur dans la guilde et la date d'adhésion.
+ * @author hermas
+ */
 @Entity
 @Table(name = "guild_membership", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"user_id", "guild_id"})
@@ -19,21 +23,19 @@ public class GuildMembership {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // Identifiant unique de l'adhésion
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
-    @JsonIgnore 
-    private User user;
+    private User user; // L'utilisateur membre de la guilde
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "guild_id")
-    @JsonIgnore     
-    private Guild guild;
+    @JoinColumn(name = "guild_id")  
+    private Guild guild; // La guilde à laquelle l'utilisateur appartient
 
     @Column(nullable = false)
     private String role; // leader, officer, member
 
     @Column(name = "join_date")
-    private Instant joinDate = Instant.now();
+    private Instant joinDate = Instant.now(); // Date d'adhésion à la guilde
 }

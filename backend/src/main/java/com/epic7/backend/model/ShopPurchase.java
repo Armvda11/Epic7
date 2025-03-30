@@ -18,7 +18,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 
-
+/**
+ * Représente un achat effectué par un utilisateur dans la boutique du jeu.
+ * Contient des informations sur l'utilisateur, l'objet acheté, la quantité achetée
+ * et la date d'achat.
+ * @author hermas
+ */
 @Entity
 @Getter
 @Setter
@@ -32,13 +37,20 @@ public class ShopPurchase {
     private Long id;
 
     @ManyToOne(optional = false)
-    private User user;
+    private User user; // L'utilisateur qui a effectué l'achat
 
     @ManyToOne(optional = false)
-    private ShopItem shopItem;
+    private ShopItem shopItem; // L'objet acheté dans la boutique
 
-    private int quantity;
+    private int quantity; // Quantité achetée de l'objet
+
+    private int totalPrice; // Prix total de l'achat (en diamants ou en or)
+
+    private int totalGoldPrice; // Prix total de l'achat (en or)
+
+    private int totalDiamondsPrice; // Prix total de l'achat (en diamants)
 
     @CreationTimestamp
-    private LocalDateTime purchasedAt;
+    private LocalDateTime purchasedAt; // Date de l'achat
+    // Constructeur, getters et setters générés par Lombok
 }

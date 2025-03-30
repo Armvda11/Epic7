@@ -21,6 +21,11 @@ import com.epic7.backend.repository.ShopPurchaseRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Service de gestion des achats dans le boutique.
+ * Il gère les achats d'articles, la vérification des limites d'achat,
+ * @author hermas
+ */
 @Service
 @RequiredArgsConstructor
 public class ShopService {

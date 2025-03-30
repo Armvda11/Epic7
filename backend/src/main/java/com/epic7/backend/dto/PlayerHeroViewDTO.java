@@ -4,6 +4,13 @@ package com.epic7.backend.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+/**
+ * Représente la vue d'un héros d'un joueur dans le jeu.
+ * Contient des informations sur le héros, y compris son nom,
+ * son élément, sa rareté, son niveau, s'il est verrouillé ou non,
+ * et ses statistiques totales (base + bonus équipements).
+ * @author hermas
+ */
 @Data
 @AllArgsConstructor
 public class PlayerHeroViewDTO {

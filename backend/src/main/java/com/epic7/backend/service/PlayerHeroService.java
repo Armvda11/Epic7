@@ -12,20 +12,39 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service de gestion des héros joueurs.
+ * 
+ * Ce service gère les opérations liées aux héros joueurs, y compris la
+ * récupération des héros d'un utilisateur, l'attribution d'expérience,
+ * le verrouillage et le déverrouillage des héros.
+ * 
+ * @author hermas
+ */
 @Service
 public class PlayerHeroService {
 
     private final PlayerHeroRepository playerHeroRepository;
 
+
     public PlayerHeroService(PlayerHeroRepository playerHeroRepository) {
         this.playerHeroRepository = playerHeroRepository;
     }
     
+    /**
+     * Récupère tous les héros d'un utilisateur.
+     * @param user L'utilisateur dont on veut récupérer les héros.
+     * @return Une liste de héros du joueur.
+     */
+    @Transactional(readOnly = true)
     public List<PlayerHero> getAllByUser(User user) {
         return playerHeroRepository.findByUser(user);
     }
+   
     /**
-     * Gagne de l'expérience et monte de niveau si nécessaire.
+     * Récupère tous les héros d'un utilisateur qui ne sont pas verrouillés.
+     * @param user L'utilisateur dont on veut récupérer les héros.
+     * @return Une liste de héros du joueur non verrouillés.
      */
     @Transactional
     public void gainExperience(PlayerHero hero, int xp) {
@@ -45,6 +64,7 @@ public class PlayerHeroService {
 
     /**
      * Verrouille le héros (ex : pour empêcher vente ou modification).
+     * @param hero
      */
     @Transactional
     public void lockHero(PlayerHero hero) {
@@ -53,7 +73,8 @@ public class PlayerHeroService {
     }
 
     /**
-     * Déverrouille le héros.
+     * Déverrouille le héros (ex : pour permettre vente ou modification).
+     * @param hero
      */
     @Transactional
     public void unlockHero(PlayerHero hero) {
@@ -62,12 +83,19 @@ public class PlayerHeroService {
     }
 
     /**
-     * Formule de progression du niveau (modifiable facilement).
+     * Calcule l'expérience requise pour passer au niveau suivant.
+     * @param currentLevel Le niveau actuel du héros.
+     * @return L'expérience requise pour passer au niveau suivant.
      */
     private int experienceRequiredForNextLevel(int currentLevel) {
         return 100 + (currentLevel * 25);
     }
 
+    /**
+     * Récupère un héros joueur par son ID.
+     * @param heroId L'ID du héros joueur.
+     * @return Le héros joueur correspondant à l'ID, ou null s'il n'existe pas.
+     */
     public PlayerHero findById(Long heroId) {
         return playerHeroRepository.findById(heroId).orElse(null);
     }

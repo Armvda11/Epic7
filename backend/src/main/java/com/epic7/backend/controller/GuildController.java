@@ -14,6 +14,7 @@ import java.util.List;
 
 /**
  * Contrôleur REST pour la gestion des guildes (création, rejoindre, quitter, consulter).
+ * @author hermas
  */
 @RestController
 @RequestMapping("/api/guild")
@@ -23,6 +24,13 @@ public class GuildController {
     private final AuthService authService;
     private final GuildService guildService;
 
+    /**
+     * Constructeur de la classe GuildController.
+     *
+     * @param jwtUtil      L'utilitaire JWT pour la gestion des tokens.
+     * @param authService  Le service d'authentification.
+     * @param guildService Le service de gestion des guildes.
+     */
     public GuildController(JwtUtil jwtUtil, AuthService authService, GuildService guildService) {
         this.jwtUtil = jwtUtil;
         this.authService = authService;
@@ -30,7 +38,10 @@ public class GuildController {
     }
 
     /**
-     * Récupère l'utilisateur connecté à partir du token JWT dans la requête.
+     * Utilitaire pour extraire l'utilisateur connecté via le token JWT dans les headers.
+     *
+     * @param request La requête HTTP contenant le token JWT.
+     * @return L'utilisateur connecté.
      */
     private User getCurrentUser(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
@@ -39,7 +50,11 @@ public class GuildController {
     }
 
     /**
-     * Création d’une nouvelle guilde par l'utilisateur courant (qui en devient le leader).
+     * Permet à l'utilisateur courant de créer une guilde.
+     * @param request 
+     * @param name          
+     * @param description
+     * @return     
      */
     @PostMapping("/create")
     public ResponseEntity<?> createGuild(HttpServletRequest request,

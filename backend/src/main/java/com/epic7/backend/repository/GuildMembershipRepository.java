@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Interface de gestion des adhésions aux guildes dans la base de données.
+
+ */
 public interface GuildMembershipRepository extends JpaRepository<GuildMembership, Long> {
     List<GuildMembership> findByUser(User user);
     Optional<GuildMembership> findByUserIdAndGuildId(Long userId, Long guildId);

@@ -6,6 +6,11 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Représente une requête d'enregistrement d'utilisateur.
+ * Contient les informations nécessaires pour créer un nouvel utilisateur.
+ * @author hermas
+ */
 @Getter @Setter
 public class RegisterRequest {
 

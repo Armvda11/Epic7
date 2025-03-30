@@ -16,6 +16,13 @@ import org.springframework.lang.NonNull;
 import java.io.IOException;
 import java.util.Collections;
 
+/**
+ * Filtre de sécurité JWT pour authentifier les utilisateurs via un token JWT.
+ * Ce filtre est exécuté pour chaque requête HTTP afin de valider le token
+ * et d'authentifier l'utilisateur dans le contexte de sécurité de Spring.
+ *
+ * @author hermas
+ */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
