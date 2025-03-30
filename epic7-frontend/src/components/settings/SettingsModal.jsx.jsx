@@ -1,6 +1,6 @@
 // src/components/SettingsModal.jsx
 import { motion, AnimatePresence } from "framer-motion";
-import SettingsPanel from "./SettingsPanel";
+import SettingsPanel from "../SettingsPanel";
 
 const SettingsModal = ({ isOpen, onClose }) => {
   return (

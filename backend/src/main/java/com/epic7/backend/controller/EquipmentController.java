@@ -1,5 +1,7 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.HeroEquipmentViewDTO;
+import com.epic7.backend.dto.InventoryDTO;
 import com.epic7.backend.model.PlayerEquipment;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
@@ -63,4 +65,18 @@ public class EquipmentController {
             return ResponseEntity.badRequest().body("❌ " + e.getMessage());
         }
     }
+
+    @GetMapping("/hero/{heroId}/inventory")
+public ResponseEntity<HeroEquipmentViewDTO> getHeroInventory(@PathVariable Long heroId, HttpServletRequest request) {
+    User user = getCurrentUser(request);
+    return ResponseEntity.ok(equipmentService.getHeroEquipmentView(user, heroId));
+}
+
+
+@GetMapping("/inventory")
+public ResponseEntity<InventoryDTO> getFullInventory(HttpServletRequest request) {
+    
+    User user = getCurrentUser(request);
+    return ResponseEntity.ok(equipmentService.getFullInventory(user));
+}
 }

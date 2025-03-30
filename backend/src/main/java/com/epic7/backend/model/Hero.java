@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 
-import java.util.UUID;
+
 
 @Entity
 @Table(name = "heroes")

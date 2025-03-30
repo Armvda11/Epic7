@@ -1,5 +1,6 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.PlayerHeroViewDTO;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
@@ -51,13 +52,13 @@ public class PlayerHeroController {
         Optional<PlayerHero> optionalHero = Optional.ofNullable(playerHeroService.findById(heroId));
 
         if (optionalHero.isEmpty()) {
-            return ResponseEntity.badRequest().body("❌ Héros non trouvé.");
+            return ResponseEntity.badRequest().body("Héros non trouvé.");
         }
 
         PlayerHero hero = optionalHero.get();
 
         if (!hero.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body("❌ Ce héros ne vous appartient pas.");
+            return ResponseEntity.status(403).body("Ce héros ne vous appartient pas.");
         }
 
         try {
@@ -77,12 +78,12 @@ public class PlayerHeroController {
         Optional<PlayerHero> optionalHero = Optional.ofNullable(playerHeroService.findById(heroId));
 
         if (optionalHero.isEmpty()) {
-            return ResponseEntity.badRequest().body("❌ Héros non trouvé.");
+            return ResponseEntity.badRequest().body("Héros non trouvé.");
         }
 
         PlayerHero hero = optionalHero.get();
         if (!hero.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body("❌ Ce héros ne vous appartient pas.");
+            return ResponseEntity.status(403).body("Ce héros ne vous appartient pas.");
         }
 
         playerHeroService.lockHero(hero);
@@ -98,12 +99,12 @@ public class PlayerHeroController {
         Optional<PlayerHero> optionalHero = Optional.ofNullable(playerHeroService.findById(heroId));
 
         if (optionalHero.isEmpty()) {
-            return ResponseEntity.badRequest().body("❌ Héros non trouvé.");
+            return ResponseEntity.badRequest().body("Héros non trouvé.");
         }
 
         PlayerHero hero = optionalHero.get();
         if (!hero.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body("❌ Ce héros ne vous appartient pas.");
+            return ResponseEntity.status(403).body("Ce héros ne vous appartient pas.");
         }
 
         playerHeroService.unlockHero(hero);
@@ -111,10 +112,15 @@ public class PlayerHeroController {
     }
 
 
-    @GetMapping("/my")
-public ResponseEntity<List<PlayerHero>> getMyHeroes(HttpServletRequest request) {
+
+@GetMapping("/my")
+public ResponseEntity<List<PlayerHeroViewDTO>> getMyHeroes(HttpServletRequest request) {
     User user = getCurrentUser(request);
-    return ResponseEntity.ok(user.getOwnedHeroes());
+    List<PlayerHero> heroes = playerHeroService.getAllByUser(user);
+    List<PlayerHeroViewDTO> result = heroes.stream()
+        .map(playerHeroService::buildPlayerHeroViewDTO)
+        .toList();
+    return ResponseEntity.ok(result);
 }
 
 }

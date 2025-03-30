@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getMyHeroes } from '../services/heroService';
-import HeroCard from '../components/HeroCard';
+import HeroCard from '../components/hero/HeroCard';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
@@ -11,9 +11,9 @@ const MyHeroes = () => {
   const [error, setError] = useState(null);
   const [filterElement, setFilterElement] = useState('ALL');
   const [filterRarity, setFilterRarity] = useState('ALL');
+
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-
   const { language, t } = useSettings();
 
   useEffect(() => {
@@ -22,6 +22,7 @@ const MyHeroes = () => {
         const data = await getMyHeroes(token);
         setHeroes(data);
       } catch (err) {
+        console.error("Erreur de chargement des héros :", err);
         setError(t("heroLoadError", language));
       }
     };
@@ -31,17 +32,24 @@ const MyHeroes = () => {
 
   const closeOverlay = () => setSelectedHero(null);
 
-  const filteredHeroes = heroes.filter(({ hero }) => {
-    const matchElement = filterElement === 'ALL' || hero.element === filterElement;
-    const matchRarity = filterRarity === 'ALL' || hero.rarity === filterRarity;
-    return matchElement && matchRarity;
-  });
-
   const ELEMENTS = ['ALL', 'FIRE', 'ICE', 'EARTH', 'DARK', 'LIGHT'];
   const RARITIES = ['ALL', 'COMMON', 'RARE', 'EPIC', 'LEGENDARY'];
 
+  const filteredHeroes = heroes.filter((h) => {
+    const element = h.element || h?.hero?.element;
+    const rarity = h.rarity || h?.hero?.rarity;
+
+    const matchElement = filterElement === 'ALL' || element === filterElement;
+    const matchRarity = filterRarity === 'ALL' || rarity === filterRarity;
+
+    return matchElement && matchRarity;
+  });
+
+
+
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white relative">
+      {/* Header + Filtres */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-3xl font-bold">{t("myHeroes", language)}</h2>
         <div className="flex flex-wrap gap-2">
@@ -74,6 +82,7 @@ const MyHeroes = () => {
 
       {error && <div className="text-red-500">{error}</div>}
 
+      {/* Affichage des cartes héros */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
         {filteredHeroes.map((heroInstance) => (
           <HeroCard
@@ -84,6 +93,7 @@ const MyHeroes = () => {
         ))}
       </div>
 
+      {/* Overlay détaillé */}
       <AnimatePresence>
         {selectedHero && (
           <motion.div
@@ -108,28 +118,39 @@ const MyHeroes = () => {
               </button>
 
               <h2 className="text-2xl font-bold text-center mb-2">
-                {selectedHero.hero.name}
+                {selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
               </h2>
+
               <div className="text-sm text-center mb-4">
-                🌟 {selectedHero.hero.rarity} | 🔮 {selectedHero.hero.element}
+                🌟 {selectedHero.rarity || selectedHero.hero?.rarity} | 🔮 {selectedHero.element || selectedHero.hero?.element}
               </div>
 
+              <div className="w-full aspect-[4/5] overflow-hidden flex items-center justify-center bg-[#1a1a2e] rounded-xl mb-4">
               <img
-                src={`/epic7-Hero/sprite-hero/${selectedHero.hero.code.toLowerCase()}.png`}
-                alt={selectedHero.hero.name}
+                src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                alt={selectedHero.name}
                 className="w-full h-auto object-contain rounded-lg mb-4"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
                 }}
               />
-
-              <div className="space-y-1 text-sm">
-                <p>⚔️ {t("attack", language)} : {selectedHero.hero.baseAttack}</p>
-                <p>🛡️ {t("defense", language)} : {selectedHero.hero.baseDefense}</p>
-                <p>💨 {t("speed", language)} : {selectedHero.hero.baseSpeed}</p>
-                <p>❤️ {t("health", language)} : {selectedHero.hero.health}</p>
               </div>
+
+
+              <div className="space-y-1 text-sm mb-4">
+                <p>⚔️ {t("attack", language)} : {selectedHero.totalAttack || selectedHero.hero?.baseAttack}</p>
+                <p>🛡️ {t("defense", language)} : {selectedHero.totalDefense || selectedHero.hero?.baseDefense}</p>
+                <p>💨 {t("speed", language)} : {selectedHero.totalSpeed || selectedHero.hero?.baseSpeed}</p>
+                <p>❤️ {t("health", language)} : {selectedHero.totalHealth || selectedHero.hero?.health}</p>
+              </div>
+
+              <button
+                onClick={() => navigate(`/hero/${selectedHero.id}`)}
+                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+              >
+                Voir plus
+              </button>
             </motion.div>
           </motion.div>
         )}

@@ -1,5 +1,5 @@
 // src/components/SettingsPanel.jsx
-import { useSettings } from '../context/SettingsContext.jsx';
+import { useSettings } from '../../context/SettingsContext.jsx';
 
 const SettingsPanel = () => {
   const { theme, toggleTheme, language, changeLanguage } = useSettings();

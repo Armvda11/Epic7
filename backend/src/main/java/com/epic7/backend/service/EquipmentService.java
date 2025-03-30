@@ -1,5 +1,9 @@
 package com.epic7.backend.service;
 
+import com.epic7.backend.dto.EquipmentDTO;
+import com.epic7.backend.dto.ExtendedEquipmentDTO;
+import com.epic7.backend.dto.HeroEquipmentViewDTO;
+import com.epic7.backend.dto.InventoryDTO;
 import com.epic7.backend.model.*;
 import com.epic7.backend.repository.*;
 import org.springframework.stereotype.Service;
@@ -51,6 +55,7 @@ public class EquipmentService {
      */
     @Transactional
     public void equipItem(User user, Long playerEquipmentId, Long playerHeroId) {
+        // Vérifie que l'équipement et le héros appartiennent à l'utilisateur
         PlayerEquipment playerEquipment = playerEquipmentRepository.findById(playerEquipmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Équipement joueur introuvable"));
 
@@ -148,4 +153,80 @@ public class EquipmentService {
                 .filter(h -> h.getUser().getId().equals(user.getId()))
                 .isPresent();
     }
+
+
+
+public HeroEquipmentViewDTO getHeroEquipmentView(User user, Long playerHeroId) {
+    PlayerHero hero = playerHeroRepository.findById(playerHeroId)
+        .orElseThrow(() -> new IllegalArgumentException("Héros introuvable"));
+
+    if (!hero.getUser().getId().equals(user.getId())) {
+        throw new SecurityException("Ce héros ne vous appartient pas.");
+    }
+
+    List<PlayerEquipment> allEquipments = playerEquipmentRepository.findByUser(user);
+
+    List<EquipmentDTO> equipped = allEquipments.stream()
+        .filter(eq -> eq.getPlayerHero() != null && eq.getPlayerHero().getId().equals(playerHeroId))
+        .map(this::mapToDTO)
+        .toList();
+
+    List<EquipmentDTO> available = allEquipments.stream()
+        .filter(eq -> eq.getPlayerHero() == null)
+        .map(this::mapToDTO)
+        .toList();
+
+    return new HeroEquipmentViewDTO(
+        hero.getId(),
+        hero.getHero().getName(),
+        equipped,
+        available
+    );
+}
+
+private EquipmentDTO mapToDTO(PlayerEquipment eq) {
+    Equipment e = eq.getEquipment();
+    return new EquipmentDTO(
+        eq.getId(),
+        e.getName(),
+        e.getType().name(),
+        e.getRarity(),
+        eq.getLevel(),
+        eq.getExperience(),
+        eq.isEquipped(),
+        e.getAttackBonus(),
+        e.getDefenseBonus(),
+        e.getSpeedBonus(),
+        e.getHealthBonus()
+    );
+}
+
+
+
+public InventoryDTO getFullInventory(User user) {
+    List<PlayerEquipment> all = playerEquipmentRepository.findByUser(user);
+
+
+
+    List<ExtendedEquipmentDTO> items = all.stream().map(eq -> {
+        Equipment e = eq.getEquipment();
+        return new ExtendedEquipmentDTO(
+            eq.getId(),
+            e.getName(),
+            e.getType().name(),
+            e.getRarity(),
+            e.getAttackBonus(),
+            e.getDefenseBonus(),
+            e.getSpeedBonus(),
+            e.getHealthBonus(),
+            eq.getLevel(),
+            eq.getExperience(),
+            eq.isEquipped(),
+            eq.getPlayerHero() != null ? eq.getPlayerHero().getId() : null,
+            eq.getPlayerHero() != null ? eq.getPlayerHero().getHero().getName() : null
+        );
+    }).toList();
+
+    return new InventoryDTO(items);
+}
 }

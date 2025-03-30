@@ -7,7 +7,7 @@ import { fetchUserProfile } from "../services/userService";
 import { useSettings } from "../context/SettingsContext";
 import MenuTile from "../components/MenuTile";
 import ProfileCard from "../components/ProfileCard";
-import SettingsPanel from "../components/SettingsPanel";
+import SettingsPanel from "../components/settings/SettingsPanel";
 
 
 
@@ -49,7 +49,8 @@ const Dashboard = () => {
   };
 
   const menuItems = [
-    { label: t("inventory", language), icon: <FaBoxOpen size={28} /> },
+    { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
+
     { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
     { label: t("friends", language), icon: <FaUserFriends size={28} /> },
     { label: t("guilds", language), icon: <FaUsers size={28} /> },
