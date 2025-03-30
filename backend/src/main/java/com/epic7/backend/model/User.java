@@ -63,13 +63,17 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerHero> ownedHeroes = new ArrayList<>(); // Liste des héros possédés par l'utilisateur
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private GuildMembership guildMembership = null; // Liste des guildes auxquelles l'utilisateur appartient
+    @OneToOne
+    @JoinColumn(name = "guild_membership_id")
+    private GuildMembership guildMembership = null; // La guilde à laquelle l'utilisateur appartient
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerEquipment> equipments = new ArrayList<>(); // Liste des équipements possédés par l'utilisateur
 
-    @Column(name = "friends")
+    @ManyToMany(cascade = CascadeType.ALL)
+    @JoinTable(name = "user_friends",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "friend_id"))
     private List<User> friends; // Liste des amis de l'utilisateur
     // (a modifier lorsque l'utilisateur ajoute ou supprime un ami)
 

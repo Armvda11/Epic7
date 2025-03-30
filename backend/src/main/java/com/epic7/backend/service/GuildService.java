@@ -190,3 +190,4 @@ public class GuildService {
                 .orElseThrow(() -> new IllegalArgumentException("Guilde introuvable"));
         return guildMembershipRepository.findByUserIdAndGuildId(user.getId(), guild.getId()).isPresent();
 }
+}
