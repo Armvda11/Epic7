@@ -6,6 +6,12 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Configuration CORS pour permettre les requêtes cross-origin.
+ * Permet aux clients de se connecter à l'API depuis des origines différentes.
+ * @author hermas
+ */
+// TODO: A modifier pour la prod ; supprimer le localhost et le PUT ,DELETE et OPTIONS
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 

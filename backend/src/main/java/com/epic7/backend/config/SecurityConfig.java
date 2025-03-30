@@ -11,6 +11,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Configuration de la sécurité de l'application.
+ * Définit les règles de sécurité pour les requêtes HTTP et l'authentification.
+ * @author hermas
+ */
 @Configuration
 public class SecurityConfig {
 

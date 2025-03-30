@@ -10,6 +10,8 @@ const rarityColors = {
   LEGENDARY: "bg-yellow-500 text-black",
 };
 
+// Ce composant représente une carte de héros
+// Il affiche l'image, le nom, le niveau, l'expérience et les stats du héros
 const HeroCard = ({ heroInstance, onSelect }) => {
   const navigate = useNavigate();
   const { language, t } = useSettings();

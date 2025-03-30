@@ -10,6 +10,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.*;
 
+/**
+ * Classe de configuration pour la création de données initiales dans la base de données.
+ * Cette classe est exécutée au démarrage de l'application pour peupler la base de données avec des données de test.
+ * @author hermas
+ */
 @Component
 public class GlobalSeeder {
 

@@ -1,6 +1,12 @@
 // src/components/equipment/EquipmentDetailsPanel.jsx
 import React from "react";
 
+// Composant pour afficher les détails d'un équipement pour leur modification
+// il est utiliser dans le composant HeroView pour afficher les détails de l'équipement sélectionné
+// et permettre à l'utilisateur de l'équiper ou de le déséquiper
+// j'aurais pu le fusionner avec un autre composant mais je préfère le garder séparé pour la clarté
+// et la réutilisabilité
+// Surtout Flemme de le faire 
 const EquipmentDetailsPanel = ({ equipment, currentHeroId, onEquip, onUnequip }) => {
   if (!equipment) return null;
 

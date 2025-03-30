@@ -6,7 +6,7 @@ export const fetchUserProfile = async () => {
     const response = await API.get("/user/me");
     return response.data;
   } catch (error) {
-    console.error("❌ Erreur lors du chargement du profil utilisateur :", error);
+    console.error("Erreur lors du chargement du profil utilisateur :", error);
     throw error;
   }
 };

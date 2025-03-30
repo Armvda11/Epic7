@@ -15,6 +15,7 @@ const typeIcons = {
   NECKLACE: "📿",
 };
 
+// Ce composant représente une carte d'équipement 
 const EquipmentCard = ({ equipment, onClick }) => {
   const rarityClass = rarityColors[equipment.rarity] || "bg-gray-800";
   const icon = typeIcons[equipment.type] || "❓";

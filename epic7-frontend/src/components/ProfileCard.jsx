@@ -2,6 +2,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Ce composant représente une carte de profil utilisateur.
 const ProfileCard = ({ user, onClose }) => {
   return (
     <AnimatePresence>

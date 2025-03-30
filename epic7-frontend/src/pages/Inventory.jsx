@@ -4,11 +4,15 @@ import EquipmentDetails from "../components/equipment/EquipmentDetails";
 import { useSettings } from "../context/SettingsContext";
 import { fetchInventory } from "../services/equipmentService";
 
+// Cette page affiche l'inventaire de l'utilisateur
+// Elle utilise le service d'équipement pour récupérer les données de l'inventaire
+// et les composants EquipmentCard et EquipmentDetails pour afficher les informations
 const Inventory = () => {
-  const [equipments, setEquipments] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const { language, t } = useSettings();
+  const [equipments, setEquipments] = useState([]); // État pour stocker les équipements
+  const [selected, setSelected] = useState(null); // État pour stocker l'équipement sélectionné
+  const { language, t } = useSettings(); // Récupération de la langue et des traductions
 
+  // Fonction pour charger l'inventaire de l'utilisateur
   useEffect(() => {
     const loadInventory = async () => {
       try {
@@ -18,7 +22,6 @@ const Inventory = () => {
         console.error("Erreur lors du chargement de l'inventaire", error);
       }
     };
-
     loadInventory();
   }, []);
 

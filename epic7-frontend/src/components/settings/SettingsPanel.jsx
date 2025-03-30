@@ -1,6 +1,9 @@
 // src/components/SettingsPanel.jsx
 import { useSettings } from '../../context/SettingsContext.jsx';
 
+// Ce composant affiche le panneau de paramètres de l'application.
+// Il permet à l'utilisateur de changer le thème et la langue de l'application.
+// Il utilise le contexte SettingsContext pour accéder aux paramètres actuels et aux fonctions de mise à jour.
 const SettingsPanel = () => {
   const { theme, toggleTheme, language, changeLanguage } = useSettings();
 

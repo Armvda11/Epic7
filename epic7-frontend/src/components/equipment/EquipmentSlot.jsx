@@ -7,9 +7,9 @@ const icons = {
   NECKLACE: "📿",
   BOOTS: "🥾",
 };
+// ce composant représente un emplacement d'équipement
+// il affiche une icône selon le type d'équipement et le nom de l'équipement s'il est présent
 const EquipmentSlot = ({ type, equipment, onClick }) => {
-  
-  
     return (
       <div
         onClick={onClick}

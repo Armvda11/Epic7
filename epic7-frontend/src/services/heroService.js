@@ -6,7 +6,7 @@ export const getMyHeroes = async () => {
     const response = await API.get("/player-hero/my");
     return response.data;
   } catch (error) {
-    console.error("❌ Erreur lors de la récupération des héros :", error);
+    console.error("Erreur lors de la récupération des héros :", error);
     throw error;
   }
 };

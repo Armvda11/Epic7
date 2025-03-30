@@ -42,6 +42,13 @@ public class ShopService {
         return shopItemRepo.findByStartAtBeforeAndEndAtAfter(now, now);
     }
 
+    /**
+     * Effectue un achat d'article dans la boutique.
+     * Vérifie les limites d'achat et le coût avant de procéder à l'achat.
+     * @param user      L'utilisateur effectuant l'achat.
+     * @param itemId    L'identifiant de l'article à acheter.
+     * @return          Un message de confirmation de l'achat.
+     */
     public String purchaseItem(User user, Long itemId) {
         ShopItem item = shopItemRepo.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Article introuvable"));
@@ -79,6 +86,7 @@ public class ShopService {
             case DIAMOND -> user.setDiamonds(user.getDiamonds() + 100); // Exemple
         }
 
+        // Enregistrer l'achat
         purchaseRepo.save(ShopPurchase.builder().user(user).shopItem(item).quantity(1).build());
         return "Achat réussi !";
     }

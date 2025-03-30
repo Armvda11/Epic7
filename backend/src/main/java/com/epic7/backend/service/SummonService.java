@@ -29,11 +29,10 @@ public class SummonService {
 
     /**
      * Constructeur du service d'invocation.
-     *
      * @param heroRepository         Le dépôt de héros pour accéder aux données des héros.
      * @param playerHeroRepository   Le dépôt de héros du joueur pour gérer les héros du joueur.
      * @param bannerRepository       Le dépôt de bannières pour accéder aux données des bannières.
-     */
+     */ 
     public SummonService(HeroRepository heroRepository,
             PlayerHeroRepository playerHeroRepository,
             BannerRepository bannerRepository) {
@@ -44,9 +43,9 @@ public class SummonService {
 
     /**
      * Récupère la bannière active actuelle.
-     
      * @return La bannière active actuelle, ou une valeur vide si aucune bannière n'est active.
      */
+    @Transactional(readOnly = true)
     public Optional<Banner> getActiveBanner() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime end = now.plusDays(1);
@@ -55,7 +54,6 @@ public class SummonService {
 
     /**
      * Récupère la probabilité d'invocation en fonction de la rareté du héros.
-     *
      * @param rarity La rareté du héros.
      * @return La probabilité d'invocation pour cette rareté.
      */
@@ -71,7 +69,6 @@ public class SummonService {
 
     /**
      * Effectue une invocation de héros pour un utilisateur donné.
-     *
      * @param user L'utilisateur effectuant l'invocation.
      * @param hero Le héros à invoquer.
      * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide.
@@ -108,6 +105,12 @@ public class SummonService {
         return Optional.empty();
     }
 
+    /**
+     * Récupère un héros par son code.
+     * @param code Le code du héros.
+     * @return Un objet Hero si trouvé, sinon une valeur vide.
+     */
+    @Transactional(readOnly = true)
     public Optional<Hero> getHeroById(String code) {
         return heroRepository.findByCode(code);
     }

@@ -13,9 +13,7 @@ import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
   return (
-    
     <>
-    
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -23,13 +21,9 @@ function App() {
         <Route path="/my-heroes" element={<MyHeroes />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/hero" element={<PrivateRoute />}>
-  <Route path=":heroId" element={<HeroView />} />
-</Route>
-
-
-
-
-      </Routes> 
+          <Route path=":heroId" element={<HeroView />} />
+        </Route>
+      </Routes>
 
       {/* Toast container en-dehors des Routes */}
       <ToastContainer position="top-center" autoClose={3000} />

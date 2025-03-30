@@ -1,5 +1,6 @@
 import React from 'react';
 
+
 const HeroImage = ({ heroCode, alt }) => {
   const fileName = `${heroCode.toLowerCase()}`; // exemple : "conqueror-lilias"
 

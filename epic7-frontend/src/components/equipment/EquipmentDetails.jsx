@@ -16,6 +16,8 @@ const typeIcons = {
   NECKLACE: "📿",
 };
 
+// Ce composant représente les détails d'un équipement
+// Il affiche le nom, le type, le niveau, l'expérience et les bonus de stats de l'équipement
 const EquipmentDetails = ({ equipment }) => {
   const rarityClass = rarityStyles[equipment.rarity] || "text-white";
   const icon = typeIcons[equipment.type] || "❓";

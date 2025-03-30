@@ -3,7 +3,10 @@ import { motion } from "framer-motion";
 import React from "react";
 
 
-
+// Ce composant représente une tuile de menu avec une icône et un label.
+// Il utilise Framer Motion pour les animations.
+// Il prend en props une icône, un label, une fonction onClick et un index pour l'animation.
+// Il est utilisé dans le composant Menu pour afficher les différentes options de menu.
 const MenuTile = ({ icon, label, onClick, index }) => {
   return (
     <motion.article

@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
  * et ses bonus d'attaque, de défense, de vitesse et de santé.
  * DTO (Data Transfer Object) utilisé pour transférer des données entre
  * différentes couches de l'application.
+ * @author hermas
  */
 @Data
 @AllArgsConstructor

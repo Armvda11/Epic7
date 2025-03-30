@@ -33,19 +33,21 @@ public class UserEnergyService {
      */
     @Transactional
     public void updateEnergy(User user) {
+        // Vérifie si l'utilisateur a déjà 100 d'énergie
         if (user.getEnergy() >= 100) return;
+
 
         Instant now = Instant.now();
         Instant lastUpdate = user.getLastEnergyUpdate();
-
+        
         long minutes = Duration.between(lastUpdate, now).toMinutes();
         if (minutes < 5) return;
-
+        // Calcule le nombre de points d'énergie à régénérer
         long pointsToRegen = minutes / 5;
         int newEnergy = Math.min(100, user.getEnergy() + (int) pointsToRegen);
         user.setEnergy(newEnergy);
         user.setLastEnergyUpdate(now);
-
+        // Enregistre les modifications de l'énergie de l'utilisateur
         userRepository.save(user);
     }
 }

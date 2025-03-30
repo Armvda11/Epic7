@@ -5,22 +5,29 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 
+/**
+ * Pages des heros du joueur , on y affiche la liste de ses héros
+ * et on peut les filtrer par élément et rareté
+ * @returns 
+ */
 const MyHeroes = () => {
-  const [heroes, setHeroes] = useState([]);
-  const [selectedHero, setSelectedHero] = useState(null);
-  const [error, setError] = useState(null);
-  const [filterElement, setFilterElement] = useState('ALL');
-  const [filterRarity, setFilterRarity] = useState('ALL');
+  const [heroes, setHeroes] = useState([]); // Liste des héros
+  const [selectedHero, setSelectedHero] = useState(null); // Héros sélectionné pour l'overlay
+  const [error, setError] = useState(null); // Erreur de chargement
+  const [filterElement, setFilterElement] = useState('ALL'); // Filtre par élément
+  const [filterRarity, setFilterRarity] = useState('ALL'); // Filtre par rareté
+  const navigate = useNavigate(); // Navigation vers d'autres pages
+  const token = localStorage.getItem('token'); // Récupération du token d'authentification
+  const { language, t } = useSettings(); // Langue et traductions
 
-  const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const { language, t } = useSettings();
-
+  // Chargement des héros de l'utilisateur
+  // On utilise le token pour récupérer les héros de l'utilisateur
+  // On utilise le useEffect pour charger les héros au premier rendu
   useEffect(() => {
     const fetchHeroes = async () => {
       try {
-        const data = await getMyHeroes(token);
-        setHeroes(data);
+        const data = await getMyHeroes(token); // Récupération des héros
+        setHeroes(data); // Mise à jour de l'état avec les héros récupérés
       } catch (err) {
         console.error("Erreur de chargement des héros :", err);
         setError(t("heroLoadError", language));
@@ -31,22 +38,20 @@ const MyHeroes = () => {
   }, [token, language]);
 
   const closeOverlay = () => setSelectedHero(null);
-
   const ELEMENTS = ['ALL', 'FIRE', 'ICE', 'EARTH', 'DARK', 'LIGHT'];
   const RARITIES = ['ALL', 'COMMON', 'RARE', 'EPIC', 'LEGENDARY'];
 
+  // Filtrage des héros en fonction des filtres sélectionnés
   const filteredHeroes = heroes.filter((h) => {
     const element = h.element || h?.hero?.element;
     const rarity = h.rarity || h?.hero?.rarity;
-
     const matchElement = filterElement === 'ALL' || element === filterElement;
     const matchRarity = filterRarity === 'ALL' || rarity === filterRarity;
-
     return matchElement && matchRarity;
   });
 
 
-
+  
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white relative">
       {/* Header + Filtres */}
