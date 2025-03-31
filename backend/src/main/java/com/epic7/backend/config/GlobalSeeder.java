@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 /**
@@ -58,7 +59,6 @@ public class GlobalSeeder {
         seedEquipment();
         seedPlayerHeroes();
         seedPlayerEquipment();
-        seedGuilds();
         seedBanner();
         seedShop();
     }
@@ -131,28 +131,7 @@ public class GlobalSeeder {
         }
     }
 
-    private void seedGuilds() {
-        if (guildRepo.findByName("Chevaliers de l'Aube").isEmpty()) {
-            Optional<User> u1 = userRepo.findByEmail("hermas@example.com");
-            Optional<User> u2 = userRepo.findByEmail("arya@example.com");
-
-            if (u1.isPresent() && u2.isPresent()) {
-                Guild g1 = new Guild();
-                g1.setName("Chevaliers de l'Aube");
-                g1.setDescription("Guild RP active");
-                guildRepo.save(g1);
-
-                membershipRepo.saveAll(List.of(
-                    new GuildMembership(null, u1.get(), g1, "leader", null),
-                    new GuildMembership(null, u2.get(), g1, "member", null)
-                ));
-
-                System.out.println("✅ Guilde et adhésions créées.");
-            }
-        }
-    }
-
-    private void seedBanner() {
+        private void seedBanner() {
         if (bannerRepo.count() == 0) {
             List<Hero> heroes = heroRepo.findAll();
             if (heroes.size() >= 2) {
