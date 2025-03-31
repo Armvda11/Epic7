@@ -1,5 +1,8 @@
 package com.epic7.backend.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.epic7.backend.model.enums.Element;
 import com.epic7.backend.model.enums.Rarity;
 import jakarta.persistence.*;
@@ -53,6 +56,12 @@ public class Hero {
     @Min(1)
     @Column(nullable = false)
     private int health;
+
+
+    @OneToMany(mappedBy = "hero", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Skill> skills = new ArrayList<>();
+
 
     /**
      * Code unique généré automatiquement à partir du nom

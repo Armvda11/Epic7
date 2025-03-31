@@ -34,6 +34,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // login reste ouvert
+                .requestMatchers("/api/skills/**").permitAll() // les compétences sont ouvertes
                 .anyRequest().authenticated()               // tout le reste est protégé
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
