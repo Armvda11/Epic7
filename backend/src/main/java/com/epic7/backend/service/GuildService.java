@@ -101,12 +101,12 @@ public class GuildService {
     @Transactional
     public void leaveGuild(User user) {
         // Vérifier si l'utilisateur appartient à une guilde
-        List<GuildMembership> memberships = guildMembershipRepository.findByUser(user);
-        if (memberships.isEmpty()) {
+        GuildMembership memberships = guildMembershipRepository.findByUser(user);
+        if (memberships == null) {
             throw new IllegalStateException("L'utilisateur n'appartient à aucune guilde.");
         }
         // Vérifier si l'utilisateur est le leader de la guilde
-        if (memberships.get(0).getRole().equals("leader")) {
+        if (memberships.getRole().equals("leader")) {
             throw new IllegalStateException("Le leader de la guilde ne peut pas quitter la guilde sans la dissoudre.");
         }
 
