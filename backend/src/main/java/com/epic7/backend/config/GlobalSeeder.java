@@ -254,8 +254,10 @@ public class GlobalSeeder {
                     Message message = new Message();
                     message.setSender(users.get(0));
                     message.setRecipient(users.get(1));
-                    message.setMessage("Salut ! Bienvenue dans le jeu !");
+                    message.setSubject("Bienvenue dans le jeu !");
+                    message.setMessage("Salut ! Bienvenue dans le jeu " + users.get(i).getUsername() + " !");
                     message.setCreatedAt(Instant.now());
+                    message.setValidUntil(Instant.now().plusSeconds(7 * 24 * 60 * 60)); // 7 jours après la création
                     messageRepo.save(message);
                 }
                 
