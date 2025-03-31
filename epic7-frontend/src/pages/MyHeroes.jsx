@@ -8,7 +8,7 @@ import { useSettings } from '../context/SettingsContext';
 /**
  * Pages des heros du joueur , on y affiche la liste de ses héros
  * et on peut les filtrer par élément et rareté
- * @returns 
+ * @returns
  */
 const MyHeroes = () => {
   const [heroes, setHeroes] = useState([]); // Liste des héros
