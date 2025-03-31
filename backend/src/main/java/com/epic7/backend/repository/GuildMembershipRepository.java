@@ -12,7 +12,7 @@ import java.util.Optional;
 
  */
 public interface GuildMembershipRepository extends JpaRepository<GuildMembership, Long> {
-    List<GuildMembership> findByUser(User user);
+    GuildMembership findByUser(User user); // get the guild of a user
     Optional<GuildMembership> findByUserIdAndGuildId(Long userId, Long guildId);
     List<GuildMembership> findByGuildId(Long guildId); // get all members of a guild
 }
