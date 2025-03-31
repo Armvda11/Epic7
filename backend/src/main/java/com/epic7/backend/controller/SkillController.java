@@ -10,9 +10,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Contrôleur REST pour gérer les compétences (skills) liées aux héros.
- * Expose les endpoints permettant d’afficher, ajouter et gérer les compétences.
+ * Contrôleur REST pour gérer les compétences (skills) des héros.
  * 
+ * Ce contrôleur fournit des endpoints pour récupérer, ajouter, mettre à jour et
+ * supprimer des compétences.
  * @author hermas
  */
 @RestController
@@ -23,10 +24,10 @@ public class SkillController {
     private final SkillService skillService;
 
     /**
-     * Récupère les compétences (au format DTO) d’un héros donné.
-     *
+     * Récupère toutes les compétences d'un héros par son ID.
+     * 
      * @param heroId ID du héros
-     * @return Liste des SkillDTO
+     * @return Liste de compétences associées au héros
      */
     @GetMapping("/hero/{heroId}")
     public ResponseEntity<List<SkillDTO>> getSkillsByHero(@PathVariable Long heroId) {
@@ -36,10 +37,9 @@ public class SkillController {
 
     /**
      * Ajoute une compétence à un héros.
-     *
-     * @param heroId ID du héros
-     * @param skill  Compétence à ajouter (reçue en JSON)
-     * @return Compétence ajoutée (au format DTO)
+     * @param heroId
+     * @param skill
+     * @return
      */
     @PostMapping("/hero/{heroId}")
     public ResponseEntity<SkillDTO> addSkillToHero(
@@ -52,9 +52,8 @@ public class SkillController {
 
     /**
      * Supprime une compétence par son ID.
-     *
-     * @param skillId ID de la compétence à supprimer
-     * @return 204 No Content si suppression réussie
+     * @param skillId
+     * @return
      */
     @DeleteMapping("/{skillId}")
     public ResponseEntity<Void> deleteSkill(@PathVariable Long skillId) {
@@ -64,9 +63,8 @@ public class SkillController {
 
     /**
      * Récupère une compétence par son ID.
-     * 
-     * @param skillId ID de la compétence
-     * @return La compétence au format DTO
+     * @param skillId
+     * @return
      */
     @GetMapping("/{skillId}")
     public ResponseEntity<SkillDTO> getSkillById(@PathVariable Long skillId) {
@@ -75,10 +73,9 @@ public class SkillController {
     }
 
     /**
-     * Met à jour une compétence existante.
-     * 
-     * @param skillId ID de la compétence à mettre à jour
-     * @param skill   La compétence mise à jour (reçue en JSON)
+     * Met à jour une compétence par son ID.
+     * @param skillId
+     * @param skill
      * @return
      */
     @PutMapping("/{skillId}")
@@ -86,5 +83,4 @@ public class SkillController {
         Skill updated = skillService.updateSkill(skillId, skill);
         return ResponseEntity.ok(skillService.toDTO(updated));
     }
-
 }

@@ -2,10 +2,12 @@ package com.epic7.backend.service;
 
 import com.epic7.backend.dto.SkillDTO;
 import com.epic7.backend.model.Hero;
+import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.Skill;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.enums.SkillCategory;
 import com.epic7.backend.repository.HeroRepository;
+import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.SkillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,12 +16,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service pour gérer les compétences des héros.
- * Règles :
+ * Service métier pour la gestion des compétences (skills) des héros.
+ * Règles métier :
  * - Maximum 3 compétences par héros
- * - Une seule compétence passive autorisée, à la 2e position
- * 
- * @author hermas
+ * - Une seule compétence passive, obligatoirement en 2e position
  */
 @Service
 @RequiredArgsConstructor
@@ -27,55 +27,73 @@ public class SkillService {
 
     private final SkillRepository skillRepository;
     private final HeroRepository heroRepository;
+    private final PlayerHeroRepository playerHeroRepository;
 
     /**
-     * Récupère les compétences d’un héros.
+     * Récupère toutes les compétences associées à un héros (entité Hero).
      */
     public List<Skill> getSkillsByHeroId(Long heroId) {
         return skillRepository.findByHeroId(heroId);
     }
 
     /**
-     * Récupère les compétences d’un héros au format DTO.
+     * Récupère les compétences d’un héros sous forme de DTO.
      */
     public List<SkillDTO> getSkillDTOsByHero(Long heroId) {
-        return skillRepository.findByHeroId(heroId).stream()
+        return getSkillsByHeroId(heroId).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Ajoute une compétence à un héros avec validation métier.
+     * Ajoute une compétence à un héros.
+     * Vérifie les règles métier : Avec validationSkillAddition
+     * @param heroId    
+     * @param skill
+     * @return
      */
     public Skill addSkillToHero(Long heroId, Skill skill) {
+        // Vérifie si le héros existe
         Hero hero = heroRepository.findById(heroId)
                 .orElseThrow(() -> new RuntimeException("Héros introuvable"));
 
-        List<Skill> skills = skillRepository.findByHero(hero);
+        // Vérifie si la compétence existe déjà
+        List<Skill> existingSkills = skillRepository.findByHero(hero);
 
-        if (skills.size() >= 3) {
+        
+        validateSkillAddition(existingSkills, skill); // Vérification des règles métier
+
+
+        skill.setHero(hero); // Associe la compétence au héros
+        return skillRepository.save(skill); // Enregistre la compétence
+    }
+
+    /**
+     * Vérifie si l'ajout d'une compétence respecte les règles métier.
+     * - Maximum 3 compétences
+     * - Une seule compétence passive, obligatoirement en 2e position
+     * @param existingSkills
+     * @param skill
+     */
+    private void validateSkillAddition(List<Skill> existingSkills, Skill skill) {
+        if (existingSkills.size() >= 3) {
             throw new IllegalStateException("Un héros ne peut pas avoir plus de 3 compétences.");
         }
 
         if (skill.getCategory() == SkillCategory.PASSIVE) {
-            boolean alreadyHasPassive = skills.stream()
+            boolean hasPassive = existingSkills.stream()
                     .anyMatch(s -> s.getCategory() == SkillCategory.PASSIVE);
-
-            if (alreadyHasPassive) {
+            if (hasPassive) {
                 throw new IllegalArgumentException("Un héros ne peut avoir qu'une seule compétence passive.");
             }
-
-            if (skills.size() != 1) {
+            if (existingSkills.size() != 1) {
                 throw new IllegalArgumentException("La compétence passive doit être en 2e position.");
             }
         }
-
-        skill.setHero(hero);
-        return skillRepository.save(skill);
     }
 
     /**
-     * Supprime une compétence.
+     * Supprime une compétence par son ID.
      */
     public void deleteSkill(Long skillId) {
         skillRepository.deleteById(skillId);
@@ -83,6 +101,8 @@ public class SkillService {
 
     /**
      * Vérifie la position de la compétence passive.
+     * La compétence passive doit être en 2e position (index 1).
+     * @param heroId    
      */
     public void validatePassiveSkillPosition(Long heroId) {
         List<Skill> skills = skillRepository.findByHeroId(heroId);
@@ -95,10 +115,17 @@ public class SkillService {
     }
 
     /**
-     * Retourne les compétences d’un héros pour un utilisateur (authentification future).
+     * Retourne les compétences liées à un PlayerHero, après vérification d'appartenance.
      */
-    public List<Skill> getSkillsForPlayerHero(Long heroId, User user) {
-        return getSkillsByHeroId(heroId);
+    public List<Skill> getSkillsForPlayerHeroByPlayerHeroId(Long playerHeroId, User user) {
+        PlayerHero playerHero = playerHeroRepository.findById(playerHeroId)
+                .orElseThrow(() -> new RuntimeException("Héros introuvable"));
+
+        if (!playerHero.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Ce héros ne vous appartient pas.");
+        }
+
+        return skillRepository.findByHero(playerHero.getHero());
     }
 
     /**
@@ -110,7 +137,30 @@ public class SkillService {
     }
 
     /**
-     * Convertit une entité Skill en DTO.
+     * Met à jour une compétence existante.
+     */
+    public Skill updateSkill(Long skillId, Skill updated) {
+        Skill existing = getSkillById(skillId);
+
+        existing.setName(updated.getName());
+        existing.setDescription(updated.getDescription());
+        existing.setCategory(updated.getCategory());
+        existing.setAction(updated.getAction());
+        existing.setTargetGroup(updated.getTargetGroup());
+        existing.setTargetCount(updated.getTargetCount());
+        existing.setScalingStat(updated.getScalingStat());
+        existing.setScalingFactor(updated.getScalingFactor());
+        existing.setCooldown(updated.getCooldown());
+        existing.setPassiveBonus(updated.getPassiveBonus());
+        existing.setBonusValue(updated.getBonusValue());
+        existing.setApplyToAllies(updated.getApplyToAllies());
+        existing.setTriggerCondition(updated.getTriggerCondition());
+
+        return skillRepository.save(existing);
+    }
+
+    /**
+     * Convertit une entité Skill en DTO (Data Transfer Object).
      */
     public SkillDTO toDTO(Skill skill) {
         SkillDTO dto = new SkillDTO();
@@ -130,33 +180,4 @@ public class SkillService {
         dto.setTriggerCondition(skill.getTriggerCondition() != null ? skill.getTriggerCondition().name() : null);
         return dto;
     }
-
-
-    /**
- * Met à jour une compétence existante.
- *
- * @param skillId       ID de la compétence à modifier
- * @param updatedSkill  Nouvelle version de la compétence
- * @return Compétence mise à jour
- */
-public Skill updateSkill(Long skillId, Skill updatedSkill) {
-    Skill existing = getSkillById(skillId);
-
-    existing.setName(updatedSkill.getName());
-    existing.setDescription(updatedSkill.getDescription());
-    existing.setCategory(updatedSkill.getCategory());
-    existing.setAction(updatedSkill.getAction());
-    existing.setTargetGroup(updatedSkill.getTargetGroup());
-    existing.setTargetCount(updatedSkill.getTargetCount());
-    existing.setScalingStat(updatedSkill.getScalingStat());
-    existing.setScalingFactor(updatedSkill.getScalingFactor());
-    existing.setCooldown(updatedSkill.getCooldown());
-    existing.setPassiveBonus(updatedSkill.getPassiveBonus());
-    existing.setBonusValue(updatedSkill.getBonusValue());
-    existing.setApplyToAllies(updatedSkill.getApplyToAllies());
-    existing.setTriggerCondition(updatedSkill.getTriggerCondition());
-
-    return skillRepository.save(existing);
-}
-
 }

@@ -1,10 +1,13 @@
 package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.PlayerHeroViewDTO;
+import com.epic7.backend.dto.SkillDTO;
 import com.epic7.backend.model.PlayerHero;
+import com.epic7.backend.model.Skill;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.PlayerHeroService;
+import com.epic7.backend.service.SkillService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -24,14 +27,19 @@ public class PlayerHeroController {
     private final AuthService authService;
     private final PlayerHeroService playerHeroService;
 
-    public PlayerHeroController(JwtUtil jwtUtil, AuthService authService, PlayerHeroService playerHeroService) {
-        this.jwtUtil = jwtUtil;
-        this.authService = authService;
-        this.playerHeroService = playerHeroService;
-    }
+private final SkillService skillService;
+
+public PlayerHeroController(JwtUtil jwtUtil, AuthService authService, PlayerHeroService playerHeroService, SkillService skillService) {
+    this.jwtUtil = jwtUtil;
+    this.authService = authService;
+    this.playerHeroService = playerHeroService;
+    this.skillService = skillService;
+}
+
 
     /**
-     * Utilitaire pour extraire l'utilisateur connecté via le token JWT dans les headers.
+     * Utilitaire pour extraire l'utilisateur connecté via le token JWT dans les
+     * headers.
      */
     private User getCurrentUser(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
@@ -41,13 +49,14 @@ public class PlayerHeroController {
 
     /**
      * Gagne de l'expérience pour un héros spécifique du joueur.
+     * 
      * @param heroId ID du héros joueur (PlayerHero)
      * @param amount Quantité d'expérience à ajouter
      */
     @PostMapping("/{heroId}/gain-xp")
     public ResponseEntity<String> gainExperience(@PathVariable Long heroId,
-                                                 @RequestParam int amount,
-                                                 HttpServletRequest request) {
+            @RequestParam int amount,
+            HttpServletRequest request) {
         User user = getCurrentUser(request);
         Optional<PlayerHero> optionalHero = Optional.ofNullable(playerHeroService.findById(heroId));
 
@@ -111,16 +120,22 @@ public class PlayerHeroController {
         return ResponseEntity.ok("🔓 Héros déverrouillé.");
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<List<PlayerHeroViewDTO>> getMyHeroes(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        List<PlayerHero> heroes = playerHeroService.getAllByUser(user);
+        List<PlayerHeroViewDTO> result = heroes.stream()
+                .map(playerHeroService::buildPlayerHeroViewDTO)
+                .toList();
+        return ResponseEntity.ok(result);
+    }
 
-
-@GetMapping("/my")
-public ResponseEntity<List<PlayerHeroViewDTO>> getMyHeroes(HttpServletRequest request) {
-    User user = getCurrentUser(request);
-    List<PlayerHero> heroes = playerHeroService.getAllByUser(user);
-    List<PlayerHeroViewDTO> result = heroes.stream()
-        .map(playerHeroService::buildPlayerHeroViewDTO)
-        .toList();
-    return ResponseEntity.ok(result);
-}
+    @GetMapping("/{playerHeroId}/skills")
+    public ResponseEntity<List<SkillDTO>> getSkillsForPlayerHero(@PathVariable Long playerHeroId, HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        List<Skill> skills = skillService.getSkillsForPlayerHeroByPlayerHeroId(playerHeroId, user);
+        return ResponseEntity.ok(skills.stream().map(skillService::toDTO).toList());
+    }
+    
 
 }

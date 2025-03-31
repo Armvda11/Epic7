@@ -15,6 +15,7 @@ public interface HeroRepository extends JpaRepository<Hero, Long> {
     Optional<Hero> findByName(String name);
     Optional<Hero> findByCode(String code);
     Optional<Hero> findById(Long id);
+    
 
 
 
