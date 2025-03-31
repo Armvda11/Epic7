@@ -61,7 +61,46 @@ public class GlobalSeeder {
         seedPlayerEquipment();
         seedBanner();
         seedShop();
+
+        seedGuilds(); // ← Ajo
     }
+
+    private void seedGuilds() {
+        if (guildRepo.count() == 0 && membershipRepo.count() == 0) {
+            Optional<User> u1 = userRepo.findByEmail("hermas@example.com");
+            Optional<User> u2 = userRepo.findByEmail("arya@example.com");
+    
+            if (u1.isPresent() && u2.isPresent()) {
+                Guild guild = new Guild();
+                guild.setName("Chevaliers de l'Aube");
+                guild.setDescription("Guild RP active");
+                guild.setLevel(1);
+                guild.setGold(500);
+                guild.setGuildPoints(100);
+                guild.setRank(GuildRank.BRONZE);
+                guild.setRanking(10);
+    
+                guildRepo.save(guild);
+    
+                GuildMembership leader = new GuildMembership();
+                leader.setUser(u1.get());
+                leader.setGuild(guild);
+                leader.setRole("leader");
+    
+                GuildMembership member = new GuildMembership();
+                member.setUser(u2.get());
+                member.setGuild(guild);
+                member.setRole("member");
+    
+                membershipRepo.saveAll(List.of(leader, member));
+    
+                System.out.println("✅ Guilde et membres créés.");
+            } else {
+                System.out.println("❌ Impossible de créer la guilde : utilisateurs non trouvés.");
+            }
+        }
+    }
+    
 
     private void seedUsers() {
         if (userRepo.findByEmail("hermas@example.com").isEmpty()) {
