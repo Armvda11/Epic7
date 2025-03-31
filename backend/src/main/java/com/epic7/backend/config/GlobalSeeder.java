@@ -31,6 +31,7 @@ public class GlobalSeeder {
     private final ShopItemRepository shopItemRepo;
     private final PasswordEncoder passwordEncoder;
     private final MessageRepository messageRepo;
+    private final SkillRepository skillRepo;
 
     public GlobalSeeder(UserRepository userRepo,
                         HeroRepository heroRepo,
@@ -43,6 +44,7 @@ public class GlobalSeeder {
                         ShopItemRepository shopItemRepo,
                         BannerRepository bannerRepo,
                         MessageRepository messageRepo) {
+
                         this.shopItemRepo = shopItemRepo;
         this.userRepo = userRepo;
         this.heroRepo = heroRepo;
@@ -54,6 +56,7 @@ public class GlobalSeeder {
         this.passwordEncoder = passwordEncoder;
         this.bannerRepo = bannerRepo;
         this.messageRepo = messageRepo;
+        this.skillRepo = skillRepo;
     }
 
     @PostConstruct
@@ -68,7 +71,59 @@ public class GlobalSeeder {
         seedMessages();
 
         seedGuilds(); // ← Ajo
+        seedSkills(); // ✅
     }
+    private void seedSkills() {
+        Optional<Hero> hwayoungOpt = heroRepo.findByName("Hwayoung");
+    
+        if (hwayoungOpt.isPresent() && skillRepo.count() == 0) {
+            Hero hwayoung = hwayoungOpt.get();
+    
+            Skill skill1 = Skill.builder()
+                .name("Infernal Strike")
+                .description("Attacks the enemy with kicks, and increases speed of the master.")
+                .category(SkillCategory.ACTIVE)
+                .action(SkillAction.DAMAGE)
+                .targetGroup(TargetGroup.SINGLE_ENEMY)
+                .targetCount(1)
+                .scalingStat(StatScaling.ATTACK)
+                .scalingFactor(1.4)
+                .cooldown(2)
+                .position(0)
+                .hero(hwayoung)
+                .build();
+    
+            Skill skill2 = Skill.builder()
+                .name("Divine Vessel")
+                .description("At the start of the first battle, increases Defense proportional to Attack. When an ally dies, activates Bystander against a random enemy.")
+                .category(SkillCategory.PASSIVE)
+                .passiveBonus(PassiveBonusType.DEFENSE_UP)
+                .bonusValue(30.0)
+                .applyToAllies(false)
+                .triggerCondition(TriggerCondition.ON_ALLY_DEATH)
+                .position(1)
+                .hero(hwayoung)
+                .build();
+    
+            Skill skill3 = Skill.builder()
+                .name("Sura: Reave the Skies")
+                .description("Attacks the enemy with a rage-filled strike. Ignores damage reduction and sharing. Bonus damage vs Light.")
+                .category(SkillCategory.ACTIVE)
+                .action(SkillAction.DAMAGE)
+                .targetGroup(TargetGroup.SINGLE_ENEMY)
+                .targetCount(1)
+                .scalingStat(StatScaling.ATTACK)
+                .scalingFactor(2.0)
+                .cooldown(4)
+                .position(2)
+                .hero(hwayoung)
+                .build();
+    
+            skillRepo.saveAll(List.of(skill1, skill2, skill3));
+            System.out.println("✅ Compétences de Hwayoung créées.");
+        }
+    }
+    
 
     private void seedGuilds() {
         if (guildRepo.count() == 0 && membershipRepo.count() == 0) {

@@ -1,5 +1,7 @@
 package com.epic7.backend.model;
 
+import java.util.Optional;
+
 import com.epic7.backend.model.enums.PassiveBonusType;
 import com.epic7.backend.model.enums.SkillAction;
 import com.epic7.backend.model.enums.SkillCategory;
@@ -7,6 +9,7 @@ import com.epic7.backend.model.enums.StatScaling;
 import com.epic7.backend.model.enums.TargetGroup;
 import com.epic7.backend.model.enums.TriggerCondition;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,7 +17,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 /**
@@ -35,10 +42,19 @@ public class Skill {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
+    @Column(unique = true,nullable = false)
+    @NotBlank(message = "Le nom de la compétence ne peut pas être vide")
     private String name;
 
     private String description;
+
+    private String icon; 
+
+    private String animation; 
+
+    @Min(value = 0, message = "La position doit être supérieure ou égale à 0")
+    @Max(value = 2, message = "La position doit être inférieure ou égale à 2")
+    private Integer position; // 0 = 1ere compétence, 1 = 2e compétence, 2 = 3e compétence
 
     // ACTIVE = compétence classique / PASSIVE = effet permanent (toujours la skill 2)
     @Enumerated(EnumType.STRING)
@@ -53,17 +69,20 @@ public class Skill {
     private TargetGroup targetGroup;
 
     // Nombre de cibles (utile pour attaques multi)
-    private Integer targetCount;
+    @Positive(message = "Le nombre de cibles doit être positif")
+    private int targetCount;
 
     // Stat utilisée pour calcul (ATK, HP)
     @Enumerated(EnumType.STRING)
     private StatScaling scalingStat;
 
     // Coefficient multiplicateur (ex : 1.3 = 130% ATK)
-    private Double scalingFactor;
+    @Positive(message = "Le facteur de mise à l'échelle doit être positif")
+    private Double scalingFactor  ;
 
     // Cooldown entre deux utilisations (seulement pour actives)
-    private Integer cooldown;
+    @Min(value = 0, message = "Le cooldown doit être supérieur ou égal à 0")
+    private Integer cooldown ;
 
     // Type de bonus/malus pour les passives
     @Enumerated(EnumType.STRING)
@@ -83,5 +102,12 @@ public class Skill {
     @ManyToOne
     private Hero hero;
 
+    /**
+     * Vérifie si la compétence est active = TRUE | passive = FALSE.
+     * @return
+     */
+    public boolean isActive() {
+        return SkillCategory.ACTIVE.equals(this.category);
+    }
 
 }
