@@ -43,7 +43,8 @@ public class GlobalSeeder {
                         PasswordEncoder passwordEncoder,
                         ShopItemRepository shopItemRepo,
                         BannerRepository bannerRepo,
-                        MessageRepository messageRepo) {
+                        MessageRepository messageRepo,
+                        SkillRepository skillRepo) {
 
                         this.shopItemRepo = shopItemRepo;
         this.userRepo = userRepo;
