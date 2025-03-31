@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -14,7 +15,7 @@ import java.util.*;
 /**
  * Classe de configuration pour la création de données initiales dans la base de données.
  * Cette classe est exécutée au démarrage de l'application pour peupler la base de données avec des données de test.
- * @author hermas
+ * @authors hermas corentin
  */
 @Component
 public class GlobalSeeder {
@@ -29,6 +30,7 @@ public class GlobalSeeder {
     private final BannerRepository bannerRepo;
     private final ShopItemRepository shopItemRepo;
     private final PasswordEncoder passwordEncoder;
+    private final MessageRepository messageRepo;
 
     public GlobalSeeder(UserRepository userRepo,
                         HeroRepository heroRepo,
@@ -37,9 +39,10 @@ public class GlobalSeeder {
                         PlayerEquipmentRepository playerEquipRepo,
                         GuildRepository guildRepo,
                         GuildMembershipRepository membershipRepo,
-                                        PasswordEncoder passwordEncoder,
-                                        ShopItemRepository shopItemRepo,
-                                        BannerRepository bannerRepo) {
+                        PasswordEncoder passwordEncoder,
+                        ShopItemRepository shopItemRepo,
+                        BannerRepository bannerRepo,
+                        MessageRepository messageRepo) {
                         this.shopItemRepo = shopItemRepo;
         this.userRepo = userRepo;
         this.heroRepo = heroRepo;
@@ -50,6 +53,7 @@ public class GlobalSeeder {
         this.membershipRepo = membershipRepo;
         this.passwordEncoder = passwordEncoder;
         this.bannerRepo = bannerRepo;
+        this.messageRepo = messageRepo;
     }
 
     @PostConstruct
@@ -61,6 +65,7 @@ public class GlobalSeeder {
         seedPlayerEquipment();
         seedBanner();
         seedShop();
+        seedMessages();
 
         seedGuilds(); // ← Ajo
     }
@@ -104,9 +109,11 @@ public class GlobalSeeder {
 
     private void seedUsers() {
         if (userRepo.findByEmail("hermas@example.com").isEmpty()) {
+            User u0 = createUser("admin@epic7.com", "Admin", "password", 0, 0);
             User u1 = createUser("hermas@example.com", "hermas", "toi", 5000, 100);
             User u2 = createUser("arya@example.com", "arya", "secret", 3000, 50);
-            userRepo.saveAll(List.of(u1, u2));
+            User u3 = createUser("corentin@example.com", "Kaldah", "test", 9999999, 9999999);
+            userRepo.saveAll(List.of(u0,u1, u2,u3));
             System.out.println("✅ Utilisateurs créés.");
         }
     }
@@ -170,22 +177,22 @@ public class GlobalSeeder {
         }
     }
 
-        private void seedBanner() {
-        if (bannerRepo.count() == 0) {
-            List<Hero> heroes = heroRepo.findAll();
-            if (heroes.size() >= 2) {
-                Banner banner = Banner.builder()
-                        .name("Bannière de lancement")
-                        .startsAt(LocalDateTime.now().minusDays(1))
-                        .endsAt(LocalDateTime.now().plusDays(30))
-                        .featuredHeroes(List.of(heroes.get(0), heroes.get(1)))
-                        .build();
-                bannerRepo.save(banner);
-                System.out.println("✅ Bannière d'invocation créée.");
-            } else {
-                System.out.println("❌ Pas assez de héros pour la bannière.");
-            }
+    private void seedBanner() {
+    if (bannerRepo.count() == 0) {
+        List<Hero> heroes = heroRepo.findAll();
+        if (heroes.size() >= 2) {
+            Banner banner = Banner.builder()
+                    .name("Bannière de lancement")
+                    .startsAt(LocalDateTime.now().minusDays(1))
+                    .endsAt(LocalDateTime.now().plusDays(30))
+                    .featuredHeroes(List.of(heroes.get(0), heroes.get(1)))
+                    .build();
+            bannerRepo.save(banner);
+            System.out.println("✅ Bannière d'invocation créée.");
+        } else {
+            System.out.println("❌ Pas assez de héros pour la bannière.");
         }
+    }
     }
 
     private User createUser(String email, String username, String rawPwd, int gold, int diamonds) {
@@ -236,6 +243,25 @@ public class GlobalSeeder {
                 .bonusHealth(0)
                 .bonusSpeed(0)
                 .build();
+    }
+
+    private void seedMessages(){
+        if (messageRepo.count() == 0) {
+            List<User> users = userRepo.findAll();
+            
+            if (users.size() >= 2) {
+                for (int i = 0; i < users.size(); i++) {
+                    Message message = new Message();
+                    message.setSender(users.get(0));
+                    message.setRecipient(users.get(1));
+                    message.setMessage("Salut ! Bienvenue dans le jeu !");
+                    message.setCreatedAt(Instant.now());
+                    messageRepo.save(message);
+                }
+                
+                System.out.println("✅ Messages de test ajoutés.");
+            }
+        }
     }
 
     private void seedShop() {
