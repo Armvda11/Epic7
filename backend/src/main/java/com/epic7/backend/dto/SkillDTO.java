@@ -15,6 +15,13 @@ public class SkillDTO {
     @NotNull(message = "La catégorie de la compétence ne peut pas être nulle")
     private String category;
 
+    @Min(0)
+@Max(2)
+private Integer position;
+    private String icon;
+    private String animation;
+
+
     private String action;
     private String targetGroup;
 
