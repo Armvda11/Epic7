@@ -130,4 +130,33 @@ public class SkillService {
         dto.setTriggerCondition(skill.getTriggerCondition() != null ? skill.getTriggerCondition().name() : null);
         return dto;
     }
+
+
+    /**
+ * Met à jour une compétence existante.
+ *
+ * @param skillId       ID de la compétence à modifier
+ * @param updatedSkill  Nouvelle version de la compétence
+ * @return Compétence mise à jour
+ */
+public Skill updateSkill(Long skillId, Skill updatedSkill) {
+    Skill existing = getSkillById(skillId);
+
+    existing.setName(updatedSkill.getName());
+    existing.setDescription(updatedSkill.getDescription());
+    existing.setCategory(updatedSkill.getCategory());
+    existing.setAction(updatedSkill.getAction());
+    existing.setTargetGroup(updatedSkill.getTargetGroup());
+    existing.setTargetCount(updatedSkill.getTargetCount());
+    existing.setScalingStat(updatedSkill.getScalingStat());
+    existing.setScalingFactor(updatedSkill.getScalingFactor());
+    existing.setCooldown(updatedSkill.getCooldown());
+    existing.setPassiveBonus(updatedSkill.getPassiveBonus());
+    existing.setBonusValue(updatedSkill.getBonusValue());
+    existing.setApplyToAllies(updatedSkill.getApplyToAllies());
+    existing.setTriggerCondition(updatedSkill.getTriggerCondition());
+
+    return skillRepository.save(existing);
+}
+
 }

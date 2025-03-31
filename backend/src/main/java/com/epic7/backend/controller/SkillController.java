@@ -38,14 +38,13 @@ public class SkillController {
      * Ajoute une compétence à un héros.
      *
      * @param heroId ID du héros
-     * @param skill Compétence à ajouter (reçue en JSON)
+     * @param skill  Compétence à ajouter (reçue en JSON)
      * @return Compétence ajoutée (au format DTO)
      */
     @PostMapping("/hero/{heroId}")
     public ResponseEntity<SkillDTO> addSkillToHero(
             @PathVariable Long heroId,
-            @RequestBody Skill skill
-    ) {
+            @RequestBody Skill skill) {
         Skill savedSkill = skillService.addSkillToHero(heroId, skill);
         SkillDTO dto = skillService.toDTO(savedSkill);
         return ResponseEntity.ok(dto);
@@ -62,4 +61,30 @@ public class SkillController {
         skillService.deleteSkill(skillId);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Récupère une compétence par son ID.
+     * 
+     * @param skillId ID de la compétence
+     * @return La compétence au format DTO
+     */
+    @GetMapping("/{skillId}")
+    public ResponseEntity<SkillDTO> getSkillById(@PathVariable Long skillId) {
+        Skill skill = skillService.getSkillById(skillId);
+        return ResponseEntity.ok(skillService.toDTO(skill));
+    }
+
+    /**
+     * Met à jour une compétence existante.
+     * 
+     * @param skillId ID de la compétence à mettre à jour
+     * @param skill   La compétence mise à jour (reçue en JSON)
+     * @return
+     */
+    @PutMapping("/{skillId}")
+    public ResponseEntity<SkillDTO> updateSkill(@PathVariable Long skillId, @RequestBody Skill skill) {
+        Skill updated = skillService.updateSkill(skillId, skill);
+        return ResponseEntity.ok(skillService.toDTO(updated));
+    }
+
 }
