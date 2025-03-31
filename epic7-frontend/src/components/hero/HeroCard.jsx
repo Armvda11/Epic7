@@ -65,7 +65,7 @@ const HeroCard = ({ heroInstance, onSelect }) => {
           <source srcSet={`/epic7-Hero/avif/${imgCode}.avif`} type="image/avif" />
           <source srcSet={`/epic7-Hero/webp/${imgCode}.webp`} type="image/webp" />
           <img
-            src={`/epic7-Hero/sprite-hero/${imgCode}.png`}
+            src={`/epic7-Hero/sprite-hero/mavuika.png`}
             alt={`Portrait de ${name}`}
             className="w-full h-44 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ease-in-out"
             onError={(e) => {

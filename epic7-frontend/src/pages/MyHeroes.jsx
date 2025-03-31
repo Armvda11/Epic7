@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getMyHeroes } from '../services/heroService';
+import { getMyHeroes, fetchHeroSkills } from '../services/heroService';
 import HeroCard from '../components/hero/HeroCard';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+
 
 /**
  * Pages des heros du joueur , on y affiche la liste de ses héros
@@ -20,22 +21,47 @@ const MyHeroes = () => {
   const token = localStorage.getItem('token'); // Récupération du token d'authentification
   const { language, t } = useSettings(); // Langue et traductions
 
+  const [skills, setSkills] = useState([]); // Liste des compétences des héros
+
+
   // Chargement des héros de l'utilisateur
   // On utilise le token pour récupérer les héros de l'utilisateur
   // On utilise le useEffect pour charger les héros au premier rendu
-  useEffect(() => {
-    const fetchHeroes = async () => {
-      try {
-        const data = await getMyHeroes(token); // Récupération des héros
-        setHeroes(data); // Mise à jour de l'état avec les héros récupérés
-      } catch (err) {
-        console.error("Erreur de chargement des héros :", err);
-        setError(t("heroLoadError", language));
-      }
-    };
+// 1️⃣ Charger les héros au chargement de la page
+useEffect(() => {
+  const fetchHeroes = async () => {
+    try {
+      const data = await getMyHeroes(token);
+      setHeroes(data);
+    } catch (err) {
+      console.error("Erreur de chargement des héros :", err);
+      setError(t("heroLoadError", language));
+    }
+  };
+  fetchHeroes();
+}, [token, language]);
 
-    fetchHeroes();
-  }, [token, language]);
+// 2️⃣ Charger les compétences quand un héros est sélectionné
+useEffect(() => {
+  const loadSkills = async () => {
+    const heroId =
+      selectedHero?.hero?.id ?? // Cas PlayerHero
+      selectedHero?.id ?? null; // Cas Hero directement
+
+    if (heroId) {
+      console.log("Hero ID pour fetch les skills:", heroId);
+      const data = await fetchHeroSkills(heroId);
+      console.log("Compétences récupérées :", data);
+      setSkills(data);
+    } else {
+      console.log("Aucun hero ID trouvé pour fetch");
+      setSkills([]);
+    }
+  };
+
+  loadSkills();
+}, [selectedHero]);
+
 
   const closeOverlay = () => setSelectedHero(null);
   const ELEMENTS = ['ALL', 'FIRE', 'ICE', 'EARTH', 'DARK', 'LIGHT'];
@@ -51,7 +77,7 @@ const MyHeroes = () => {
   });
 
 
-  
+
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white relative">
       {/* Header + Filtres */}
@@ -97,7 +123,6 @@ const MyHeroes = () => {
           />
         ))}
       </div>
-
       {/* Overlay détaillé */}
       <AnimatePresence>
         {selectedHero && (
@@ -131,15 +156,15 @@ const MyHeroes = () => {
               </div>
 
               <div className="w-full aspect-[4/5] overflow-hidden flex items-center justify-center bg-[#1a1a2e] rounded-xl mb-4">
-              <img
-                src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
-                alt={selectedHero.name}
-                className="w-full h-auto object-contain rounded-lg mb-4"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
-                }}
-              />
+                <img
+                  src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                  alt={selectedHero.name}
+                  className="w-full h-auto object-contain rounded-lg mb-4"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
+                  }}
+                />
               </div>
 
 
@@ -149,6 +174,36 @@ const MyHeroes = () => {
                 <p>💨 {t("speed", language)} : {selectedHero.totalSpeed || selectedHero.hero?.baseSpeed}</p>
                 <p>❤️ {t("health", language)} : {selectedHero.totalHealth || selectedHero.hero?.health}</p>
               </div>
+
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-2 text-center">Compétences</h3>
+                  <div className="flex justify-center gap-3 flex-wrap">
+                    {skills.map((skill) => (
+                      <div
+                        key={skill.id}
+                        className={`relative group p-2 ${skill.category === "PASSIVE" ? "rounded-full" : "rounded-md"
+                          } bg-gray-700 hover:bg-gray-600 w-16 h-16 flex items-center justify-center cursor-pointer transition`}
+                      >
+                        <img
+                          src="/epic7-Hero/avif/unknown.avif"
+                          alt={skill.name}
+                          className="w-10 h-10"
+                        />
+                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs p-2 rounded-md w-64 z-10 text-left">
+                          <p className="font-semibold">{skill.name}</p>
+                          <p>{skill.description}</p>
+                          {skill.action && (
+                            <p className="mt-1">🎯 {skill.action} • {skill.targetCount} cible(s)</p>
+                          )}
+                          {skill.scalingStat && skill.scalingFactor && (
+                            <p className="text-sm italic">⚔️ Scaling: {skill.scalingFactor} × {skill.scalingStat}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
 
               <button
                 onClick={() => navigate(`/hero/${selectedHero.id}`)}

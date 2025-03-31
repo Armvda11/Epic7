@@ -10,3 +10,9 @@ export const getMyHeroes = async () => {
     throw error;
   }
 };
+
+// Récupère les détails d'un héros spécifique
+export const fetchHeroSkills = async (heroId) => {
+  const response = await API.get(`/skill/hero/${heroId}`);
+  return response.data;
+};
