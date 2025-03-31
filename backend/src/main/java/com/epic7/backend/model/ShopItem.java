@@ -39,7 +39,7 @@ public class ShopItem {
     private String name; // Nom de l'objet (ex. "Héros 5 étoiles", "Équipement légendaire", etc.)
 
     private String description; // Description de l'objet (ex. "Héros 5 étoiles avec des compétences spéciales", etc.)
- 
+
     @Enumerated(EnumType.STRING)
     private ShopItemType type; // HERO, EQUIPMENT, GOLD, DIAMOND
 
@@ -47,7 +47,6 @@ public class ShopItem {
 
     private int priceInGold;
 
-    
     private boolean limitedTime; // Indique si l'objet est en vente limitée dans le temps
 
     private LocalDateTime startAt; // Date de début de disponibilité de l'objet

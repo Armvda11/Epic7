@@ -13,7 +13,7 @@ import java.util.Optional;
  * Service de gestion des guildes.
  * Ce service gère la création, l'adhésion et la sortie des guildes pour les utilisateurs.
  * Il permet également de récupérer les membres d'une guilde et de vérifier l'appartenance d'un utilisateur à une guilde.
- * @author hermas
+ * @authors hermas, corentin
  */
 @Service
 public class GuildService {
@@ -87,11 +87,6 @@ public class GuildService {
 
         guild.addMember(membership); // Ajout à la liste des membres de la guilde
         user.setGuildMembership(membership); //  de l'utilisateur
-
-         // Pas besoin d'appeler guildMembershipRepository.save(membership)
-        // Hibernate synchronisera automatiquement les modifications
-        // Enregistrer l'adhésion
-        // guildMembershipRepository.save(membership);
     }
 
     /**
@@ -114,10 +109,6 @@ public class GuildService {
 
         currentMembership.getGuild().removeMember(currentMembership); // Retirer l'utilisateur de la guilde
         user.setGuildMembership(null); // Supprimer l'adhésion de l'utilisateur
-
-        // Supprimer l'adhésion de l'utilisateur à la guilde
-        // (on suppose qu'un utilisateur ne peut appartenir qu'à une seule guilde)
-        // guildMembershipRepository.delete(memberships.get(0));
     }
 
     /**
@@ -138,11 +129,6 @@ public class GuildService {
             // Sinon, retourner la guilde
             return Optional.of(guild);
         }
-        // Alternative avec le repository
-        // return guildMembershipRepository.findByUser(user)
-        //         .stream()
-        //         .map(GuildMembership::getGuild)
-        //         .findFirst();
     }
 
     /**
