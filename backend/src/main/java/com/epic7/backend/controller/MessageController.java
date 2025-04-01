@@ -62,6 +62,9 @@ public class MessageController {
                         message.isFriendRequest()
                 ))
                 .toList();
+                messageInfoDTOs.forEach(message -> {
+                System.out.println("Message ID: " + message.getId() + ", Is Read: " + message.isRead() + ", Contains Items: " + message.isContainItems() + ", Is Friend Request: " + message.isFriendRequest());
+                });
         return ResponseEntity.ok(messageInfoDTOs);
     }
 

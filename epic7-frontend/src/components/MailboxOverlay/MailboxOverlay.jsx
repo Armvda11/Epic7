@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import MessageItem from './MessageItem';
 
 const MailboxOverlay = ({ onClose }) => {
-    const { messages, fetchMessages, loading } = useMailboxContext();
+    const { messages, fetchMessages, loading, markMessageAsRead } = useMailboxContext();
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
 
@@ -39,6 +39,11 @@ const MailboxOverlay = ({ onClose }) => {
 
     const handleMessageClick = (message) => {
         setSelectedMessage(message);
+        
+        // Mark the message as read when it's selected
+        if (!message.isRead) {
+            markMessageAsRead(message.id);
+        }
     };
 
     const handleBackToList = () => {

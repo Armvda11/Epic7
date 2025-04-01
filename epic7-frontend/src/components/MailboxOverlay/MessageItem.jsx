@@ -36,6 +36,7 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
     if (!showFullMessage) {
         // Log the message for debugging
         console.log("Message status in MessageItem:", message.id, message.isRead);
+        console.log("Message properties:", message.id, "isFriendRequest:", message.isFriendRequest, "containItems:", message.containItems);
         
         return (
             <motion.div
@@ -44,7 +45,7 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                 onClick={onSelect}
                 onKeyDown={(e) => e.key === "Enter" && onSelect()}
                 className={`p-4 border-b border-indigo-800 cursor-pointer transition-colors grid grid-cols-4 gap-2
-                    ${message.isRead === false ? 'bg-opacity-15 bg-white border-l-4 border-l-white' : ''} 
+                    ${message.isRead ? 'bg-indigo-900' : 'bg-indigo-700 font-semibold border-l-4 border-l-yellow-400'} 
                     ${message.containItems ? 'border-l-4 border-l-cyan-400' : ''} 
                     ${message.isFriendRequest ? 'border-l-4 border-l-purple-600' : ''} 
                     hover:bg-indigo-800`}

@@ -1,7 +1,7 @@
 import API from "../api/axiosInstance";
 
 // Fonction pour récupérer les messages
-export const getMessages = async () => {
+export const getMessagesInfos = async () => {
 try {
     const response = await API.get("/mailbox/messages");
 return response.data;
@@ -12,7 +12,7 @@ return response.data;
 };
 
 // Récupère les détails d'un message spécifique
-export const fetchMessageDetails = async (messageId) => {
+export const getFullMessage = async (messageId) => {
 try {
     const response = await API.get(`/mailbox/message/${messageId}`);
     return response.data;

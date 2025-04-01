@@ -1,6 +1,7 @@
 package com.epic7.backend.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 @AllArgsConstructor
@@ -12,7 +13,13 @@ public class MessageDTO {
     private String message; // Contenu du message
     private String createdAt; // Date de création du message
     private String validUntil; // Date de validité du message
+    
+    @JsonProperty("isRead")
     private boolean isRead; // Statut de lecture du message
+    
+    @JsonProperty("containItems")
     private boolean containItems; // Indique si le message contient des objets
+    
+    @JsonProperty("isFriendRequest")
     private boolean isFriendRequest; // Indique si le message est une demande d'ami
 }

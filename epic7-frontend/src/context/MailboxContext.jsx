@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { 
-getMessages, 
-fetchMessageDetails, 
+getMessagesInfos, 
+getFullMessage, 
 sendMessage, 
 deleteMessage, 
 markAsRead 
@@ -30,7 +30,7 @@ const fetchMessages = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-    const fetchedMessages = await getMessages();
+    const fetchedMessages = await getMessagesInfos();
     console.log('Messages from API:', fetchedMessages); // Debug what's coming from the API
     setMessages(fetchedMessages);
     setLoading(false);
@@ -45,7 +45,7 @@ const fetchMessages = useCallback(async () => {
 const getMessageDetails = useCallback(async (messageId) => {
     setLoading(true);
     try {
-    const messageDetails = await fetchMessageDetails(messageId);
+    const messageDetails = await getFullMessage(messageId);
     setLoading(false);
     return messageDetails;
     } catch (error) {
