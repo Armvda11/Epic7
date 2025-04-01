@@ -7,7 +7,7 @@ import { useSettings } from "../context/SettingsContext";
 import MenuTile from "../components/MenuTile";
 import ProfileCard from "../components/ProfileCard";
 import SettingsPanel from "../components/settings/SettingsPanel";
-
+import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 
 import { FaUserFriends, FaUsers, FaMagic,FaCrosshairs, FaBookOpen, FaBoxOpen} from "react-icons/fa";
 
@@ -22,6 +22,7 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);  // inormations de l'utilisateur
   const [showProfile, setShowProfile] = useState(false); // État pour afficher la carte de profil
   const [showSettings, setShowSettings] = useState(false); // État pour afficher le panneau de paramètres
+  const [showMailbox, setShowMailbox] = useState(false); // État pour afficher la mailbox
 
   //  Chargement des infos utilisateur
   useEffect(() => {
@@ -69,35 +70,54 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/*  Boîte de réception modale */}
+      {showMailbox && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
+          <div className="absolute inset-0" onClick={() => setShowMailbox(false)} />
+          <div className="relative z-50">
+            <MailboxOverlay onClose={() => setShowMailbox(false)} />
+          </div>
+        </div>
+      )}
+
 
       {/*  Carte de profil flottante */}
       {showProfile && <ProfileCard user={user} onClose={() => setShowProfile(false)} />}
 
       {/*  Mini carte profil */}
       <header className="flex justify-end mb-6">
-        <button
-          onClick={() => setShowProfile(true)}
-          className="w-full max-w-xs p-4 bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
-        >
-          <article className="flex items-center gap-4">
-            <img src="/epic7-Hero/sprite-hero/mavuika.png" alt="avatar" className="w-14 h-14 rounded-full bg-gray-600 object-cover shadow"
-               onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
-              }}
-            />
-            <div>
-              <h2 className="text-xl font-bold">{user.username}</h2>
-              <p className="text-sm text-gray-300">{t("level", language)} {user.level}</p>
-            </div>
-          </article>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setShowMailbox(true)} 
+            className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg z-10" 
+            aria-label="Ouvrir la boîte de réception"
+          >
+            <span className="text-2xl">📬</span>
+          </button>
+          <button
+            onClick={() => setShowProfile(true)}
+            className="w-full max-w-xs p-4 bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
+          >
+            <article className="flex items-center gap-4">
+              <img src="/epic7-Hero/sprite-hero/mavuika.png" alt="avatar" className="w-14 h-14 rounded-full bg-gray-600 object-cover shadow"
+                  onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                }}
+              />
+              <div>
+                <h2 className="text-xl font-bold">{user.username}</h2>
+                <p className="text-sm text-gray-300">{t("level", language)} {user.level}</p>
+              </div>
+            </article>
 
-          <aside className="mt-4 grid grid-cols-3 gap-2 text-sm text-center">
-            <p className="bg-statBg p-2 rounded-lg">💰 {user.gold}</p>
-            <p className="bg-statBg p-2 rounded-lg">💎 {user.diamonds}</p>
-            <p className="bg-statBg p-2 rounded-lg">⚡ {user.energy}</p>
-          </aside>
-        </button>
+            <aside className="mt-4 grid grid-cols-3 gap-2 text-sm text-center">
+              <p className="bg-statBg p-2 rounded-lg">💰 {user.gold}</p>
+              <p className="bg-statBg p-2 rounded-lg">💎 {user.diamonds}</p>
+              <p className="bg-statBg p-2 rounded-lg">⚡ {user.energy}</p>
+            </aside>
+          </button>
+        </div>
       </header>
 
       {/*  Titre d'accueil */}
@@ -129,7 +149,6 @@ const Dashboard = () => {
       <button onClick={() => setShowSettings(true)} className="fixed bottom-6 right-6 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg z-50" aria-label="Ouvrir les paramètres">
         <span className="text-2xl">⚙️</span>
       </button>
-
     </main>
   );
 };

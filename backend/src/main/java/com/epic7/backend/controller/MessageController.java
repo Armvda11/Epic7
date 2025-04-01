@@ -2,21 +2,26 @@ package com.epic7.backend.controller;
 
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.MessageService;
-import com.epic7.backend.service.PlayerHeroService;
 import com.epic7.backend.utils.JwtUtil;
 import com.epic7.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.epic7.backend.model.Message;
+import com.epic7.backend.dto.MessageInfoDTO;
+import com.epic7.backend.dto.MessageDTO;
+
 
 /**
  * Contrôleur REST pour gérer les messages.
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/messages")
+@RequestMapping("/api/mailbox")
 public class MessageController {
 
     private final JwtUtil jwtUtil;
@@ -36,12 +41,47 @@ public class MessageController {
      * Récupère les messages d'un utilisateur.
      *
      * @param request La requête HTTP contenant le token JWT.
-     * @return Une liste de messages de l'utilisateur.
+     * @return Les infos des messages de l'utilisateur.
      */
-    @GetMapping("/me")
-    public ResponseEntity<?> getMessages(HttpServletRequest request) {
+    @GetMapping("/messages")
+    public ResponseEntity<?> getMailbox(HttpServletRequest request) {
         User user = getCurrentUser(request);
-        return ResponseEntity.ok(messageService.getMessages(user));
+        // Récupérer les infos des messages de la boîte de réception de l'utilisateur
+        // et les retourner dans la réponse
+
+        List<Message> messages = messageService.getMessages(user);
+        List<MessageInfoDTO> messageInfoDTOs = messages.stream()
+                .map(message -> new MessageInfoDTO(
+                        message.getId(),
+                        message.getSender().getUsername(),
+                        message.getSubject(),
+                        message.getCreatedAt().toString(),
+                        message.getValidUntil().toString(),
+                        message.isRead(),
+                        message.isContainItems(),
+                        message.isFriendRequest()
+                ))
+                .toList();
+        return ResponseEntity.ok(messageInfoDTOs);
+    }
+
+    @GetMapping("/message/{id}")
+    public ResponseEntity<?> getMessageById(HttpServletRequest request, @PathVariable Long id) {
+        User user = getCurrentUser(request);
+        Message message = messageService.getMessageById(id, user);
+        MessageDTO messageDTO = new MessageDTO(
+                message.getId(),
+                message.getSender().getUsername(),
+                message.getRecipient().getUsername(),
+                message.getSubject(),
+                message.getMessage(),
+                message.getCreatedAt().toString(),
+                message.getValidUntil().toString(),
+                message.isRead(),
+                message.isContainItems(),
+                message.isFriendRequest()
+        );
+        return ResponseEntity.ok(messageDTO);
     }
     
     /**
@@ -59,5 +99,30 @@ public class MessageController {
                                         @RequestParam String message) {
         User sender = getCurrentUser(request);
         return ResponseEntity.ok(messageService.sendMessage(sender, recipientId, subject ,message));
+    }
+
+    /**
+     * Supprime un message de la boîte de réception de l'utilisateur.
+     *
+     * @param request La requête HTTP contenant le token JWT.
+     * @param id L'ID du message à supprimer.
+     * @return Une réponse indiquant le succès ou l'échec de la suppression.
+     */
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<?> deleteMessage(HttpServletRequest request, @PathVariable Long id) {
+        User user = getCurrentUser(request);
+        return ResponseEntity.ok(messageService.deleteMessage(id, user.getId()));
+    }
+    /**
+     * Marque un message comme lu.
+     *
+     * @param request La requête HTTP contenant le token JWT.
+     * @param id L'ID du message à marquer comme lu.
+     * @return Une réponse indiquant le succès ou l'échec de l'opération.
+     */
+    @PostMapping("/read/{id}")
+    public ResponseEntity<?> markAsRead(HttpServletRequest request, @PathVariable Long id) {
+        User user = getCurrentUser(request);
+        return ResponseEntity.ok(messageService.markMessageAsRead(id, user.getId()));
     }
 }

@@ -4,12 +4,11 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class MessageDTO {
+public class MessageInfoDTO {
     private Long id;
     private String senderName; // Nom de l'expéditeur
-    private String recipientName; // Nom du destinataire
+    
     private String subject; // Sujet du message
-    private String message; // Contenu du message
     private String createdAt; // Date de création du message
     private String validUntil; // Date de validité du message
     private boolean isRead; // Statut de lecture du message

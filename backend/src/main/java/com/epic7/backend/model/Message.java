@@ -19,8 +19,20 @@ import java.time.Instant;
 @Table(name = "messages")
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
-@Builder
 public class Message {
+
+    public Message(User sender, User recipient, String subject, String message, Instant createdAt, Instant validUntil, List<Long> targetShopItemsId) {
+        this.sender = sender;
+        this.recipient = recipient;
+        this.subject = subject;
+        this.message = message;
+        this.createdAt = createdAt;
+        this.validUntil = validUntil;
+        this.targetShopItemsId = targetShopItemsId;
+        this.isRead = false; // Par défaut, le message n'est pas lu
+        this.isFriendRequest = false; // Par défaut, ce n'est pas une demande d'ami
+        this.containItems = !targetShopItemsId.isEmpty();
+    }
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,9 +58,16 @@ public class Message {
     @Column(name ="valid_until", nullable = false)
     private Instant validUntil; // Date de validité du message
 
+    @Column(name="target_shop_items_id")
+    private List<Long> targetShopItemsId; // Liste des ID des objets associés au message
+
     @Column(name = "is_read", nullable = false)
     private boolean isRead; // Statut de lecture du message
 
-    @Column(name="target_shop_items_id")
-    private List<Long> targetShopItemsId; // Liste des ID des objets associés au message
+    @Column(name = "is_friend_request", nullable = false)
+    private boolean isFriendRequest; // Indique si le message est une demande d'ami
+    
+    @Column(name = "contain_items", nullable = false)
+    private boolean containItems; // Indique si le message contient des objets
+
 }
