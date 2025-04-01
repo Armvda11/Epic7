@@ -33,6 +33,8 @@ public class MessageService {
 
     //-------------------------------------------------
     // Partie d'envoie de message
+    // -------------------------------------------------
+
     /**
      * Envoie un message à un utilisateur.
      *
@@ -162,9 +164,33 @@ public class MessageService {
         messageRepository.save(message);
     }
 
+    @Transactional
+    public void sendFriendRequest(User sender, Long userId) {
+        // Vérifier si l'utilisateur existe
+        Optional<User> optionalRecipient = userRepository.findById(userId);
+        
+        if (optionalRecipient.isEmpty()) {
+            throw new IllegalArgumentException("Le destinataire n'existe pas.");
+        }
+
+        // Créer le message
+        Message message = new Message();
+        message.setSender(sender);
+        message.setRecipient(optionalRecipient.get());
+        message.setSubject("Demande d'ami");
+        message.setMessage("Vous avez reçu une demande d'ami de " + sender.getUsername());
+        message.setCreatedAt(Instant.now());
+        message.setValidUntil(Instant.now().plus(30, ChronoUnit.DAYS));
+        message.setRead(false);
+        message.setFriendRequest(true);
+
+        // Enregistrer le message dans la base de données
+        messageRepository.save(message);
+    }
 
     //-------------------------------------------------
     // Partie de réception de message
+    // -------------------------------------------------
 
     /**
      * Récupère tous les messages d'un utilisateur.
@@ -176,6 +202,24 @@ public class MessageService {
     public List<Message> getMessages(User user) {
         return messageRepository.findByRecipientId(user.getId());
     }
+
+    /**
+     * Récupère un message par son ID.
+     *
+     * @param messageId L'identifiant du message à récupérer.
+     * @param user      L'utilisateur qui demande le message.
+     * @return Le message correspondant à l'ID donné.
+     */
+    @Transactional(readOnly = true)
+    public Message getMessageById(Long messageId, User user) {
+        // Vérifier si le message appartient à l'utilisateur
+        Message message = messageRepository.findByIdAndRecipientId(messageId, user.getId());
+        if (message == null) {
+            throw new IllegalArgumentException("Message introuvable ou accès non autorisé");
+        }
+        return message;
+    }
+
     /**
      * Récupère tous les messages envoyés par un utilisateur.
      *
@@ -209,10 +253,23 @@ public class MessageService {
 
     // -------------------------------------------------
     // Partie d'intéraction Message-User
+    // -------------------------------------------------
+
     @Transactional
     public void markMessageAsRead(Message message) {
         message.setRead(true);
         messageRepository.save(message);
+    }
+
+    @Transactional
+    public boolean markMessageAsRead(Long messageId, Long userId) {
+        Message message = messageRepository.findByIdAndRecipientId(messageId, userId);
+        if (message == null) {
+            return false; // Message introuvable ou accès non autorisé
+        }
+        message.setRead(true);
+        messageRepository.save(message);
+        return true;
     }
 
     @Transactional
@@ -301,6 +358,16 @@ public class MessageService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message introuvable"));
         messageRepository.delete(message);
+    }
+
+    @Transactional
+    public boolean deleteMessage(Long messageId, Long userId) {
+        Message message = messageRepository.findByIdAndRecipientId(messageId, userId);
+        if (message == null) {
+            return false; // Message introuvable ou accès non autorisé
+        }
+        messageRepository.delete(message);
+        return true;
     }
 
     @Transactional

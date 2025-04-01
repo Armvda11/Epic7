@@ -12,11 +12,8 @@ import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.ShopItem;
 import com.epic7.backend.model.ShopPurchase;
 import com.epic7.backend.model.User;
-import com.epic7.backend.model.Message;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
-import com.epic7.backend.repository.PlayerEquipmentRepository;
-import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.ShopItemRepository;
 import com.epic7.backend.repository.ShopPurchaseRepository;
 
@@ -35,8 +32,7 @@ public class ShopService {
     private final ShopPurchaseRepository purchaseRepo;
     private final HeroRepository heroRepo;
     private final EquipmentRepository equipmentRepo;
-    private final PlayerHeroRepository playerHeroRepo;
-    private final PlayerEquipmentRepository playerEquipRepo;
+
     // Service de messagerie dédié à l'utilisation du shop
     private final MessageService messageService;
 

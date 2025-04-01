@@ -6,6 +6,9 @@ import com.epic7.backend.dto.HeroEquipmentViewDTO;
 import com.epic7.backend.dto.InventoryDTO;
 import com.epic7.backend.model.*;
 import com.epic7.backend.repository.*;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,22 +23,11 @@ import java.util.List;
  * @author hermas
  */
 @Service
+@RequiredArgsConstructor
 public class EquipmentService {
 
-    private final EquipmentRepository equipmentRepository;
     private final PlayerEquipmentRepository playerEquipmentRepository;
     private final PlayerHeroRepository playerHeroRepository;
-    private final UserRepository userRepository;
-
-    public EquipmentService(EquipmentRepository equipmentRepository,
-                            PlayerEquipmentRepository playerEquipmentRepository,
-                            PlayerHeroRepository playerHeroRepository,
-                            UserRepository userRepository) {
-        this.equipmentRepository = equipmentRepository;
-        this.playerEquipmentRepository = playerEquipmentRepository;
-        this.playerHeroRepository = playerHeroRepository;
-        this.userRepository = userRepository;
-    }
 
     /**
      * Récupère tous les équipements d’un utilisateur (inventaire complet).

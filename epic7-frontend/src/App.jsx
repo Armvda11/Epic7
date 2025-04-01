@@ -8,12 +8,11 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import HeroView from "./pages/HeroView";
 import PrivateRoute from "./components/PrivateRoute";
-
-
+import { MailboxProvider } from "./context/MailboxContext";
 
 function App() {
   return (
-    <>
+    <MailboxProvider>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -27,7 +26,7 @@ function App() {
 
       {/* Toast container en-dehors des Routes */}
       <ToastContainer position="top-center" autoClose={3000} />
-    </>
+    </MailboxProvider>
   );
 }
 

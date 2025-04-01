@@ -4,7 +4,6 @@ import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.epic7.backend.service.MessageService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -13,12 +12,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 
 /**
- * Service de gestion de l'énergie des utilisateurs.
- * 
- * Ce service gère la régénération de l'énergie des utilisateurs dans le jeu.
- * Il met à jour l'énergie d'un utilisateur en fonction du temps écoulé depuis
- * la dernière mise à jour de son énergie.
- * @author hermas
+ * Service de gestion des services utilisateurs.
+ *
+ * Ce service gère les opérations liées aux utilisateurs,
+ * y compris la récupération des informations utilisateur,
+ * la gestion de l'énergie, l'ajout et la suppression d'amis,
+ * @author hermas corentin
  */
 @Service
 @RequiredArgsConstructor
@@ -201,9 +200,7 @@ public class UserService {
      * @return true si la demande a été envoyée avec succès, false sinon.
      */
     @Transactional
-    public void sendFriendRequest(User user, User friend) {
-
-        this.messageService.sendMessage(user, friend, "Demande d'ami",
-                user.getUsername() + " vous a envoyé une demande d'ami.");
+    public void sendFriendRequest(User user, Long friendId) {
+        this.messageService.sendFriendRequest(user, friendId);
         }
 }

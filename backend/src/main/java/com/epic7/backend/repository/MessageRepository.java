@@ -16,6 +16,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     
     // Trouver tous les messages envoyés par un utilisateur spécifique
     List<Message> findBySenderId(Long senderId);
+
+    // Trouver le message par son ID et l'ID du destinataire
+    // Cela permet de vérifier si le message appartient bien au destinataire
+    // et d'éviter les accès non autorisés
+    Message findByIdAndRecipientId(Long id, Long recipientId);
     
     // Trouver tous les messages non lus pour un utilisateur spécifique
     List<Message> findByRecipientIdAndIsReadFalse(Long recipientId);

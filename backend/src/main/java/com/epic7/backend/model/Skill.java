@@ -1,7 +1,5 @@
 package com.epic7.backend.model;
 
-import java.util.Optional;
-
 import com.epic7.backend.model.enums.PassiveBonusType;
 import com.epic7.backend.model.enums.SkillAction;
 import com.epic7.backend.model.enums.SkillCategory;
@@ -20,7 +18,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
 
