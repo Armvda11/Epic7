@@ -2,12 +2,12 @@ package com.epic7.backend.model;
 
 import java.util.Optional;
 
-import com.epic7.backend.model.enums.PassiveBonusType;
-import com.epic7.backend.model.enums.SkillAction;
-import com.epic7.backend.model.enums.SkillCategory;
-import com.epic7.backend.model.enums.StatScaling;
-import com.epic7.backend.model.enums.TargetGroup;
-import com.epic7.backend.model.enums.TriggerCondition;
+import com.epic7.backend.model.skill_kit.PassiveBonusType;
+import com.epic7.backend.model.skill_kit.SkillAction;
+import com.epic7.backend.model.skill_kit.SkillCategory;
+import com.epic7.backend.model.skill_kit.StatScaling;
+import com.epic7.backend.model.skill_kit.TargetGroup;
+import com.epic7.backend.model.skill_kit.TriggerCondition;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -48,9 +48,6 @@ public class Skill {
 
     private String description;
 
-    private String icon; 
-
-    private String animation; 
 
     @Min(value = 0, message = "La position doit être supérieure ou égale à 0")
     @Max(value = 2, message = "La position doit être inférieure ou égale à 2")

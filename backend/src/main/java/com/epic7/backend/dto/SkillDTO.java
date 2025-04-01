@@ -18,8 +18,7 @@ public class SkillDTO {
     @Min(0)
 @Max(2)
 private Integer position;
-    private String icon;
-    private String animation;
+
 
 
     private String action;

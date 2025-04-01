@@ -21,7 +21,7 @@ public interface SkillRepository extends JpaRepository<Skill, Long> {
    List<Skill> findByHeroId(Long heroId);
 
    // Récupère uniquement d'une héros par ID de héros et par catégorie
-   List<Skill> findByHeroAndCategory(Hero hero, com.epic7.backend.model.enums.SkillCategory category);
+   List<Skill> findByHeroAndCategory(Hero hero, com.epic7.backend.model.skill_kit.SkillCategory category);
 
    //  Récupère une compétence par nom (utile en debug / dev)
    Optional<Skill> findByName(String name);

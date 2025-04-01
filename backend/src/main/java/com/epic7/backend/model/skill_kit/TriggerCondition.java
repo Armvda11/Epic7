@@ -1,4 +1,4 @@
-package com.epic7.backend.model.enums;
+package com.epic7.backend.model.skill_kit;
 public enum TriggerCondition {
     ON_ALLY_DEATH,
     ON_BATTLE_START,

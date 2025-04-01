@@ -69,8 +69,7 @@ public class SkillService {
         dto.setDescription(skill.getDescription());
         dto.setCategory(skill.getCategory() != null ? skill.getCategory().name() : null);
         dto.setPosition(skill.getPosition());
-        dto.setIcon(skill.getIcon());
-        dto.setAnimation(skill.getAnimation());
+
         dto.setAction(skill.getAction() != null ? skill.getAction().name() : null);
         dto.setTargetGroup(skill.getTargetGroup() != null ? skill.getTargetGroup().name() : null);
         dto.setTargetCount(skill.getTargetCount());
