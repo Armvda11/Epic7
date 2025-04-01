@@ -1,7 +1,5 @@
 package com.epic7.backend.model;
 
-import java.util.Optional;
-
 import com.epic7.backend.model.skill_kit.PassiveBonusType;
 import com.epic7.backend.model.skill_kit.SkillAction;
 import com.epic7.backend.model.skill_kit.SkillCategory;

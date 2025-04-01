@@ -139,7 +139,7 @@ public class MessageService {
      * @param validUntil       La date de validité du message.
      */
     @Transactional
-    public void sendItemMessage(User sender, User recipient, String subject, String messageContent, 
+    public void sendItemsMessage(User sender, User recipient, String subject, String messageContent, 
                                 List<Long> targetShopItemsId, Instant validUntil) {
 
         // Vérifier si l'utilisateur existe
@@ -159,6 +159,7 @@ public class MessageService {
         message.setValidUntil(validUntil != null ? validUntil : Instant.now().plus(30, ChronoUnit.DAYS));
         message.setRead(false);
         message.setTargetShopItemsId(targetShopItemsId);
+        message.setContainItems(true);
 
         // Enregistrer le message dans la base de données
         messageRepository.save(message);

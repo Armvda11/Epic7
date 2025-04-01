@@ -114,7 +114,7 @@ public class UserService {
     // -------------------------------------------------
     // Gestion des amis
     // -------------------------------------------------
-
+    
     /**
      * Ajoute un ami à l'utilisateur.
      * 
@@ -122,13 +122,72 @@ public class UserService {
      * @param friend L'ami à ajouter.
      */
     @Transactional
-    public void addFriend(User user, User friend) {
-        if (user.getFriends() == null) {
-            user.setFriends(new ArrayList<>());
+    public void makeFriends(User askUser, User friendUser) {
+        if (askUser.getFriends() == null) {
+            askUser.setFriends(new ArrayList<>());
         }
-        user.getFriends().add(friend);
-        userRepository.save(user);
+        if (friendUser.getFriends() == null) {
+            friendUser.setFriends(new ArrayList<>());
+        }
+
+        // On ajoute l'ami à la liste de l'autre ami
+        askUser.getFriends().add(friendUser);
+        friendUser.getFriends().add(askUser);
+        // On enlève la demande d'ami de l'utilisateur
+        if (askUser.getPendingFriendRequests() != null && askUser.getPendingFriendRequests().contains(friendUser.getId())) {
+            // On enlève la demande d'ami de l'utilisateur
+            askUser.getPendingFriendRequests().remove(friendUser.getId());
+        }
+
+        // On enregistre les modifications des amis
+        userRepository.save(askUser);
+        userRepository.save(friendUser);
     }
+
+    /**
+     * Envoyer une demande d'ami à un autre utilisateur.
+     *
+     * @param user L'utilisateur qui envoie la demande.
+     * @param friend L'utilisateur à qui la demande est envoyée.
+     * @return true si la demande a été envoyée avec succès, false sinon.
+     */
+    @Transactional
+    public boolean sendFriendRequest(User user, Long friendId) {
+        // Ajoute l'ami à la liste des amis en attente de l'utilisateur
+        if (user.getPendingFriendRequests() == null) {
+            user.setPendingFriendRequests(new ArrayList<>());
+        }
+        user.getPendingFriendRequests().add(friendId);
+        userRepository.save(user);
+        // Envoie un message de demande d'ami à l'utilisateur cible
+        this.messageService.sendFriendRequest(user, friendId);
+        
+        return true;
+        }
+    
+    @Transactional
+    public boolean acceptFriendRequest(User user, Long AskerfriendId) {
+        
+        // Ajoute l'ami à la liste des amis de l'utilisateur
+        User friend = userRepository.findById(AskerfriendId)
+        .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+        
+        makeFriends(user, friend);
+        return true;
+    }
+
+    @Transactional
+    public boolean refuseFriendRequest(User AnswererUser, Long AskerfriendId) {
+        User askerFriendUser = userRepository.findById(AskerfriendId)
+                .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+        // Enlève l'ami de la liste des amis en attente de l'utilisateur
+        if (askerFriendUser.getPendingFriendRequests() != null && askerFriendUser.getPendingFriendRequests().contains(AnswererUser.getId())) {
+            askerFriendUser.getPendingFriendRequests().remove(AnswererUser.getId());
+        }
+        userRepository.save(askerFriendUser);
+        return true;
+    }
+    
     /**
      * Supprime un ami de l'utilisateur.
      * 
@@ -136,11 +195,16 @@ public class UserService {
      * @param friend L'ami à supprimer.
      */
     @Transactional
-    public void removeFriend(User user, User friend) {
+    public boolean removeFriend(User user, Long friendId) {
+        User friend = userRepository.findById(friendId)
+                .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+        // Supprime l'ami de la liste des amis de l'utilisateur
         if (user.getFriends() != null) {
             user.getFriends().remove(friend);
         }
         userRepository.save(user);
+        // Supprime l'utilisateur de la liste des amis de l'ami
+        return true;
     }
 
     /**
@@ -190,17 +254,4 @@ public class UserService {
         return getFriends(user, a, b);
     }
 
-
-
-    /**
-     * Envoyer une demande d'ami à un autre utilisateur.
-     *
-     * @param user L'utilisateur qui envoie la demande.
-     * @param friend L'utilisateur à qui la demande est envoyée.
-     * @return true si la demande a été envoyée avec succès, false sinon.
-     */
-    @Transactional
-    public void sendFriendRequest(User user, Long friendId) {
-        this.messageService.sendFriendRequest(user, friendId);
-        }
 }
