@@ -40,14 +40,21 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                 tabIndex={0}
                 onClick={onSelect}
                 onKeyDown={(e) => e.key === "Enter" && onSelect()}
-                className="message-item"
+                className={`message-item 
+                    ${!message.read ? 'unread' : ''} 
+                    ${message.containsItems ? 'has-items' : ''} 
+                    ${message.isFriendRequest ? 'friend-request' : ''}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <div className="message-sender">{sender}</div>
-                <div className="message-subject">{title}</div>
-                <div className="message-date">{date}</div>
+                <div className="message-sender">
+                    {message.sender}
+                    {message.containsItems && <span className="message-indicator indicator-items">🎁</span>}
+                    {message.isFriendRequest && <span className="message-indicator indicator-friend">👥</span>}
+                </div>
+                <div className="message-subject">{message.title}</div>
+                <div className="message-date">{message.date}</div>
             </motion.div>
         );
     }

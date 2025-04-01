@@ -92,7 +92,7 @@ const markMessageAsRead = useCallback(async (messageId) => {
     await markAsRead(messageId);
     setMessages(prevMessages => 
         prevMessages.map(message => 
-        message.id === messageId ? { ...message, read: true } : message
+        message.id === messageId ? { ...message, isRead: true } : message
         )
     );
     } catch (error) {

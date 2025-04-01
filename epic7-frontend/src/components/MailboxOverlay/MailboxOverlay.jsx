@@ -75,7 +75,10 @@ const MailboxOverlay = ({ onClose }) => {
                                         // Utiliser message si preview n'existe pas
                                         content: message.preview || message.message?.substring(0, 50) + "..." || "Cliquez pour voir le contenu...",
                                         sender: message.senderName,
-                                        date: formatDate(message.createdAt)
+                                        date: formatDate(message.createdAt),
+                                        read: message.isRead, // Note the change from read to isRead to match DTO
+                                        containsItems: message.containItems,
+                                        isFriendRequest: message.isFriendRequest
                                     }}
                                     onSelect={() => handleMessageClick(message)}
                                     showFullMessage={false}
