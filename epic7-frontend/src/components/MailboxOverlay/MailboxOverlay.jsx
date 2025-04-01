@@ -1,15 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { useMailboxContext } from "../../context/MailboxContext";
+import { motion } from "framer-motion";
 import MessageItem from './MessageItem';
-import './MailboxOverlay.css';
 
 const MailboxOverlay = ({ onClose }) => {
     const { messages, fetchMessages, loading } = useMailboxContext();
     const [selectedMessage, setSelectedMessage] = useState(null);
+    const [isVisible, setIsVisible] = useState(false);
 
+    // Refresh messages when the component mounts and when it becomes visible
     useEffect(() => {
         fetchMessages();
+        setIsVisible(true);
+        
+        // Refresh messages on component unmount and remount
+        return () => {
+            setIsVisible(false);
+        };
     }, [fetchMessages]);
+
+    // This ensures messages are refreshed each time the overlay opens
+    useEffect(() => {
+        if (isVisible) {
+            fetchMessages();
+        }
+    }, [isVisible, fetchMessages]);
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -29,55 +44,64 @@ const MailboxOverlay = ({ onClose }) => {
     const handleBackToList = () => {
         setSelectedMessage(null);
     };
+    
+    // Handler to prevent clicks on the container from closing the overlay
+    const handleContainerClick = (e) => {
+        e.stopPropagation();
+    };
 
     if (loading && !selectedMessage) return (
-        <div className="mailbox-overlay">
-            <div className="mailbox-container">
-                <div className="mailbox-loading">Chargement...</div>
+        <div className="fixed inset-0 flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-indigo-900 rounded-lg w-11/12 max-w-3xl max-h-[80vh] overflow-hidden flex flex-col shadow-lg" onClick={handleContainerClick}>
+                <div className="text-center p-8 text-gray-400">Chargement...</div>
             </div>
         </div>
     );
 
+    // Pour faciliter le debug
+    console.log("Messages dans le MailboxOverlay:", messages);
+
     return (
-        <div className="mailbox-overlay">
-            <div className="mailbox-container">
-                <div className="mailbox-header">
-                    <h2>Boîte de réception</h2>
-                    <button className="close-button" onClick={onClose}>✕</button>
+        <div className="fixed inset-0 flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-indigo-900 rounded-lg w-11/12 max-w-3xl max-h-[80vh] overflow-hidden flex flex-col shadow-lg" onClick={handleContainerClick}>
+                <div className="flex justify-between items-center p-4 bg-indigo-950 text-white">
+                    <h2 className="m-0 text-2xl">Boîte de réception</h2>
+                    <button className="bg-transparent border-none text-white text-2xl cursor-pointer" onClick={onClose}>✕</button>
                 </div>
 
                 {selectedMessage ? (
                     <div>
-                        <button className="back-button" onClick={handleBackToList}>← Retour</button>
+                        <button className="bg-transparent border-none text-gray-400 mb-4 cursor-pointer text-base p-4" onClick={handleBackToList}>← Retour</button>
                         <MessageItem 
                             message={{
                                 id: selectedMessage.id,
                                 title: selectedMessage.subject,
-                                // Ajout du 'message' comme fallback si content n'existe pas
-                                content: selectedMessage.preview || selectedMessage.message || "Cliquez pour voir le contenu...",
+                                content: selectedMessage.message || "Cliquez pour voir le contenu...",
                                 sender: selectedMessage.senderName,
-                                date: formatDate(selectedMessage.createdAt)
+                                date: formatDate(selectedMessage.createdAt),
+                                isRead: selectedMessage.isRead,
+                                containItems: selectedMessage.containItems,
+                                isFriendRequest: selectedMessage.isFriendRequest
                             }}
                             showFullMessage={true}
                         />
                     </div>
                 ) : (
-                    <div className="messages-list">
+                    <div className="overflow-y-auto p-4 flex-grow">
                         {messages.length === 0 ? (
-                            <p className="no-messages">Aucun message dans votre boîte de réception</p>
+                            <p className="text-center p-8 text-gray-400">Aucun message dans votre boîte de réception</p>
                         ) : (
                             messages.map((message) => (
-                                <MessageItem 
+                                <MessageItem
                                     key={message.id}
                                     message={{
                                         id: message.id,
                                         title: message.subject,
-                                        // Utiliser message si preview n'existe pas
-                                        content: message.preview || message.message?.substring(0, 50) + "..." || "Cliquez pour voir le contenu...",
+                                        content: message.message || "",
                                         sender: message.senderName,
                                         date: formatDate(message.createdAt),
-                                        read: message.isRead, // Note the change from read to isRead to match DTO
-                                        containsItems: message.containItems,
+                                        isRead: message.isRead,
+                                        containItems: message.containItems,
                                         isFriendRequest: message.isFriendRequest
                                     }}
                                     onSelect={() => handleMessageClick(message)}

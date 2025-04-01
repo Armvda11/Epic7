@@ -34,68 +34,76 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
     
     // Pour l'affichage en mode liste
     if (!showFullMessage) {
+        // Log the message for debugging
+        console.log("Message status in MessageItem:", message.id, message.isRead);
+        
         return (
             <motion.div
                 role="button"
                 tabIndex={0}
                 onClick={onSelect}
                 onKeyDown={(e) => e.key === "Enter" && onSelect()}
-                className={`message-item 
-                    ${!message.read ? 'unread' : ''} 
-                    ${message.containsItems ? 'has-items' : ''} 
-                    ${message.isFriendRequest ? 'friend-request' : ''}`}
+                className={`p-4 border-b border-indigo-800 cursor-pointer transition-colors grid grid-cols-4 gap-2
+                    ${message.isRead === false ? 'bg-opacity-15 bg-white border-l-4 border-l-white' : ''} 
+                    ${message.containItems ? 'border-l-4 border-l-cyan-400' : ''} 
+                    ${message.isFriendRequest ? 'border-l-4 border-l-purple-600' : ''} 
+                    hover:bg-indigo-800`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <div className="message-sender">
+                <div className="font-bold flex items-center">
                     {message.sender}
-                    {message.containsItems && <span className="message-indicator indicator-items">🎁</span>}
-                    {message.isFriendRequest && <span className="message-indicator indicator-friend">👥</span>}
+                    {message.containItems && (
+                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-cyan-400 bg-opacity-30 text-cyan-400 border border-cyan-400 shadow-sm" 
+                            title="Ce message contient des objets">🎁</span>
+                    )}
+                    {message.isFriendRequest && (
+                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-purple-600 bg-opacity-30 text-purple-600 border border-purple-600 shadow-sm" 
+                            title="Demande d'ami">👥</span>
+                    )}
                 </div>
-                <div className="message-subject">{message.title}</div>
-                <div className="message-date">{message.date}</div>
+                <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-2">{message.title}</div>
+                <div className="text-sm text-gray-400 text-right">{message.date}</div>
             </motion.div>
         );
     }
     
     // Pour l'affichage du message détaillé
     return (
-        <div className="message-detail">
+        <div className="p-4 overflow-y-auto">
             {loading ? (
-                <div className="message-loading">Chargement du message...</div>
+                <div className="text-center p-8 text-gray-400">Chargement du message...</div>
             ) : error ? (
-                <div className="message-error">{error}</div>
+                <div className="text-center p-8 text-red-400 bg-red-900 bg-opacity-10 rounded-md my-4">{error}</div>
             ) : (
                 <>
-                    <div className="message-header">
-                        <h3>{detailedMessage?.subject || title}</h3>
-                        <p>De: <strong>{detailedMessage?.senderName || sender}</strong></p>
+                    <div className="mb-4 border-b border-indigo-800 pb-4">
+                        <h3 className="mt-0 mb-2.5 text-xl">{detailedMessage?.subject || message.title}</h3>
+                        <p>De: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
                         <p>Reçu le: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit'
-                        }) : date}</p>
+                        }) : message.date}</p>
                     </div>
-                    <div className="message-content">
-                        {/* Utiliser message au lieu de content car c'est le nom de la propriété dans le DTO */}
-                        <p>{detailedMessage?.message || content || "Aucun contenu"}</p>
+                    <div className="leading-relaxed">
+                        <p>{detailedMessage?.message || message.content || "Aucun contenu"}</p>
                         
-                        {/* Afficher les informations supplémentaires si présentes */}
-                        {detailedMessage?.containItems && (
-                            <div className="message-items-info">
+                        {(detailedMessage?.containItems || message.containItems) && (
+                            <div className="mt-4 p-2 bg-cyan-400 bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
                                 <p>Ce message contient des objets.</p>
                             </div>
                         )}
                         
-                        {detailedMessage?.isFriendRequest && (
-                            <div className="message-friend-request">
+                        {(detailedMessage?.isFriendRequest || message.isFriendRequest) && (
+                            <div className="mt-4 p-2 bg-purple-600 bg-opacity-10 rounded-md border-l-4 border-l-purple-600">
                                 <p>Ce message est une demande d'ami.</p>
-                                <div className="friend-request-actions">
-                                    <button className="accept-button">Accepter</button>
-                                    <button className="reject-button">Refuser</button>
+                                <div className="flex gap-4 mt-2">
+                                    <button className="py-2 px-4 bg-green-600 text-white font-bold rounded-md border-none cursor-pointer">Accepter</button>
+                                    <button className="py-2 px-4 bg-red-600 text-white font-bold rounded-md border-none cursor-pointer">Refuser</button>
                                 </div>
                             </div>
                         )}

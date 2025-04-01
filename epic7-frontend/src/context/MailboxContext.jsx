@@ -31,6 +31,7 @@ const fetchMessages = useCallback(async () => {
     setError(null);
     try {
     const fetchedMessages = await getMessages();
+    console.log('Messages from API:', fetchedMessages); // Debug what's coming from the API
     setMessages(fetchedMessages);
     setLoading(false);
     } catch (error) {

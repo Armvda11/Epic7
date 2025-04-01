@@ -181,6 +181,7 @@ public class MessageService {
         message.setMessage("Vous avez reçu une demande d'ami de " + sender.getUsername());
         message.setCreatedAt(Instant.now());
         message.setValidUntil(Instant.now().plus(30, ChronoUnit.DAYS));
+        message.setContainItems(false);
         message.setRead(false);
         message.setFriendRequest(true);
 

@@ -92,21 +92,28 @@
 
 /* Message type indicators */
 .message-indicator {
-  display: inline-block;
-  margin-left: 5px;
-  font-size: 0.8rem;
-  padding: 2px 6px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  font-size: 1rem;
+  padding: 3px;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .indicator-items {
-  background-color: rgba(97, 218, 251, 0.2);
+  background-color: rgba(97, 218, 251, 0.3);
   color: #61dafb;
+  border: 1px solid #61dafb;
 }
 
 .indicator-friend {
-  background-color: rgba(138, 43, 226, 0.2);
+  background-color: rgba(138, 43, 226, 0.3);
   color: #8a2be2;
+  border: 1px solid #8a2be2;
 }
 
 .message-sender {

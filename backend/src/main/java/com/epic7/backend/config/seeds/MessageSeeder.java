@@ -6,6 +6,7 @@ import com.epic7.backend.repository.MessageRepository;
 import com.epic7.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import com.epic7.backend.service.MessageService;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,6 +20,9 @@ public class MessageSeeder {
 
     private final UserRepository userRepo;
     private final MessageRepository messageRepo;
+    private final MessageService messageService;
+
+
 
     public void seedMessages() {
         if (messageRepo.count() == 0) {
@@ -36,6 +40,13 @@ public class MessageSeeder {
                     message.setCreatedAt(Instant.now());
                     message.setValidUntil(Instant.now().plusSeconds(7 * 24 * 60 * 60)); // 7 jours de validité
                     messageRepo.save(message);
+
+                    // Test de FriendRequest
+                    messageService.sendFriendRequest(sender, user.getId());
+
+                    // Test d'envoie de plusieurs shopping item
+                    List<Long> itemIds = List.of(1L, 2L, 3L); // Remplacez par les IDs d'articles valides
+                    messageService.sendItemMessage(sender, user, "Cadeau de bienvenue reçu !" , "Voici un cadeau de bienvenue pour toi !", itemIds, Instant.now());
                 }
 
                 System.out.println("✅ Messages de bienvenue envoyés.");
