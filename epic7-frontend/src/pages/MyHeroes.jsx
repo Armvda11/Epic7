@@ -4,6 +4,7 @@ import HeroCard from '../components/hero/HeroCard';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import SkillCard from "../components/hero/SkillCard";
 
 
 /**
@@ -179,27 +180,11 @@ useEffect(() => {
                   <h3 className="text-lg font-semibold mb-2 text-center">Compétences</h3>
                   <div className="flex justify-center gap-3 flex-wrap">
                     {skills.map((skill) => (
-                      <div
+                      <SkillCard
                         key={skill.id}
-                        className={`relative group p-2 ${skill.category === "PASSIVE" ? "rounded-full" : "rounded-md"
-                          } bg-gray-700 hover:bg-gray-600 w-16 h-16 flex items-center justify-center cursor-pointer transition`}
-                      >
-                        <img
-                          src="/epic7-Hero/avif/unknown.avif"
-                          alt={skill.name}
-                          className="w-10 h-10"
-                        />
-                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs p-2 rounded-md w-64 z-10 text-left">
-                          <p className="font-semibold">{skill.name}</p>
-                          <p>{skill.description}</p>
-                          {skill.action && (
-                            <p className="mt-1">🎯 {skill.action} • {skill.targetCount} cible(s)</p>
-                          )}
-                          {skill.scalingStat && skill.scalingFactor && (
-                            <p className="text-sm italic">⚔️ Scaling: {skill.scalingFactor} × {skill.scalingStat}</p>
-                          )}
-                        </div>
-                      </div>
+                        skill={skill}
+                        heroName={selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
+                      />
                     ))}
                   </div>
                 </div>
