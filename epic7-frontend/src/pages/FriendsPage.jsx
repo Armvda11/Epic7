@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { fetchFriends, removeFriend, sendFriendRequest, fetchUserProfile } from "../services/userService";
 import { useSettings } from "../context/SettingsContext";
+import { FaArrowLeft, FaUserPlus, FaUserMinus, FaSearch, FaSync } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 const FriendsPage = () => {
@@ -19,7 +20,6 @@ console.log("FriendsPage component mounted, retry count:", retryCount);
 
 // Memoize loadFriends
 const loadFriends = useCallback(async () => {
-    console.log("Loading friends...");
     console.log("Loading friends... attempt:", retryCount + 1);
     setLoading(true);
     setError(null);
