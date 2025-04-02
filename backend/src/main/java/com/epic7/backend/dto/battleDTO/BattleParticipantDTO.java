@@ -1,13 +1,22 @@
 package com.epic7.backend.dto.battleDTO;
 
+import com.epic7.backend.dto.SkillDTO;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
 
-import com.epic7.backend.dto.SkillDTO;
 
+/**
+ * Décrit un participant (joueur ou boss) pour affichage ou suivi.
+ */
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BattleParticipantDTO {
     private String name;
     private String side;

@@ -121,18 +121,20 @@ public class HeroSeeder {
                 .position(1)
                 .hero(mlPiera)
                 .build(),
-
-            Skill.builder()
+                Skill.builder()
                 .name("Hound the Indolent")
-                .description("Increases Attack and Speed of all allies.")
+                .description("Heals all allies based on caster's health.")
                 .category(SkillCategory.ACTIVE)
-                .action(SkillAction.HEAL) // ou buff si SkillAction.BUFF existe
+                .action(SkillAction.HEAL)
+                .scalingStat(StatScaling.HEALTH) // ⚠️ C'est ça qui manquait
+                .scalingFactor(0.5)              // Exemple : soigne 50% du HP de Ml Piera
                 .targetGroup(TargetGroup.ALL_ALLIES)
                 .targetCount(4)
                 .cooldown(3)
                 .position(2)
                 .hero(mlPiera)
                 .build()
+            
         ));
         System.out.println("✅ Compétences de Ml Piera créées.");
     }

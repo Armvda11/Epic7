@@ -1,14 +1,18 @@
 package com.epic7.backend.dto.battleDTO;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 
+/**
+ * Représente un événement de combat (dégât ou soin).
+ */
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class CombatLogDTO {
     private String actorName;
     private String actionName;
     private String targetName;
-    private int damage; // ou heal
-    private boolean isHeal;
+    private int damage; // Valeur des dégâts ou soins
+    private boolean isHeal; // true si soin, false si dégâts
 }
