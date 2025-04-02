@@ -79,7 +79,9 @@ export const sendFriendRequest = async (userId) => {
 // Accepte une demande d'ami
 export const acceptFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.post(`/friends/accept/${friendId}`, {}, options);
+    const response = await API.get('/user/accept-friend', {
+      params: { userId: friendId }
+    }, options);
     return response.data;
   } catch (error) {
     console.error("Error accepting friend request:", error);
@@ -90,7 +92,9 @@ export const acceptFriendRequest = async (friendId, options = {}) => {
 // Refuse une demande d'ami
 export const declineFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.post(`/friends/decline/${friendId}`, {}, options);
+    const response = await API.get('/user/decline-friend', {
+      params: { userId: friendId }
+    }, options);
     return response.data;
   } catch (error) {
     console.error("Error declining friend request:", error);
