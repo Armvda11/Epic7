@@ -60,14 +60,14 @@ public class HeroSeeder {
                 .targetCount(1)
                 .scalingStat(StatScaling.ATTACK)
                 .scalingFactor(1.4)
-                .cooldown(2)
+                .cooldown(0)
                 .position(0)
                 .hero(hwayoung)
                 .build(),
 
             Skill.builder()
                 .name("Divine Vessel")
-                .description("At the start of the first battle, increases Defense proportional to Attack. When an ally dies, activates Bystander.")
+                .description("At the start of the first battle, increases Defense proportional to Attack. When an ally dies, activates bystandar ( super strong atk).")
                 .category(SkillCategory.PASSIVE)
                 .passiveBonus(PassiveBonusType.DEFENSE_UP)
                 .bonusValue(30.0)
