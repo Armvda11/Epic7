@@ -17,9 +17,8 @@ export const fetchUserProfile = async () => {
 export const fetchFriends = async (userId = 0, premier = 0, dernier = 100) => {
   console.log("Fetching friends with params:", { userId, premier, dernier });
   try {
-    // Use standard API request - matching the pattern of other working requests
     // Ajout d'un timeout pour déboguer
-    const response = await API.get("/user/friends", {
+    const response = await API.get(`/user/friends`, {
       params: { userId, premier, dernier },
       timeout: 10000 // 10 secondes
     });
