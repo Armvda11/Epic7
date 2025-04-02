@@ -13,6 +13,7 @@ public class GlobalSeeder {
     private final EquipmentSeeder equipmentSeeder;
     private final PlayerSeeder playerSeeder;
     private final MessageSeeder messageSeeder;
+    private final ShopSeeder shopSeeder;
 
     @PostConstruct
     public void seed() {
@@ -28,6 +29,8 @@ public class GlobalSeeder {
         System.out.println("✅ Équipements joueurs ajoutés.");
         messageSeeder.seedMessages();
         System.out.println("✅ Messages créés.");
+        shopSeeder.seedShopItems();
+        System.out.println("✅ Articles de la boutique créés.");
 
         
         System.out.println("✅ Base de données initialisée.");

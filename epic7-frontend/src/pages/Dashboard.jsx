@@ -48,6 +48,7 @@ const Dashboard = () => {
     { label: t("guilds", language), icon: <FaUsers size={28} /> },
     { label: t("quests", language), icon: <FaBookOpen size={28} /> },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> },
+    { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
   ];
   if (!user) {
     return (

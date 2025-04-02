@@ -5,7 +5,7 @@ getFullMessage,
 sendMessage, 
 deleteMessage, 
 markAsRead 
-} from '../services/mailBoxService';
+} from '../services/mailboxService';
 
 // Create the context
 const MailboxContext = createContext();
