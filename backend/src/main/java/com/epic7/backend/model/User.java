@@ -75,6 +75,16 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "friend_id"))
     private List<User> friends; // Liste des amis de l'utilisateur
     // (a modifier lorsque l'utilisateur ajoute ou supprime un ami)
+    
+    
+    @ElementCollection
+    @CollectionTable(
+        name = "user_pending_friend_requests",
+        joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "friend_email")
+    private List<Long> pendingFriendRequests = new ArrayList<>(); // Liste des demandes d'amis en attente
+    // (a modifier lorsque l'utilisateur envoie ou reçoit une demande d'ami)
 
     @Column(name = "last_login")
     private Instant lastLogin = Instant.now(); // Date de la dernière connexion de l'utilisateur

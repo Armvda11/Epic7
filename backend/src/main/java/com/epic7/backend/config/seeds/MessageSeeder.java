@@ -46,7 +46,7 @@ public class MessageSeeder {
 
                     // Test d'envoie de plusieurs shopping item
                     List<Long> itemIds = List.of(1L, 2L, 3L); // Remplacez par les IDs d'articles valides
-                    messageService.sendItemMessage(sender, user, "Cadeau de bienvenue reçu !" , "Voici un cadeau de bienvenue pour toi !", itemIds, Instant.now());
+                    messageService.sendItemsMessage(sender, user, "Cadeau de bienvenue reçu !" , "Voici un cadeau de bienvenue pour toi !", itemIds, Instant.now());
                 }
 
                 System.out.println("✅ Messages de bienvenue envoyés.");

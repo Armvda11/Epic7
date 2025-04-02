@@ -56,4 +56,40 @@ public class UserController {
                         friend.getLevel()))
                 .toList();
     }
+
+    @GetMapping("/send-friend-requests")
+    public boolean sendFriendRequest(HttpServletRequest request,
+                                    @RequestParam Long userId) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+
+        return userService.sendFriendRequest(user, userId);
+    }
+
+    @GetMapping("/accept-friend")
+    public boolean addFriend(HttpServletRequest request,
+                                    @RequestParam Long userId) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+
+        return userService.acceptFriendRequest(user, userId);
+    }
+
+    @GetMapping("/decline-friend")
+    public boolean declineFriendRequest(HttpServletRequest request,
+                                    @RequestParam Long userId) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+
+        return userService.refuseFriendRequest(user, userId);
+    }
+
+    @GetMapping("/remove-friend")
+    public boolean removeFriend(HttpServletRequest request,
+                                    @RequestParam Long userId) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+
+        return userService.removeFriend(user, userId);
+    }
 }
