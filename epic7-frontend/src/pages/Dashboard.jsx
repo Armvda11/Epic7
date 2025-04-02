@@ -18,7 +18,7 @@ import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen } 
 // Elle utilise le service utilisateur pour récupérer les informations de l'utilisateur
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { language, t } = useSettings(); // Langue & Traductions
+  const { language, t, theme } = useSettings(); // Add theme from settings
   const [user, setUser] = useState(null);  // inormations de l'utilisateur
   const [showProfile, setShowProfile] = useState(false); // État pour afficher la carte de profil
   const [showSettings, setShowSettings] = useState(false); // État pour afficher le panneau de paramètres
@@ -128,14 +128,14 @@ const Dashboard = () => {
   ];
   if (!user) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e1b3a] to-[#2a2250] text-white">
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
         {t("loadingProfile", language)}...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#1e1b3a] to-[#2a2250] text-white p-6 relative">
+    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6 relative">
 
       {/* Panneau de paramètres modale */}
       {showSettings && (
@@ -161,21 +161,21 @@ const Dashboard = () => {
       {showSearchResults && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
           <div className="absolute inset-0" onClick={resetSearch} />
-          <div className="bg-[#2f2b50] rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative z-50">
+          <div className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative z-50">
             <h2 className="text-2xl font-bold mb-4">{t("searchResults", language)}</h2>
             {searchResults.length > 0 ? (
               <ul className="space-y-4">
                 {searchResults.map((player) => (
                   <li
                     key={player.id}
-                    className="p-4 bg-[#3a3660] rounded-lg hover:bg-[#4a4680] cursor-pointer transition"
+                    className="p-4 bg-purple-50 dark:bg-[#3a3660] rounded-lg hover:bg-purple-100 dark:hover:bg-[#4a4680] cursor-pointer transition"
                     onClick={() => navigateToProfile(player.id)}
                   >
                     <div className="flex items-center gap-3">
                       <img
                         src={player.avatar || "/epic7-Hero/sprite-hero/unknown.png"}
                         alt={player.username}
-                        className="w-12 h-12 rounded-full bg-gray-600 object-cover"
+                        className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 object-cover"
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
@@ -183,7 +183,7 @@ const Dashboard = () => {
                       />
                       <div>
                         <p className="font-bold">{player.username}</p>
-                        <p className="text-sm text-gray-300">{t("level", language)} {player.level}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{t("level", language)} {player.level}</p>
                       </div>
                     </div>
                   </li>
@@ -218,7 +218,7 @@ const Dashboard = () => {
             value={searchTerm}
             onChange={handleSearchChange}
             placeholder={t("searchPlayer", language)}
-            className="w-full p-3 pl-10 bg-[#2f2b50] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="w-full p-3 pl-10 bg-white dark:bg-[#2f2b50] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
           />
           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
             🔍
@@ -226,14 +226,14 @@ const Dashboard = () => {
 
           {/* Résultats de recherche suggérés */}
           {searchTerm.length > 1 && !showSearchResults && (
-            <div className="absolute z-50 w-full mt-1 bg-[#2f2b50] rounded-lg shadow-xl border border-purple-500 max-h-60 overflow-y-auto">
+            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2f2b50] rounded-lg shadow-xl border border-purple-500 max-h-60 overflow-y-auto">
               {searchResults.length > 0 ? (
                 <>
                   {searchResults.slice(0, 5).map((player) => (
                     <div
                       key={player.id}
                       onClick={() => navigateToProfile(player.id)}
-                      className="p-3 hover:bg-[#3a3660] cursor-pointer flex items-center gap-3"
+                      className="p-3 hover:bg-purple-50 dark:hover:bg-[#3a3660] cursor-pointer flex items-center gap-3"
                     >
                       <img
                         src={player.avatar || "/epic7-Hero/sprite-hero/unknown.png"}
@@ -279,10 +279,10 @@ const Dashboard = () => {
           </button>
           <button
             onClick={() => setShowProfile(true)}
-            className="w-full max-w-xs p-4 bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
+            className="w-full max-w-xs p-4 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
           >
             <article className="flex items-center gap-4">
-              <img src="/epic7-Hero/sprite-hero/mavuika.png" alt="avatar" className="w-14 h-14 rounded-full bg-gray-600 object-cover shadow"
+              <img src="/epic7-Hero/sprite-hero/mavuika.png" alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
@@ -290,14 +290,14 @@ const Dashboard = () => {
               />
               <div>
                 <h2 className="text-xl font-bold">{user.username}</h2>
-                <p className="text-sm text-gray-300">{t("level", language)} {user.level}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t("level", language)} {user.level}</p>
               </div>
             </article>
 
             <aside className="mt-4 grid grid-cols-3 gap-2 text-sm text-center">
-              <p className="bg-statBg p-2 rounded-lg">💰 {user.gold}</p>
-              <p className="bg-statBg p-2 rounded-lg">💎 {user.diamonds}</p>
-              <p className="bg-statBg p-2 rounded-lg">⚡ {user.energy}</p>
+              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">💰 {user.gold}</p>
+              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">💎 {user.diamonds}</p>
+              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">⚡ {user.energy}</p>
             </aside>
           </button>
         </div>
@@ -306,7 +306,7 @@ const Dashboard = () => {
       {/*  Titre d'accueil */}
       <section className="text-center mb-10">
         <h1 className="text-3xl font-bold">
-          {t("welcome", language)}, <span className="text-purple-300">{user.username}</span>
+          {t("welcome", language)}, <span className="text-purple-500 dark:text-purple-300">{user.username}</span>
         </h1>
       </section>
 

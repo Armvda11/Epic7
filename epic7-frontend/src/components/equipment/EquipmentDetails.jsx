@@ -1,12 +1,13 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useSettings } from "../../context/SettingsContext";
 
 const rarityStyles = {
-  COMMON: "text-gray-300",
-  NORMAL: "text-gray-400",
-  RARE: "text-blue-400",
-  EPIC: "text-purple-400",
-  LEGENDARY: "text-yellow-300",
+  COMMON: "text-gray-500 dark:text-gray-300",
+  NORMAL: "text-gray-600 dark:text-gray-400",
+  RARE: "text-blue-600 dark:text-blue-400",
+  EPIC: "text-purple-600 dark:text-purple-400",
+  LEGENDARY: "text-yellow-500 dark:text-yellow-300",
 };
 
 const typeIcons = {
@@ -19,7 +20,8 @@ const typeIcons = {
 // Ce composant représente les détails d'un équipement
 // Il affiche le nom, le type, le niveau, l'expérience et les bonus de stats de l'équipement
 const EquipmentDetails = ({ equipment }) => {
-  const rarityClass = rarityStyles[equipment.rarity] || "text-white";
+  const { t, language } = useSettings();
+  const rarityClass = rarityStyles[equipment.rarity] || "text-gray-900 dark:text-white";
   const icon = typeIcons[equipment.type] || "❓";
 
   return (
@@ -30,10 +32,10 @@ const EquipmentDetails = ({ equipment }) => {
     >
       <div className="text-5xl mb-2">{icon}</div>
       <h2 className={`text-xl font-bold ${rarityClass}`}>{equipment.name}</h2>
-      <p className="text-sm text-gray-300 mt-1">{equipment.type}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{t(equipment.type.toLowerCase(), language)}</p>
 
-      <p className="text-sm mt-1">⭐ Niveau {equipment.level}</p>
-      <p className="text-xs text-gray-400 mb-2">XP : {equipment.experience}</p>
+      <p className="text-sm mt-1">⭐ {t("level", language)} {equipment.level}</p>
+      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">XP : {equipment.experience}</p>
 
       {/* Stats bonus */}
       <div className="text-sm text-left w-full mt-2 space-y-1">
@@ -46,9 +48,9 @@ const EquipmentDetails = ({ equipment }) => {
       {/* Status */}
       <div className="mt-4">
         {equipment.equipped ? (
-          <p className="text-green-400">Équipé par <strong>{equipment.equippedHeroName}</strong></p>
+          <p className="text-green-600 dark:text-green-400">{t("equippedOn", language)} <strong>{equipment.equippedHeroName}</strong></p>
         ) : (
-          <p className="text-gray-400">En inventaire</p>
+          <p className="text-gray-600 dark:text-gray-400">{t("inInventory", language)}</p>
         )}
       </div>
     </motion.div>

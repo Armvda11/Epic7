@@ -81,7 +81,7 @@ const HeroView = () => {
   const filteredAvailable = selectedSlot  ? available.filter((item) => item.type === selectedSlot)  : [];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6 flex flex-col">
+    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6 flex flex-col">
       <h1 className="text-3xl font-bold mb-6 text-center">{heroName}</h1>
 
       <section className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8">
@@ -108,7 +108,7 @@ const HeroView = () => {
         </div>
 
         {/* Détails ou équipements disponibles */}
-        <aside className="w-full lg:w-96 bg-[#2e2b4a] rounded-xl p-4 shadow-md max-h-[80vh] overflow-y-auto">
+        <aside className="w-full lg:w-96 bg-white dark:bg-[#2e2b4a] rounded-xl p-4 shadow-md max-h-[80vh] overflow-y-auto">
           {selectedEquipment ? (
             <EquipmentDetailsPanel  equipment={selectedEquipment}  currentHeroId={parseInt(heroId)}  onEquip={handleEquip}  onUnequip={handleUnequip}/>
           ) : (
@@ -122,19 +122,19 @@ const HeroView = () => {
               {filteredAvailable.length > 0 ? (
                 filteredAvailable.map((eq) => (
                   <div  key={eq.id}  onClick={() => setSelectedEquipment(eq)}  className="cursor-pointer mb-3">
-                    <div className="bg-gray-700 hover:bg-gray-600 p-3 rounded transition">
+                    <div className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-3 rounded transition">
                       <p className="font-medium">{eq.name}</p>
-                      <p className="text-sm text-gray-300">{t(eq.rarity.toLowerCase(), language)} • Lv.{eq.level}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{t(eq.rarity.toLowerCase(), language)} • Lv.{eq.level}</p>
                     </div>
                   </div>
                   )) ) : (
-                <p className="text-center text-gray-400">{t("noEquipmentAvailable", language)}</p>
+                <p className="text-center text-gray-500 dark:text-gray-400">{t("noEquipmentAvailable", language)}</p>
               )}
             </>
           )}
         </aside>
       </section>
-      <button onClick={() => navigate('/my-heroes')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      <button onClick={() => navigate('/my-heroes')} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded mt-6 self-start">
         {t("back", language)}
       </button>
     </main>

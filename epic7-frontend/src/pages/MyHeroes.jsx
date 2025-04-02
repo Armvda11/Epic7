@@ -80,7 +80,7 @@ useEffect(() => {
 
 
   return (
-    <div className="p-6 min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white relative">
+    <div className="p-6 min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white relative">
       {/* Header + Filtres */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-3xl font-bold">{t("myHeroes", language)}</h2>
@@ -88,7 +88,7 @@ useEffect(() => {
           <select
             value={filterElement}
             onChange={(e) => setFilterElement(e.target.value)}
-            className="bg-gray-700 text-white p-2 rounded"
+            className="bg-white dark:bg-[#2f2b50] text-gray-900 dark:text-white p-2 rounded border border-gray-300 dark:border-gray-600"
           >
             {ELEMENTS.map((e) => (
               <option key={e} value={e}>{t(e.toLowerCase(), language)}</option>
@@ -97,7 +97,7 @@ useEffect(() => {
           <select
             value={filterRarity}
             onChange={(e) => setFilterRarity(e.target.value)}
-            className="bg-gray-700 text-white p-2 rounded"
+            className="bg-white dark:bg-[#2f2b50] text-gray-900 dark:text-white p-2 rounded border border-gray-300 dark:border-gray-600"
           >
             {RARITIES.map((r) => (
               <option key={r} value={r}>{t(r.toLowerCase(), language)}</option>
@@ -105,14 +105,14 @@ useEffect(() => {
           </select>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
           >
             {t("back", language)}
           </button>
         </div>
       </div>
 
-      {error && <div className="text-red-500">{error}</div>}
+      {error && <div className="text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900 bg-opacity-20 dark:bg-opacity-20 p-3 rounded-lg">{error}</div>}
 
       {/* Affichage des cartes héros */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -135,7 +135,7 @@ useEffect(() => {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-gray-900 text-white p-4 md:p-6 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative"
+              className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white p-4 md:p-6 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative"
               onClick={(e) => e.stopPropagation()}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -157,7 +157,7 @@ useEffect(() => {
                   🌟 {selectedHero.rarity || selectedHero.hero?.rarity} | 🔮 {selectedHero.element || selectedHero.hero?.element}
                 </div>
 
-                <div className="w-full max-w-[300px] aspect-[4/5] overflow-hidden flex items-center justify-center bg-[#1a1a2e] rounded-xl mb-4">
+                <div className="w-full max-w-[300px] aspect-[4/5] overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-[#1a1a2e] rounded-xl mb-4">
                   <img
                     src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
                     alt={selectedHero.name}
@@ -169,7 +169,7 @@ useEffect(() => {
                   />
                 </div>
 
-                <div className="space-y-2 text-sm mb-4 w-full bg-[#2a2a40] p-3 rounded-lg">
+                <div className="space-y-2 text-sm mb-4 w-full bg-gray-100 dark:bg-[#2a2a40] p-3 rounded-lg">
                   <p>⚔️ {t("attack", language)} : <span className="float-right font-bold">{selectedHero.totalAttack || selectedHero.hero?.baseAttack || '?'}</span></p>
                   <p>🛡️ {t("defense", language)} : <span className="float-right font-bold">{selectedHero.totalDefense || selectedHero.hero?.baseDefense || '?'}</span></p>
                   <p>💨 {t("speed", language)} : <span className="float-right font-bold">{selectedHero.totalSpeed || selectedHero.hero?.baseSpeed || '?'}</span></p>
@@ -193,7 +193,7 @@ useEffect(() => {
 
                 <button
                   onClick={() => navigate(`/hero/${selectedHero.id}`)}
-                  className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+                  className="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded"
                 >
                   {t("seeMore", language)}
                 </button>

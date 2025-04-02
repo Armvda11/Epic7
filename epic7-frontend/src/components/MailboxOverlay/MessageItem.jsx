@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useMailboxContext } from "../../context/MailboxContext";
 import { acceptFriendRequest, declineFriendRequest } from "../../services/userService";
+import { useSettings } from "../../context/SettingsContext";
 
 const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) => {
     const { getMessageDetails, markMessageAsRead } = useMailboxContext();
+    const { t, language } = useSettings();
     const [detailedMessage, setDetailedMessage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -49,7 +51,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
         console.log("Accept Friend - Using Sender ID:", senderId);
         
         if (!senderId) {
-            setError("Impossible de traiter cette demande: identifiant d'expéditeur manquant");
+            setError(t("missingRecipientId", language) || "Impossible de traiter cette demande: identifiant d'expéditeur manquant");
             return;
         }
         
@@ -59,7 +61,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
             if (result) {
                 setActionStatus({
                     success: true,
-                    message: "Demande d'ami acceptée avec succès!"
+                    message: t("friendRequestAccepted", language) || "Demande d'ami acceptée avec succès!"
                 });
                 
                 // Wait 1.5 seconds then delete the message
@@ -67,13 +69,13 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                     onDelete(message.id);
                 }, 1500);
             } else {
-                throw new Error("Échec de l'opération");
+                throw new Error(t("operationFailed", language) || "Échec de l'opération");
             }
         } catch (err) {
             console.error("Erreur lors de l'acceptation de la demande d'ami:", err);
             setActionStatus({
                 success: false,
-                message: "Impossible d'accepter la demande d'ami"
+                message: t("cannotAcceptRequest", language) || "Impossible d'accepter la demande d'ami"
             });
         } finally {
             setActionLoading(false);
@@ -92,7 +94,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
         console.log("Decline Friend - Using Sender ID:", senderId);
         
         if (!senderId) {
-            setError("Impossible de traiter cette demande: identifiant d'expéditeur manquant");
+            setError(t("missingRecipientId", language) || "Impossible de traiter cette demande: identifiant d'expéditeur manquant");
             return;
         }
         
@@ -102,7 +104,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
             if (result) {
                 setActionStatus({
                     success: true,
-                    message: "Demande d'ami refusée"
+                    message: t("friendRequestDeclined", language) || "Demande d'ami refusée"
                 });
                 
                 // Wait 1.5 seconds then delete the message
@@ -110,13 +112,13 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                     onDelete(message.id);
                 }, 1500);
             } else {
-                throw new Error("Échec de l'opération");
+                throw new Error(t("operationFailed", language) || "Échec de l'opération");
             }
         } catch (err) {
             console.error("Erreur lors du refus de la demande d'ami:", err);
             setActionStatus({
                 success: false,
-                message: "Impossible de refuser la demande d'ami"
+                message: t("cannotDeclineRequest", language) || "Impossible de refuser la demande d'ami"
             });
         } finally {
             setActionLoading(false);
@@ -232,11 +234,13 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                 tabIndex={0}
                 onClick={onSelect}
                 onKeyDown={(e) => e.key === "Enter" && onSelect()}
-                className={`p-4 border-b border-indigo-800 cursor-pointer transition-colors grid grid-cols-12 gap-2
-                    ${message.isRead ? 'bg-indigo-900' : 'bg-indigo-700 font-semibold border-l-4 border-l-yellow-400'} 
+                className={`p-4 border-b border-indigo-800 dark:border-indigo-800 cursor-pointer transition-colors grid grid-cols-12 gap-2
+                    ${message.isRead 
+                        ? 'bg-gray-100 dark:bg-indigo-900' 
+                        : 'bg-blue-50 dark:bg-indigo-700 font-semibold border-l-4 border-l-yellow-400'} 
                     ${message.containItems ? 'border-l-4 border-l-cyan-400' : ''} 
                     ${message.isFriendRequest ? 'border-l-4 border-l-purple-600' : ''} 
-                    hover:bg-indigo-800`}
+                    hover:bg-gray-200 dark:hover:bg-indigo-800`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -244,30 +248,30 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                 <div className="font-bold flex items-center col-span-3">
                     {message.sender}
                     {message.containItems && (
-                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-cyan-400 bg-opacity-30 text-cyan-400 border border-cyan-400 shadow-sm" 
-                            title="Ce message contient des objets">🎁</span>
+                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-cyan-100 dark:bg-cyan-400 bg-opacity-30 dark:bg-opacity-30 text-cyan-600 dark:text-cyan-400 border border-cyan-400 shadow-sm" 
+                            title={t("messageContainsItems", language) || "Ce message contient des objets"}>🎁</span>
                     )}
                     {message.isFriendRequest && (
-                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-purple-600 bg-opacity-30 text-purple-600 border border-purple-600 shadow-sm" 
-                            title="Demande d'ami">👥</span>
+                        <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-purple-100 dark:bg-purple-600 bg-opacity-30 dark:bg-opacity-30 text-purple-600 dark:text-purple-600 border border-purple-600 shadow-sm" 
+                            title={t("friendRequest", language) || "Demande d'ami"}>👥</span>
                     )}
                 </div>
                 <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-6">{message.title}</div>
-                <div className="text-sm text-gray-400 text-right col-span-2">{message.date}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 text-right col-span-2">{message.date}</div>
                 <div className="text-right col-span-1">
                     {deleteConfirm ? (
                         <div onClick={(e) => e.stopPropagation()} className="flex space-x-1">
                             <button 
                                 onClick={handleDelete}
                                 className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
-                                title="Confirmer la suppression"
+                                title={t("confirmDelete", language) || "Confirmer la suppression"}
                             >
                                 ✓
                             </button>
                             <button 
                                 onClick={cancelDelete}
-                                className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
-                                title="Annuler"
+                                className="text-xs bg-gray-500 dark:bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
+                                title={t("cancel", language) || "Annuler"}
                             >
                                 ✗
                             </button>
@@ -275,8 +279,8 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                     ) : (
                         <button 
                             onClick={handleDelete}
-                            className="text-xs bg-red-600 bg-opacity-50 text-white px-2 py-1 rounded hover:bg-red-600"
-                            title="Supprimer le message"
+                            className="text-xs bg-red-500 dark:bg-red-600 bg-opacity-50 dark:bg-opacity-50 text-white px-2 py-1 rounded hover:bg-red-600 dark:hover:bg-red-600"
+                            title={t("deleteMessage", language) || "Supprimer le message"}
                         >
                             🗑️
                         </button>
@@ -290,16 +294,16 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
     return (
         <div className="p-4 flex-grow flex flex-col overflow-hidden">
             {loading ? (
-                <div className="text-center p-8 text-gray-400">Chargement du message...</div>
+                <div className="text-center p-8 text-gray-500 dark:text-gray-400">{t("loadingMessage", language) || "Chargement du message..."}</div>
             ) : error ? (
-                <div className="text-center p-8 text-red-400 bg-red-900 bg-opacity-10 rounded-md my-4">{error}</div>
+                <div className="text-center p-8 text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900 bg-opacity-10 dark:bg-opacity-10 rounded-md my-4">{error}</div>
             ) : (
                 <div className="overflow-y-auto pr-1 flex-grow">
-                    <div className="mb-4 border-b border-indigo-800 pb-4 flex justify-between items-start">
+                    <div className="mb-4 border-b border-gray-300 dark:border-indigo-800 pb-4 flex justify-between items-start">
                         <div>
                             <h3 className="mt-0 mb-2.5 text-xl">{detailedMessage?.subject || message.title}</h3>
-                            <p>De: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
-                            <p>Reçu le: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
+                            <p>{t("from", language) || "De"}: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
+                            <p>{t("receivedOn", language) || "Reçu le"}: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
                                 day: '2-digit',
                                 month: '2-digit',
                                 year: 'numeric',
@@ -314,60 +318,60 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                                         onClick={handleDelete}
                                         className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
                                     >
-                                        Confirmer
+                                        {t("confirm", language) || "Confirmer"}
                                     </button>
                                     <button 
                                         onClick={cancelDelete}
-                                        className="bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-700"
+                                        className="bg-gray-500 dark:bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
                                     >
-                                        Annuler
+                                        {t("cancel", language) || "Annuler"}
                                     </button>
                                 </div>
                             ) : (
                                 <button 
                                     onClick={() => setDeleteConfirm(true)}
-                                    className="bg-red-600 bg-opacity-50 text-white px-3 py-2 rounded hover:bg-red-600"
+                                    className="bg-red-500 dark:bg-red-600 bg-opacity-50 dark:bg-opacity-50 text-white px-3 py-2 rounded hover:bg-red-600 dark:hover:bg-red-600"
                                 >
-                                    Supprimer
+                                    {t("delete", language) || "Supprimer"}
                                 </button>
                             )}
                         </div>
                     </div>
                     <div className="leading-relaxed space-y-4">
-                        <div className="border border-indigo-800 rounded-md p-4 bg-indigo-950 bg-opacity-50 shadow-inner">
-                            <p className="whitespace-pre-wrap">{detailedMessage?.message || message.content || "Aucun contenu"}</p>
+                        <div className="border border-gray-300 dark:border-indigo-800 rounded-md p-4 bg-gray-50 dark:bg-indigo-950 bg-opacity-50 dark:bg-opacity-50 shadow-inner">
+                            <p className="whitespace-pre-wrap">{detailedMessage?.message || message.content || t("noContent", language) || "Aucun contenu"}</p>
                         </div>
                         
                         {(detailedMessage?.containItems || message.containItems) && (
-                            <div className="p-2 bg-cyan-400 bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
-                                <p>Ce message contient des objets.</p>
+                            <div className="p-2 bg-cyan-100 dark:bg-cyan-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
+                                <p>{t("messageContainsItems", language) || "Ce message contient des objets."}</p>
                             </div>
                         )}
                         
                         {(detailedMessage?.isFriendRequest || message.isFriendRequest) && !actionStatus?.success && (
-                            <div className="p-2 bg-purple-600 bg-opacity-10 rounded-md border-l-4 border-l-purple-600">
-                                <p>Ce message est une demande d'ami.</p>
+                            <div className="p-2 bg-purple-100 dark:bg-purple-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-purple-600">
+                                <p>{t("messageIsFriendRequest", language) || "Ce message est une demande d'ami."}</p>
                                 <div className="flex gap-4 mt-2">
                                     <button 
                                         onClick={handleAcceptFriend}
                                         disabled={actionLoading}
                                         className={`py-2 px-4 bg-green-600 text-white font-bold rounded-md border-none ${actionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                     >
-                                        {actionLoading ? 'En cours...' : 'Accepter'}
+                                        {actionLoading ? t("inProgress", language) || 'En cours...' : t("accept", language) || 'Accepter'}
                                     </button>
                                     <button 
                                         onClick={handleDeclineFriend}
                                         disabled={actionLoading}
                                         className={`py-2 px-4 bg-red-600 text-white font-bold rounded-md border-none ${actionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                     >
-                                        {actionLoading ? 'En cours...' : 'Refuser'}
+                                        {actionLoading ? t("inProgress", language) || 'En cours...' : t("decline", language) || 'Refuser'}
                                     </button>
                                 </div>
                             </div>
                         )}
                         
                         {actionStatus?.success && (
-                            <div className="p-2 bg-green-600 bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-400">
+                            <div className="p-2 bg-green-100 dark:bg-green-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-700 dark:text-green-400">
                                 {actionStatus.message}
                             </div>
                         )}

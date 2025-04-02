@@ -38,7 +38,7 @@ const HeroProfileCard = ({ heroInstance, onSelect }) => {
       tabIndex={0}
       onClick={() => onSelect(heroInstance)}
       onKeyDown={(e) => e.key === "Enter" && onSelect(heroInstance)}
-      className="relative bg-cardBg text-white rounded-xl shadow-md p-4 cursor-pointer group hover:ring-2 ring-purple-400 transition outline-none overflow-hidden h-[400px] flex flex-col"
+      className="relative bg-white dark:bg-[#252042] text-gray-900 dark:text-white rounded-xl shadow-md p-4 cursor-pointer group hover:ring-2 ring-purple-400 transition outline-none overflow-hidden h-[400px] flex flex-col"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
@@ -69,22 +69,22 @@ const HeroProfileCard = ({ heroInstance, onSelect }) => {
       </figure>
 
       {/* Scrollable content area */}
-      <div className="mt-4 flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pr-1">
+      <div className="mt-4 flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent pr-1">
         {/* Infos principales */}
         <section className="space-y-1">
           <h3 className="text-xl font-semibold">{name}</h3>
-          <p className="text-sm text-gray-300">🔮 {element}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">🔮 {element}</p>
           <div className="text-sm flex justify-between">
             <span>📈 {t("level", language)} {level}</span>
             <span>✨ XP {experience ?? 0}</span>
           </div>
-          <p className="text-xs text-right mt-1 text-gray-400">
+          <p className="text-xs text-right mt-1 text-gray-500 dark:text-gray-400">
             {locked ? `🔒 ${t("locked", language)}` : `🔓 ${t("unlocked", language)}`}
           </p>
         </section>
 
         {/* Stats bonus affichées en bas */}
-        <section className="mt-3 text-xs text-gray-200 grid grid-cols-2 gap-x-2 gap-y-1">
+        <section className="mt-3 text-xs text-gray-700 dark:text-gray-200 grid grid-cols-2 gap-x-2 gap-y-1">
           <p>⚔️ {t("attack", language)}: <strong>{totalAttack ?? "?"}</strong></p>
           <p>🛡️ {t("defense", language)}: <strong>{totalDefense ?? "?"}</strong></p>
           <p>💨 {t("speed", language)}: <strong>{totalSpeed ?? "?"}</strong></p>
