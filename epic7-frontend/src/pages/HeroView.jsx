@@ -114,7 +114,9 @@ const HeroView = () => {
           ) : (
             <>
               <h2 className="text-lg font-semibold mb-4 text-center">
-                {selectedSlot  ? `Équipements disponibles (${selectedSlot})`  : "Sélectionne un emplacement"}
+                {selectedSlot  
+                  ? `${t("availableEquipment", language)} (${t(selectedSlot.toLowerCase(), language)})`  
+                  : t("selectSlot", language)}
               </h2>
 
               {filteredAvailable.length > 0 ? (
@@ -122,17 +124,17 @@ const HeroView = () => {
                   <div  key={eq.id}  onClick={() => setSelectedEquipment(eq)}  className="cursor-pointer mb-3">
                     <div className="bg-gray-700 hover:bg-gray-600 p-3 rounded transition">
                       <p className="font-medium">{eq.name}</p>
-                      <p className="text-sm text-gray-300">{eq.rarity} • Lv.{eq.level}</p>
+                      <p className="text-sm text-gray-300">{t(eq.rarity.toLowerCase(), language)} • Lv.{eq.level}</p>
                     </div>
                   </div>
                   )) ) : (
-                <p className="text-center text-gray-400">  Aucun équipement disponible</p>
+                <p className="text-center text-gray-400">{t("noEquipmentAvailable", language)}</p>
               )}
             </>
           )}
         </aside>
       </section>
-      <button  onClick={() => navigate('/my-heroes')}  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      <button onClick={() => navigate('/my-heroes')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
         {t("back", language)}
       </button>
     </main>

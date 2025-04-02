@@ -76,6 +76,41 @@ export const sendFriendRequest = async (userId) => {
   }
 };
 
+// Recherche des utilisateurs
+export const searchUsers = async (searchTerm) => {
+  try {
+    const response = await API.get('/user/search', {
+      params: { query: searchTerm }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la recherche d'utilisateurs:", error);
+    return [];
+  }
+};
+
+// Récupère le profil d'un utilisateur spécifique par ID
+export const fetchUserProfileById = async (userId) => {
+  try {
+    console.log(`Tentative de récupération du profil pour l'utilisateur ${userId}`);
+    const response = await API.get(`/user/profile/${userId}`);
+    console.log("Réponse API profil utilisateur:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors du chargement du profil de l'utilisateur ${userId}:`, error);
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", error.response.data);
+      console.error("Headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Request was made but no response:", error.request);
+    } else {
+      console.error("Error setting up request:", error.message);
+    }
+    throw error;
+  }
+};
+
 // Accepte une demande d'ami
 export const acceptFriendRequest = async (friendId, options = {}) => {
   try {

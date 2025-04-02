@@ -37,7 +37,7 @@ catch (error) {
 // Supprimer un message
 export const deleteMessage = async (messageId) => {
 try {
-    const response = await API.delete(`/mailbox/delete/${messageId}`);
+    const response = await API.post(`/mailbox/delete/${messageId}`);
     return response.data;
 }
 catch (error) {

@@ -29,12 +29,76 @@ const translations = {
     locked: "🔒 Verrouillé",
     unlocked: "🔓 Déverrouillé",
     equip: "Équiper",
-unequip: "Déséquiper",
-inInventory: "En inventaire",
-equippedOn: "Équipé par",
-equippedOnThisHero: "Équipé sur ce héros",
-
-
+    unequip: "Déséquiper",
+    inInventory: "En inventaire",
+    equippedOn: "Équipé par",
+    equippedOnThisHero: "Équipé sur ce héros",
+    noPlayerWithName: "Aucun joueur trouvé avec ce nom",
+    searchPlayer: "Rechercher un joueur...",
+    searchResults: "Résultats de recherche",
+    moreResults: "autres résultats",
+    close: "Fermer",
+    loadingProfile: "Chargement du profil",
+    
+    // Dashboard additions
+    shop: "Boutique",
+    level: "Niveau",
+    
+    // MyHeroes additions
+    skills: "Compétences",
+    seeMore: "Voir plus",
+    attack: "Attaque",
+    defense: "Défense",
+    speed: "Vitesse",
+    health: "PV",
+    heroLoadError: "Impossible de charger les héros.",
+    
+    // HeroView additions
+    availableEquipment: "Équipements disponibles",
+    selectSlot: "Sélectionne un emplacement",
+    noEquipmentAvailable: "Aucun équipement disponible",
+    selectEquipment: "Sélectionnez un équipement",
+    
+    // Inventory additions
+    weapons: "Armes",
+    armor: "Armures",
+    necklaces: "Colliers",
+    boots: "Bottes",
+    
+    // FriendsPage additions
+    backToDashboard: "Retour au tableau de bord",
+    addFriend: "Ajouter un ami",
+    userIdToAdd: "ID de l'utilisateur à ajouter",
+    sendRequest: "Envoyer une demande",
+    myFriends: "Mes amis",
+    searchFriend: "Rechercher un ami...",
+    refreshList: "Actualiser la liste",
+    loadingFriends: "Chargement des amis...",
+    retry: "Réessayer",
+    noFriendsMatch: "Aucun ami ne correspond à votre recherche",
+    noFriendsYet: "Vous n'avez pas encore d'amis",
+    pendingAcceptance: "En attente d'acceptation",
+    removeFriend: "Supprimer de ma liste d'amis",
+    confirmRemoveFriend: "Êtes-vous sûr de vouloir supprimer cet ami ?",
+    authError: "Veuillez vous reconnecter",
+    friendRequestSuccess: "Demande d'ami envoyée avec succès !",
+    enterValidId: "Veuillez entrer un ID valide",
+    friendRequestError: "Impossible d'envoyer la demande d'ami",
+    
+    // Shop translations
+    shopLoadError: "Impossible de récupérer les articles",
+    searchItem: "Rechercher un article...",
+    heroes: "Héros",
+    equipment: "Équipement",
+    gold: "Or",
+    expiresIn: "Expire dans",
+    calculating: "Calcul...",
+    buy: "Acheter",
+    
+    // Additional FriendsPage translations
+    incorrectDataFormat: "Format de données incorrect",
+    friendsLoadError: "Impossible de charger la liste d'amis",
+    friendRemoveError: "Impossible de supprimer cet ami",
   },
   en: {
     inventory: "Inventory",
@@ -65,12 +129,76 @@ equippedOnThisHero: "Équipé sur ce héros",
     locked: "🔒 Locked",
     unlocked: "🔓 Unlocked",
     equip: "Equip",
-unequip: "Unequip",
-inInventory: "In Inventory",
-equippedOn: "Equipped by",
-equippedOnThisHero: "Equipped on this hero",
-
-
+    unequip: "Unequip",
+    inInventory: "In Inventory",
+    equippedOn: "Equipped by",
+    equippedOnThisHero: "Equipped on this hero",
+    noPlayerWithName: "No player found with this name",
+    searchPlayer: "Search for a player...",
+    searchResults: "Search Results",
+    moreResults: "more results",
+    close: "Close",
+    loadingProfile: "Loading profile",
+    
+    // Dashboard additions
+    shop: "Shop",
+    level: "Level",
+    
+    // MyHeroes additions
+    skills: "Skills",
+    seeMore: "See more",
+    attack: "Attack",
+    defense: "Defense",
+    speed: "Speed",
+    health: "HP",
+    heroLoadError: "Failed to load heroes.",
+    
+    // HeroView additions
+    availableEquipment: "Available Equipment",
+    selectSlot: "Select a slot",
+    noEquipmentAvailable: "No equipment available",
+    selectEquipment: "Select equipment",
+    
+    // Inventory additions
+    weapons: "Weapons",
+    armor: "Armor",
+    necklaces: "Necklaces",
+    boots: "Boots",
+    
+    // FriendsPage additions
+    backToDashboard: "Back to dashboard",
+    addFriend: "Add a friend",
+    userIdToAdd: "ID of user to add",
+    sendRequest: "Send request",
+    myFriends: "My friends",
+    searchFriend: "Search for a friend...",
+    refreshList: "Refresh list",
+    loadingFriends: "Loading friends...",
+    retry: "Retry",
+    noFriendsMatch: "No friends match your search",
+    noFriendsYet: "You don't have any friends yet",
+    pendingAcceptance: "Pending acceptance",
+    removeFriend: "Remove from friends list",
+    confirmRemoveFriend: "Are you sure you want to remove this friend?",
+    authError: "Please log in again",
+    friendRequestSuccess: "Friend request sent successfully!",
+    enterValidId: "Please enter a valid ID",
+    friendRequestError: "Could not send friend request",
+    
+    // Shop translations
+    shopLoadError: "Failed to retrieve shop items",
+    searchItem: "Search for an item...",
+    heroes: "Heroes",
+    equipment: "Equipment",
+    gold: "Gold",
+    expiresIn: "Expires in",
+    calculating: "Calculating...",
+    buy: "Buy",
+    
+    // Additional FriendsPage translations
+    incorrectDataFormat: "Incorrect data format",
+    friendsLoadError: "Failed to load friends list",
+    friendRemoveError: "Could not remove this friend",
   },
 };
 

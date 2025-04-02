@@ -3,13 +3,14 @@ import { motion } from "framer-motion";
 import { useMailboxContext } from "../../context/MailboxContext";
 import { acceptFriendRequest, declineFriendRequest } from "../../services/userService";
 
-const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
+const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) => {
     const { getMessageDetails, markMessageAsRead } = useMailboxContext();
     const [detailedMessage, setDetailedMessage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [actionStatus, setActionStatus] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(false);
     
     useEffect(() => {
         if (showFullMessage && message.id && !detailedMessage) {
@@ -60,6 +61,11 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                     success: true,
                     message: "Demande d'ami acceptée avec succès!"
                 });
+                
+                // Wait 1.5 seconds then delete the message
+                setTimeout(() => {
+                    onDelete(message.id);
+                }, 1500);
             } else {
                 throw new Error("Échec de l'opération");
             }
@@ -98,6 +104,11 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                     success: true,
                     message: "Demande d'ami refusée"
                 });
+                
+                // Wait 1.5 seconds then delete the message
+                setTimeout(() => {
+                    onDelete(message.id);
+                }, 1500);
             } else {
                 throw new Error("Échec de l'opération");
             }
@@ -112,6 +123,103 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
         }
     };
     
+    const handleDelete = async (e) => {
+        e.stopPropagation(); // Prevent triggering the onSelect handler
+        
+        if (deleteConfirm) {
+            // Si c'est une demande d'ami, refuser automatiquement la demande avant de supprimer
+            if (message.isFriendRequest) {
+                console.log("Friend request message to delete - Full message data:", JSON.stringify(message, null, 2));
+                
+                // Try various paths to find senderId
+                let senderId = null;
+                
+                if (detailedMessage) {
+                    console.log("Detailed message available:", JSON.stringify(detailedMessage, null, 2));
+                    
+                    // Try to find senderId in detailed message
+                    if (detailedMessage.senderId) senderId = detailedMessage.senderId;
+                    else if (detailedMessage.data?.senderId) senderId = detailedMessage.data.senderId;
+                    else if (detailedMessage.sender?.id) senderId = detailedMessage.sender.id;
+                    else if (detailedMessage.senderInfo?.id) senderId = detailedMessage.senderInfo.id;
+                }
+                
+                // If not found in detailedMessage, check the message object
+                if (!senderId) {
+                    if (message.senderId) senderId = message.senderId;
+                    else if (message.data?.senderId) senderId = message.data.senderId;
+                    else if (message.sender?.id) senderId = message.sender.id;
+                    else if (message.senderInfo?.id) senderId = message.senderInfo.id;
+                    // Try to extract from senderName if it contains numeric ID (common format: "Username (123)")
+                    else if (message.senderName) {
+                        const idMatch = message.senderName.match(/\((\d+)\)$/);
+                        if (idMatch && idMatch[1]) {
+                            senderId = parseInt(idMatch[1], 10);
+                        }
+                    }
+                }
+                
+                console.log("Extracted sender ID:", senderId);
+                
+                // If sender ID is found, decline the friend request
+                if (senderId) {
+                    try {
+                        setActionLoading(true);
+                        console.log("Attempting to decline friend request from sender ID:", senderId);
+                        
+                        const result = await declineFriendRequest(senderId, { handleErrorLocally: true });
+                        console.log("Friend request automatically declined when message deleted:", result);
+                    } catch (err) {
+                        console.error("Error automatically declining friend request:", err);
+                        // Continue with deletion even if declining fails
+                    } finally {
+                        setActionLoading(false);
+                    }
+                } else {
+                    // If no sender ID was found, attempt to fetch message details first
+                    if (!showFullMessage && !detailedMessage) {
+                        try {
+                            console.log("Attempting to fetch message details to get sender ID...");
+                            const details = await getMessageDetails(message.id, { handleErrorLocally: true });
+                            console.log("Fetched message details:", JSON.stringify(details, null, 2));
+                            
+                            // Try to extract senderId from the fetched details
+                            if (details.senderId) senderId = details.senderId;
+                            else if (details.data?.senderId) senderId = details.data.senderId;
+                            else if (details.sender?.id) senderId = details.sender.id;
+                            
+                            if (senderId) {
+                                try {
+                                    const result = await declineFriendRequest(senderId, { handleErrorLocally: true });
+                                    console.log("Friend request declined after fetching details:", result);
+                                } catch (declineErr) {
+                                    console.error("Error declining after fetching details:", declineErr);
+                                }
+                            } else {
+                                console.error("Still could not find sender ID after fetching details for message:", message.id);
+                            }
+                        } catch (fetchErr) {
+                            console.error("Error fetching message details to get sender ID:", fetchErr);
+                        }
+                    } else {
+                        console.error("Could not find sender ID to decline friend request for message:", message.id);
+                    }
+                }
+            }
+            
+            // Supprimer le message
+            onDelete(message.id);
+            setDeleteConfirm(false);
+        } else {
+            setDeleteConfirm(true);
+        }
+    };
+
+    const cancelDelete = (e) => {
+        e.stopPropagation(); // Prevent triggering the onSelect handler
+        setDeleteConfirm(false);
+    };
+    
     // Pour l'affichage en mode liste
     if (!showFullMessage) {
         // Log the message for debugging
@@ -124,7 +232,7 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                 tabIndex={0}
                 onClick={onSelect}
                 onKeyDown={(e) => e.key === "Enter" && onSelect()}
-                className={`p-4 border-b border-indigo-800 cursor-pointer transition-colors grid grid-cols-4 gap-2
+                className={`p-4 border-b border-indigo-800 cursor-pointer transition-colors grid grid-cols-12 gap-2
                     ${message.isRead ? 'bg-indigo-900' : 'bg-indigo-700 font-semibold border-l-4 border-l-yellow-400'} 
                     ${message.containItems ? 'border-l-4 border-l-cyan-400' : ''} 
                     ${message.isFriendRequest ? 'border-l-4 border-l-purple-600' : ''} 
@@ -133,7 +241,7 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <div className="font-bold flex items-center">
+                <div className="font-bold flex items-center col-span-3">
                     {message.sender}
                     {message.containItems && (
                         <span className="inline-flex items-center justify-center ml-2 text-base p-0.5 rounded-full w-6 h-6 bg-cyan-400 bg-opacity-30 text-cyan-400 border border-cyan-400 shadow-sm" 
@@ -144,49 +252,101 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                             title="Demande d'ami">👥</span>
                     )}
                 </div>
-                <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-2">{message.title}</div>
-                <div className="text-sm text-gray-400 text-right">{message.date}</div>
+                <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-6">{message.title}</div>
+                <div className="text-sm text-gray-400 text-right col-span-2">{message.date}</div>
+                <div className="text-right col-span-1">
+                    {deleteConfirm ? (
+                        <div onClick={(e) => e.stopPropagation()} className="flex space-x-1">
+                            <button 
+                                onClick={handleDelete}
+                                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                                title="Confirmer la suppression"
+                            >
+                                ✓
+                            </button>
+                            <button 
+                                onClick={cancelDelete}
+                                className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
+                                title="Annuler"
+                            >
+                                ✗
+                            </button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleDelete}
+                            className="text-xs bg-red-600 bg-opacity-50 text-white px-2 py-1 rounded hover:bg-red-600"
+                            title="Supprimer le message"
+                        >
+                            🗑️
+                        </button>
+                    )}
+                </div>
             </motion.div>
         );
     }
     
     // Pour l'affichage du message détaillé
     return (
-        <div className="p-4 overflow-y-auto">
+        <div className="p-4 flex-grow flex flex-col overflow-hidden">
             {loading ? (
                 <div className="text-center p-8 text-gray-400">Chargement du message...</div>
             ) : error ? (
                 <div className="text-center p-8 text-red-400 bg-red-900 bg-opacity-10 rounded-md my-4">{error}</div>
             ) : (
-                <>
-                    <div className="mb-4 border-b border-indigo-800 pb-4">
-                        <h3 className="mt-0 mb-2.5 text-xl">{detailedMessage?.subject || message.title}</h3>
-                        <p>De: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
-                        <p>Reçu le: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        }) : message.date}</p>
+                <div className="overflow-y-auto pr-1 flex-grow">
+                    <div className="mb-4 border-b border-indigo-800 pb-4 flex justify-between items-start">
+                        <div>
+                            <h3 className="mt-0 mb-2.5 text-xl">{detailedMessage?.subject || message.title}</h3>
+                            <p>De: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
+                            <p>Reçu le: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }) : message.date}</p>
+                        </div>
+                        <div>
+                            {deleteConfirm ? (
+                                <div className="flex space-x-2">
+                                    <button 
+                                        onClick={handleDelete}
+                                        className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
+                                    >
+                                        Confirmer
+                                    </button>
+                                    <button 
+                                        onClick={cancelDelete}
+                                        className="bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-700"
+                                    >
+                                        Annuler
+                                    </button>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={() => setDeleteConfirm(true)}
+                                    className="bg-red-600 bg-opacity-50 text-white px-3 py-2 rounded hover:bg-red-600"
+                                >
+                                    Supprimer
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <div className="leading-relaxed">
-                        <p>{detailedMessage?.message || message.content || "Aucun contenu"}</p>
+                    <div className="leading-relaxed space-y-4">
+                        <div className="border border-indigo-800 rounded-md p-4 bg-indigo-950 bg-opacity-50 shadow-inner">
+                            <p className="whitespace-pre-wrap">{detailedMessage?.message || message.content || "Aucun contenu"}</p>
+                        </div>
                         
                         {(detailedMessage?.containItems || message.containItems) && (
-                            <div className="mt-4 p-2 bg-cyan-400 bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
+                            <div className="p-2 bg-cyan-400 bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
                                 <p>Ce message contient des objets.</p>
                             </div>
                         )}
                         
                         {(detailedMessage?.isFriendRequest || message.isFriendRequest) && !actionStatus?.success && (
-                            <div className="mt-4 p-2 bg-purple-600 bg-opacity-10 rounded-md border-l-4 border-l-purple-600">
+                            <div className="p-2 bg-purple-600 bg-opacity-10 rounded-md border-l-4 border-l-purple-600">
                                 <p>Ce message est une demande d'ami.</p>
-                                {actionStatus && !actionStatus.success && (
-                                    <div className="mt-2 p-2 bg-red-600 bg-opacity-10 rounded-md text-red-400">
-                                        {actionStatus.message}
-                                    </div>
-                                )}
                                 <div className="flex gap-4 mt-2">
                                     <button 
                                         onClick={handleAcceptFriend}
@@ -207,12 +367,12 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                         )}
                         
                         {actionStatus?.success && (
-                            <div className="mt-4 p-2 bg-green-600 bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-400">
+                            <div className="p-2 bg-green-600 bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-400">
                                 {actionStatus.message}
                             </div>
                         )}
                     </div>
-                </>
+                </div>
             )}
         </div>
     );

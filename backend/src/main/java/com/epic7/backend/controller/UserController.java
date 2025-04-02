@@ -8,6 +8,7 @@ import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 import com.epic7.backend.dto.OtherUserDTO;
+
 import java.util.List;
 import java.util.ArrayList;
 
@@ -111,5 +112,60 @@ public class UserController {
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
 
         return userService.removeFriend(user, userId);
+    }
+
+    @GetMapping("/search")
+    public List<OtherUserDTO> searchUsers(HttpServletRequest request,
+                                        @RequestParam String query) {
+        try {
+            // Extraire le token et l'utilisateur courant pour journalisation/traçage
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            System.out.println("User " + currentUser.getUsername() + " is searching for: " + query);
+            
+            // Rechercher les utilisateurs correspondant au terme de recherche
+            List<User> foundUsers = userService.searchUsersByUsername(query);
+            
+            // Convertir les utilisateurs en DTOs
+            return foundUsers.stream()
+                    .map(user -> new OtherUserDTO(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getLevel(),
+                            // Déterminer si l'utilisateur est un ami de l'utilisateur courant
+                            currentUser.getFriends() != null && currentUser.getFriends().contains(user) ? "ACCEPTED" : "NONE"))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error in /search endpoint: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    @GetMapping("/profile/{userId}")
+    public UserProfileResponse getUserProfileById(HttpServletRequest request, 
+                                                @PathVariable Long userId) {
+        try {
+            // Extraction du token pour la journalisation (optionnel)
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            System.out.println("User " + currentUser.getUsername() + " is viewing profile of user ID: " + userId);
+            
+            // Récupération du profil demandé
+            User targetUser = userService.getUserById(userId);
+            
+            return new UserProfileResponse(
+                    targetUser.getUsername(),
+                    targetUser.getLevel(),
+                    targetUser.getGold(),
+                    targetUser.getDiamonds(),
+                    targetUser.getEnergy());
+        } catch (Exception e) {
+            System.err.println("Error in /profile/{userId} endpoint: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

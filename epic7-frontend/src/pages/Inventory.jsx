@@ -3,6 +3,7 @@ import EquipmentCard from "../components/equipment/EquipmentCard";
 import EquipmentDetails from "../components/equipment/EquipmentDetails";
 import { useSettings } from "../context/SettingsContext";
 import { fetchInventory } from "../services/equipmentService";
+import { useNavigate } from "react-router-dom";
 
 // Cette page affiche l'inventaire de l'utilisateur
 // Elle utilise le service d'équipement pour récupérer les données de l'inventaire
@@ -11,6 +12,7 @@ const Inventory = () => {
   const [equipments, setEquipments] = useState([]); // État pour stocker les équipements
   const [selected, setSelected] = useState(null); // État pour stocker l'équipement sélectionné
   const { language, t } = useSettings(); // Récupération de la langue et des traductions
+  const navigate = useNavigate();
 
   // Fonction pour charger l'inventaire de l'utilisateur
   useEffect(() => {
@@ -27,8 +29,15 @@ const Inventory = () => {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6">
-      
-      <h1 className="text-3xl font-bold mb-6">{t("inventory", language)}</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">{t("inventory", language)}</h1>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+        >
+          {t("back", language)}
+        </button>
+      </div>
    
       <section className="flex flex-col lg:flex-row gap-6">
         {/* Liste des équipements */}

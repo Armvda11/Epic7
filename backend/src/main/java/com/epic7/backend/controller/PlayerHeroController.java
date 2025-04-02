@@ -11,6 +11,8 @@ import com.epic7.backend.service.PlayerHeroService;
 import com.epic7.backend.service.SkillService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -177,6 +179,20 @@ public class PlayerHeroController {
         }
 
         return ResponseEntity.ok(playerHero.getHero());
+    }
+
+    @GetMapping("/user")
+    public ResponseEntity<List<PlayerHeroViewDTO>> getUserHeroes(@RequestParam Long userId) {
+        try {
+            List<PlayerHero> playerHeroes = playerHeroService.getAllByUserId(userId);
+            List<PlayerHeroViewDTO> userHeroes = playerHeroes.stream()
+                    .map(playerHeroService::buildPlayerHeroViewDTO)
+                    .toList();
+            return ResponseEntity.ok(userHeroes);
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la récupération des héros de l'utilisateur : " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
 }

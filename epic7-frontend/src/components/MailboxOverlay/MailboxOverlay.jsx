@@ -4,10 +4,12 @@ import { motion } from "framer-motion";
 import MessageItem from './MessageItem';
 
 const MailboxOverlay = ({ onClose }) => {
-    const { messages, fetchMessages, loading, markMessageAsRead } = useMailboxContext();
+    const { messages, fetchMessages, loading, markMessageAsRead, deleteMessage } = useMailboxContext();
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
-
+    const [filter, setFilter] = useState('all'); // 'all', 'read', 'unread'
+    const [sortBy, setSortBy] = useState('date'); // 'date', 'sender'
+    
     // Refresh messages when the component mounts and when it becomes visible
     useEffect(() => {
         fetchMessages();
@@ -55,6 +57,37 @@ const MailboxOverlay = ({ onClose }) => {
         e.stopPropagation();
     };
 
+    const handleDeleteMessage = async (messageId) => {
+        try {
+            await deleteMessage(messageId);
+            // If we're viewing this message in detail, go back to the list
+            if (selectedMessage && selectedMessage.id === messageId) {
+                setSelectedMessage(null);
+            }
+            // Refresh messages after deletion
+            fetchMessages();
+        } catch (error) {
+            console.error("Failed to delete message:", error);
+        }
+    };
+
+    // Filter and sort messages
+    const filteredAndSortedMessages = [...messages]
+        .filter(message => {
+            if (filter === 'all') return true;
+            if (filter === 'read') return message.isRead;
+            if (filter === 'unread') return !message.isRead;
+            return true;
+        })
+        .sort((a, b) => {
+            if (sortBy === 'date') {
+                return new Date(b.createdAt) - new Date(a.createdAt); // Newest first
+            } else if (sortBy === 'sender') {
+                return a.senderName.localeCompare(b.senderName);
+            }
+            return 0;
+        });
+
     if (loading && !selectedMessage) return (
         <div className="fixed inset-0 flex items-center justify-center z-50" onClick={onClose}>
             <div className="bg-indigo-900 rounded-lg w-11/12 max-w-3xl max-h-[80vh] overflow-hidden flex flex-col shadow-lg" onClick={handleContainerClick}>
@@ -75,8 +108,13 @@ const MailboxOverlay = ({ onClose }) => {
                 </div>
 
                 {selectedMessage ? (
-                    <div>
-                        <button className="bg-transparent border-none text-gray-400 mb-4 cursor-pointer text-base p-4" onClick={handleBackToList}>← Retour</button>
+                    <>
+                        <button 
+                            className="bg-transparent border-none text-gray-400 cursor-pointer text-base py-1 px-4 text-left" 
+                            onClick={handleBackToList}
+                        >
+                            ← Retour
+                        </button>
                         <MessageItem 
                             message={{
                                 id: selectedMessage.id,
@@ -89,32 +127,63 @@ const MailboxOverlay = ({ onClose }) => {
                                 isFriendRequest: selectedMessage.isFriendRequest
                             }}
                             showFullMessage={true}
+                            onDelete={handleDeleteMessage}
                         />
-                    </div>
+                    </>
                 ) : (
-                    <div className="overflow-y-auto p-4 flex-grow">
-                        {messages.length === 0 ? (
-                            <p className="text-center p-8 text-gray-400">Aucun message dans votre boîte de réception</p>
-                        ) : (
-                            messages.map((message) => (
-                                <MessageItem
-                                    key={message.id}
-                                    message={{
-                                        id: message.id,
-                                        title: message.subject,
-                                        content: message.message || "",
-                                        sender: message.senderName,
-                                        date: formatDate(message.createdAt),
-                                        isRead: message.isRead,
-                                        containItems: message.containItems,
-                                        isFriendRequest: message.isFriendRequest
-                                    }}
-                                    onSelect={() => handleMessageClick(message)}
-                                    showFullMessage={false}
-                                />
-                            ))
-                        )}
-                    </div>
+                    <>
+                        <div className="bg-indigo-950 p-3 border-t border-indigo-800 flex flex-wrap gap-2 items-center">
+                            <div className="flex items-center mr-4">
+                                <label htmlFor="filter" className="text-sm text-gray-300 mr-2">Filtrer:</label>
+                                <select 
+                                    id="filter" 
+                                    value={filter}
+                                    onChange={(e) => setFilter(e.target.value)}
+                                    className="bg-indigo-800 text-white border border-indigo-700 rounded p-1"
+                                >
+                                    <option value="all">Tous</option>
+                                    <option value="read">Lus</option>
+                                    <option value="unread">Non lus</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center">
+                                <label htmlFor="sort" className="text-sm text-gray-300 mr-2">Trier par:</label>
+                                <select 
+                                    id="sort" 
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="bg-indigo-800 text-white border border-indigo-700 rounded p-1"
+                                >
+                                    <option value="date">Date</option>
+                                    <option value="sender">Expéditeur</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto p-4 flex-grow">
+                            {filteredAndSortedMessages.length === 0 ? (
+                                <p className="text-center p-8 text-gray-400">Aucun message dans votre boîte de réception</p>
+                            ) : (
+                                filteredAndSortedMessages.map((message) => (
+                                    <MessageItem
+                                        key={message.id}
+                                        message={{
+                                            id: message.id,
+                                            title: message.subject,
+                                            content: message.message || "",
+                                            sender: message.senderName,
+                                            date: formatDate(message.createdAt),
+                                            isRead: message.isRead,
+                                            containItems: message.containItems,
+                                            isFriendRequest: message.isFriendRequest
+                                        }}
+                                        onSelect={() => handleMessageClick(message)}
+                                        onDelete={handleDeleteMessage}
+                                        showFullMessage={false}
+                                    />
+                                ))
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
         </div>

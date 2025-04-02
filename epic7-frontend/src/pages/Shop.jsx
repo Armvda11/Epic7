@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { getShopItems } from "../services/shopService"; // Assurez-vous d'importer la fonction API
+import { getShopItems } from "../services/shopService";
+import { useNavigate } from "react-router-dom";
+import { useSettings } from "../context/SettingsContext";
 
 // Fonction pour formater le nom de l'image
 const formatImageName = (name) => {
@@ -28,6 +30,8 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeLefts, setTimeLefts] = useState({});
+  const navigate = useNavigate();
+  const { language, t } = useSettings();
 
   // Fonction pour récupérer les items depuis le backend
   useEffect(() => {
@@ -37,13 +41,13 @@ export default function ShopPage() {
         const data = await getShopItems(); // Appel à l'API pour récupérer les items
         setItems(data);
       } catch (err) {
-        setError("Impossible de récupérer les articles.");
+        setError(t("shopLoadError", language) || "Impossible de récupérer les articles.");
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, []);
+  }, [language, t]);
 
   // Fonction pour mettre à jour le compte à rebours
   useEffect(() => {
@@ -69,26 +73,26 @@ export default function ShopPage() {
       item.name.toLowerCase().includes(search.toLowerCase()) // Recherche par nom
   );
 
-  if (loading) return <p>Chargement des articles...</p>;
+  if (loading) return <p>{t("loadingShop", language) || "Chargement des articles..."}</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
     <div
       className="p-6 max-w-8xl mx-auto min-h-screen bg-blue-200 bg-cover bg-center"
     >
-      <h1 className="text-3xl font-bold mb-4 text-white text-center">Shop</h1>
+      <h1 className="text-3xl font-bold mb-4 text-white text-center">{t("shop", language)}</h1>
 
       {/* Barre de recherche, filtre et bouton Retour */}
       <div className="flex gap-2 mb-4">
         <button
-          onClick={() => window.history.back()} // Retour à la page précédente
+          onClick={() => navigate('/dashboard')}
           className="bg-blue-500 text-white px-4 py-2 rounded"
         >
-          ⬅️ Retour
+          ⬅️ {t("back", language)}
         </button>
         <input
           type="text"
-          placeholder="Rechercher un article..."
+          placeholder={t("searchItem", language) || "Rechercher un article..."}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border p-2 rounded flex-1"
@@ -98,10 +102,10 @@ export default function ShopPage() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
-          <option value="Tous">Tous</option>
-          <option value="HEROS">Héros</option>
-          <option value="EQUIPMENT">Équipement</option>
-          <option value="GOLD">Or</option>
+          <option value="Tous">{t("all", language)}</option>
+          <option value="HEROS">{t("heroes", language) || "Héros"}</option>
+          <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
+          <option value="GOLD">{t("gold", language) || "Or"}</option>
         </select>
       </div>
 
@@ -123,12 +127,12 @@ export default function ShopPage() {
               {/* Affichage du compte à rebours si l'article a une date de fin */}
               {item.endAt && (
                 <p className="text-red-500 font-bold">
-                  ⏳ Expire dans : {timeLefts[item.name] || "Calcul..."}
+                  ⏳ {t("expiresIn", language) || "Expire dans"}: {timeLefts[item.name] || t("calculating", language) || "Calcul..."}
                 </p>
               )}
 
               <button className="mt-2 bg-blue-500 text-white px-4 py-2 rounded">
-                🛒 Acheter
+                🛒 {t("buy", language) || "Acheter"}
               </button>
             </div>
           </div>

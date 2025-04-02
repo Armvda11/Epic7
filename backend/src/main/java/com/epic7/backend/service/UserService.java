@@ -1,5 +1,6 @@
 package com.epic7.backend.service;
 
+import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -292,4 +293,20 @@ public class UserService {
         return getFriends(user, a, b);
     }
 
+    /**
+     * Recherche des utilisateurs par leur nom d'utilisateur.
+     *
+     * @param searchTerm Le terme de recherche à utiliser.
+     * @return Une liste d'utilisateurs correspondant au terme de recherche.
+     */
+    public List<User> searchUsersByUsername(String searchTerm) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        // Recherche par correspondance partielle du nom d'utilisateur (contient le terme)
+        // Conversion en minuscules pour une recherche insensible à la casse
+        String searchPattern = "%" + searchTerm.toLowerCase() + "%";
+        return userRepository.findByUsernameLikeIgnoreCase(searchPattern);
+    }
 }

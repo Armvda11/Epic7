@@ -9,6 +9,6 @@ import java.util.Optional;
 
 public interface PlayerHeroRepository extends JpaRepository<PlayerHero, Long> {
     List<PlayerHero> findByUser(User user);
+    List<PlayerHero> findByUserId(Long userId);
     Optional<PlayerHero> findByIdAndUserId(Long id, Long userId); // vérifier que le héro appartient bien à l'utilisateur
-    
 }

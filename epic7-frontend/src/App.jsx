@@ -11,6 +11,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import { MailboxProvider } from "./context/MailboxContext";
 import FriendsPage from "./pages/FriendsPage";
 import Shop from "./pages/Shop";
+import UserProfile from './pages/UserProfile';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path=":heroId" element={<HeroView />} /> 
         </Route>
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/profile/:userId" element={<UserProfile />} />
       </Routes>
 
       {/* Toast container en-dehors des Routes */}

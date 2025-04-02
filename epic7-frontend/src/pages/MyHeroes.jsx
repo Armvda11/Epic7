@@ -91,7 +91,7 @@ useEffect(() => {
             className="bg-gray-700 text-white p-2 rounded"
           >
             {ELEMENTS.map((e) => (
-              <option key={e} value={e}>{e}</option>
+              <option key={e} value={e}>{t(e.toLowerCase(), language)}</option>
             ))}
           </select>
           <select
@@ -100,7 +100,7 @@ useEffect(() => {
             className="bg-gray-700 text-white p-2 rounded"
           >
             {RARITIES.map((r) => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>{t(r.toLowerCase(), language)}</option>
             ))}
           </select>
           <button
@@ -128,14 +128,14 @@ useEffect(() => {
       <AnimatePresence>
         {selectedHero && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={closeOverlay}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-gray-900 text-white p-6 rounded-2xl w-full max-w-md relative"
+              className="bg-gray-900 text-white p-4 md:p-6 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative"
               onClick={(e) => e.stopPropagation()}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -143,59 +143,61 @@ useEffect(() => {
             >
               <button
                 onClick={closeOverlay}
-                className="absolute top-2 right-3 text-2xl hover:text-red-400"
+                className="absolute top-2 right-3 text-2xl hover:text-red-400 z-10"
               >
                 ✖
               </button>
 
-              <h2 className="text-2xl font-bold text-center mb-2">
-                {selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
-              </h2>
+              <div className="flex flex-col items-center">
+                <h2 className="text-xl md:text-2xl font-bold text-center mb-2 mt-2">
+                  {selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
+                </h2>
 
-              <div className="text-sm text-center mb-4">
-                🌟 {selectedHero.rarity || selectedHero.hero?.rarity} | 🔮 {selectedHero.element || selectedHero.hero?.element}
-              </div>
-
-              <div className="w-full aspect-[4/5] overflow-hidden flex items-center justify-center bg-[#1a1a2e] rounded-xl mb-4">
-                <img
-                  src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
-                  alt={selectedHero.name}
-                  className="w-full h-auto object-contain rounded-lg mb-4"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
-                  }}
-                />
-              </div>
-
-
-              <div className="space-y-1 text-sm mb-4">
-                <p>⚔️ {t("attack", language)} : {selectedHero.totalAttack || selectedHero.hero?.baseAttack}</p>
-                <p>🛡️ {t("defense", language)} : {selectedHero.totalDefense || selectedHero.hero?.baseDefense}</p>
-                <p>💨 {t("speed", language)} : {selectedHero.totalSpeed || selectedHero.hero?.baseSpeed}</p>
-                <p>❤️ {t("health", language)} : {selectedHero.totalHealth || selectedHero.hero?.health}</p>
-              </div>
-
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-2 text-center">Compétences</h3>
-                  <div className="flex justify-center gap-3 flex-wrap">
-                    {skills.map((skill) => (
-                      <SkillCard
-                        key={skill.id}
-                        skill={skill}
-                        heroName={selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
-                      />
-                    ))}
-                  </div>
+                <div className="text-sm text-center mb-3">
+                  🌟 {selectedHero.rarity || selectedHero.hero?.rarity} | 🔮 {selectedHero.element || selectedHero.hero?.element}
                 </div>
 
+                <div className="w-full max-w-[300px] aspect-[4/5] overflow-hidden flex items-center justify-center bg-[#1a1a2e] rounded-xl mb-4">
+                  <img
+                    src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                    alt={selectedHero.name}
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
+                    }}
+                  />
+                </div>
 
-              <button
-                onClick={() => navigate(`/hero/${selectedHero.id}`)}
-                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-              >
-                Voir plus
-              </button>
+                <div className="space-y-2 text-sm mb-4 w-full bg-[#2a2a40] p-3 rounded-lg">
+                  <p>⚔️ {t("attack", language)} : <span className="float-right font-bold">{selectedHero.totalAttack || selectedHero.hero?.baseAttack || '?'}</span></p>
+                  <p>🛡️ {t("defense", language)} : <span className="float-right font-bold">{selectedHero.totalDefense || selectedHero.hero?.baseDefense || '?'}</span></p>
+                  <p>💨 {t("speed", language)} : <span className="float-right font-bold">{selectedHero.totalSpeed || selectedHero.hero?.baseSpeed || '?'}</span></p>
+                  <p>❤️ {t("health", language)} : <span className="float-right font-bold">{selectedHero.totalHealth || selectedHero.hero?.health || '?'}</span></p>
+                </div>
+
+                {skills.length > 0 && (
+                  <div className="mt-4 mb-4 w-full">
+                    <h3 className="text-lg font-semibold mb-2 text-center">{t("skills", language)}</h3>
+                    <div className="flex justify-center gap-3 flex-wrap">
+                      {skills.map((skill) => (
+                        <SkillCard
+                          key={skill.id}
+                          skill={skill}
+                          heroName={selectedHero.name || selectedHero.hero?.name || 'Héros inconnu'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => navigate(`/hero/${selectedHero.id}`)}
+                  className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+                >
+                  {t("seeMore", language)}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
