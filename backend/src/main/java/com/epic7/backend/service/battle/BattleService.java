@@ -13,32 +13,16 @@ import com.epic7.backend.service.SkillService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
-/**
- * Service de gestion des combats.
- * Contient la logique de démarrage, de tour par tour et d'application des
- * compétences.
- * Utilise le moteur de compétences pour appliquer les effets.
- */
 @Service
 @RequiredArgsConstructor
 public class BattleService {
 
-    private final SkillService skillService; // Service pour récupérer les compétences
-    private final SkillEngine skillEngine; // Moteur de compétences
+    private final SkillService skillService;
+    private final SkillEngine skillEngine;
 
-    /**
-     * Démarre un combat avec une équipe de joueurs et un boss.
-     * Initialise l'état du combat avec les participants, leurs statistiques et
-     * compétences.
-     * 
-     * @param playerTeam equipe de joueurs
-     * @param boss       boss
-     * @return état du combat
-     */
     public BattleState startBattle(List<PlayerHero> playerTeam, Hero boss) {
         BattleState state = new BattleState();
 
@@ -49,11 +33,10 @@ public class BattleService {
         BattleParticipant bossParticipant = buildParticipantFromHero(boss);
         state.getParticipants().add(bossParticipant);
 
-        // 🔥 Application des passifs ON_BATTLE_START
         for (BattleParticipant p : state.getParticipants()) {
             for (Skill s : p.getSkills()) {
                 if (s.getCategory() == SkillCategory.PASSIVE &&
-                        s.getTriggerCondition() == TriggerCondition.ON_BATTLE_START) {
+                    s.getTriggerCondition() == TriggerCondition.ON_BATTLE_START) {
                     skillEngine.applyPassive(p, s, null);
                 }
             }
@@ -62,91 +45,102 @@ public class BattleService {
         return state;
     }
 
-    public BattleState performTurn(BattleState state, BattleParticipant actor, Skill skill, List<BattleParticipant> targets) {
+    public BattleState performTurn(BattleState state, BattleParticipant actor, Skill skill, List<BattleParticipant> initialTargets) {
         actor.resetActionGauge();
         actor.reduceCooldowns();
-    
-        // ✅ log actions
         List<CombatLogDTO> turnLogs = new ArrayList<>();
-    
-        // Appliquer passifs ON_TURN_START
+
         for (Skill s : actor.getSkills()) {
-            if (s.getCategory() == SkillCategory.PASSIVE &&
-                    s.getTriggerCondition() == TriggerCondition.ON_TURN_START) {
+            if (s.getCategory() == SkillCategory.PASSIVE && s.getTriggerCondition() == TriggerCondition.ON_TURN_START) {
                 skillEngine.applyPassive(actor, s, null);
             }
         }
-    
-        // Appliquer compétence principale
-        for (BattleParticipant target : targets) {
+
+        List<BattleParticipant> actualTargets = resolveTargets(state, actor, skill, initialTargets);
+
+        for (BattleParticipant target : actualTargets) {
             int beforeHp = target.getCurrentHp();
-    
-            skillEngine.applySkill(actor, skill, List.of(target)); // une cible à la fois
-    
+            skillEngine.applySkill(actor, skill, List.of(target));
             int afterHp = target.getCurrentHp();
-            int value = Math.abs(afterHp - beforeHp);
             boolean isHeal = afterHp > beforeHp;
-    
+            int value = Math.abs(afterHp - beforeHp);
+
             turnLogs.add(new CombatLogDTO(
-                    actor.getName(),
-                    skill.getName(),
-                    target.getName(),
-                    value,
-                    isHeal
+                actor.getName(),
+                skill.getName(),
+                target.getName(),
+                value,
+                isHeal
             ));
         }
+
         if (state.isCombatOver()) {
-            state.getLogs().add(new CombatLogDTO("Système", "Fin du combat", "Camp vainqueur : " + state.getWinnerSide(), 0, false));
+            turnLogs.add(new CombatLogDTO("Système", "Fin du combat", "Camp vainqueur : " + state.getWinnerSide(), 0, false));
         }
-        
-    
-        state.getLogs().clear(); // ou conserver un historique si tu veux
+
+        state.getLogs().clear();
         state.getLogs().addAll(turnLogs);
-    
         state.setTurnNumber(state.getTurnNumber() + 1);
         return state;
     }
 
-
     public BattleState performAITurn(BattleState state) {
         BattleParticipant boss = state.getParticipants().stream()
-            .filter(p -> p.getSide().equals("BOSS") && p.isAlive() && p.isReady())
+            .filter(p -> (p.getSide().equals("BOSS") || p.getSide().equals("ENEMY")) && p.isAlive() && p.isReady())
             .findFirst()
             .orElse(null);
-    
+
         if (boss == null) return state;
-    
+
         Skill skill = boss.getSkills().stream()
             .filter(s -> s.getCategory() == SkillCategory.ACTIVE)
             .filter(s -> boss.getCooldowns().getOrDefault(s.getId(), 0) == 0)
             .max(Comparator.comparing(Skill::getScalingFactor))
             .orElse(null);
-    
+
         if (skill == null) return state;
-    
-        List<BattleParticipant> targets = state.getAliveAlliesOf("ENEMY"); // donc camp PLAYER
+
+        List<BattleParticipant> targets = state.getAliveAlliesOf("ENEMY");
         if (targets.isEmpty()) return state;
-    
-        BattleParticipant target = targets.get(0); // premier en vie (simpliste)
-    
+
+        BattleParticipant target = targets.get(0);
         return performTurn(state, boss, skill, List.of(target));
     }
-    
-    
 
-    private BattleParticipant buildParticipantFromHero(Hero h) {
-        BattleParticipant p = new BattleParticipant();
-        p.setBaseHero(h);
-        p.setSide("BOSS"); // Le boss est du côté opposé
-        p.setCurrentHp(h.getHealth());
-        p.setTotalAttack(h.getBaseAttack());
-        p.setTotalDefense(h.getBaseDefense());
-        p.setTotalSpeed(h.getBaseSpeed());
+    public BattleState processNextReadyTurn(BattleState state) {
+        state.advanceTimeToNextTurn();
+        BattleParticipant actor = state.getReadyParticipant().orElse(null);
+        if (actor == null) return state;
 
-        List<Skill> skills = skillService.getSkillsByHeroId(h.getId());
-        p.setSkills(skills);
+        if (actor.getSide().equals("BOSS") || actor.getSide().equals("ENEMY")) {
+            return performAITurn(state);
+        }
 
-        return p;
+        return state;
+    }
+
+    public BattleState runFullBattleCycle(BattleState state) {
+        while (!state.isCombatOver()) {
+            state.advanceTimeToNextTurn();
+            BattleParticipant actor = state.getReadyParticipant().orElse(null);
+            if (actor == null) return state;
+            if (actor.getSide().equals("PLAYER")) return state;
+            state = performAITurn(state);
+        }
+        return state;
+    }
+
+    private List<BattleParticipant> resolveTargets(BattleState state, BattleParticipant actor, Skill skill, List<BattleParticipant> providedTargets) {
+        return switch (skill.getTargetGroup()) {
+            case ALL_ALLIES -> state.getParticipants().stream()
+                .filter(p -> p.getSide().equals(actor.getSide()) && p.isAlive())
+                .toList();
+            case ALL_ENEMIES -> state.getParticipants().stream()
+                .filter(p -> !p.getSide().equals(actor.getSide()) && p.isAlive())
+                .toList();
+            case SINGLE_ENEMY, SINGLE_ALLY, SELF -> providedTargets;
+            default -> throw new IllegalArgumentException("TargetGroup non géré : " + skill.getTargetGroup());
+        };
     }
 
     private BattleParticipant buildParticipantFromPlayerHero(PlayerHero ph) {
@@ -169,35 +163,42 @@ public class BattleService {
             }
         }
 
-        List<Skill> skills = skillService.getSkillsByHeroId(h.getId());
-        p.setSkills(skills);
-
+        p.setSkills(skillService.getSkillsByHeroId(h.getId()));
         return p;
     }
 
+    private BattleParticipant buildParticipantFromHero(Hero h) {
+        BattleParticipant p = new BattleParticipant();
+        p.setBaseHero(h);
+        p.setSide("BOSS");
+        p.setCurrentHp(h.getHealth());
+        p.setTotalAttack(h.getBaseAttack());
+        p.setTotalDefense(h.getBaseDefense());
+        p.setTotalSpeed(h.getBaseSpeed());
+        p.setSkills(skillService.getSkillsByHeroId(h.getId()));
+        return p;
+    }
 
-public BattleStateDTO toDTO(BattleState state) {
-    BattleStateDTO dto = new BattleStateDTO();
-    dto.setTurnNumber(state.getTurnNumber());
-    dto.setLogs(state.getLogs());
+    public BattleStateDTO toDTO(BattleState state) {
+        BattleStateDTO dto = new BattleStateDTO();
+        dto.setTurnNumber(state.getTurnNumber());
+        dto.setLogs(state.getLogs());
 
-    List<BattleParticipantDTO> participantsDTO = state.getParticipants().stream().map(p -> {
-        BattleParticipantDTO pDto = new BattleParticipantDTO();
-        pDto.setName(p.getName());
-        pDto.setSide(p.getSide());
-        pDto.setCurrentHp(p.getCurrentHp());
-        pDto.setTotalAttack(p.getTotalAttack());
-        pDto.setTotalDefense(p.getTotalDefense());
-        pDto.setTotalSpeed(p.getTotalSpeed());
-        pDto.setActionGauge(p.getActionGauge());
-        pDto.setCooldowns(p.getCooldowns());
-        pDto.setSkills(p.getSkills().stream().map(skillService::toDTO).toList());
+        List<BattleParticipantDTO> participantsDTO = state.getParticipants().stream().map(p -> {
+            BattleParticipantDTO pDto = new BattleParticipantDTO();
+            pDto.setName(p.getName());
+            pDto.setSide(p.getSide());
+            pDto.setCurrentHp(p.getCurrentHp());
+            pDto.setTotalAttack(p.getTotalAttack());
+            pDto.setTotalDefense(p.getTotalDefense());
+            pDto.setTotalSpeed(p.getTotalSpeed());
+            pDto.setActionGauge(p.getActionGauge());
+            pDto.setCooldowns(p.getCooldowns());
+            pDto.setSkills(p.getSkills().stream().map(skillService::toDTO).collect(Collectors.toList()));
+            return pDto;
+        }).toList();
 
-        return pDto;
-    }).toList();
-
-    dto.setParticipants(participantsDTO);
-    return dto;
-}
-
+        dto.setParticipants(participantsDTO);
+        return dto;
+    }
 }
