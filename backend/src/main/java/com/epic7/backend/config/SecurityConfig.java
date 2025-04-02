@@ -35,6 +35,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // login reste ouvert
                 .requestMatchers("/api/skills/**").permitAll() // les compétences sont ouvertes
+                .requestMatchers("/api/combat/**").permitAll() // les combats sont ouverts
                 .anyRequest().authenticated()               // tout le reste est protégé
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

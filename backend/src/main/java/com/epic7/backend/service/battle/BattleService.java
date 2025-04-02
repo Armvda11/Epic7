@@ -27,10 +27,13 @@ public class BattleService {
         BattleState state = new BattleState();
 
         for (PlayerHero ph : playerTeam) {
-            state.getParticipants().add(buildParticipantFromPlayerHero(ph));
+            BattleParticipant participant = buildParticipantFromPlayerHero(ph);
+            participant.setActionGauge(1000.0); // Chaque héros commence avec une jauge pleine
+            state.getParticipants().add(participant);
         }
 
         BattleParticipant bossParticipant = buildParticipantFromHero(boss);
+        bossParticipant.setActionGauge(0.0); // Le boss commence sans action prête
         state.getParticipants().add(bossParticipant);
 
         for (BattleParticipant p : state.getParticipants()) {
@@ -100,7 +103,8 @@ public class BattleService {
 
         if (skill == null) return state;
 
-        List<BattleParticipant> targets = state.getAliveAlliesOf("ENEMY");
+        List<BattleParticipant> targets = state.getAliveEnemiesOf("ENEMY");
+
         if (targets.isEmpty()) return state;
 
         BattleParticipant target = targets.get(0);

@@ -9,6 +9,8 @@ import com.epic7.backend.service.battle.BattleParticipant;
 import com.epic7.backend.service.battle.BattleService;
 import com.epic7.backend.service.battle.BattleState;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -84,11 +86,13 @@ public class CombatController {
     /**
      * Affiche l'état courant du combat.
      */
-    @GetMapping("/status")
-    public ResponseEntity<BattleStateDTO> getCombatStatus() {
-        validateCombatState();
-        return ResponseEntity.ok(battleService.toDTO(currentState));
+@GetMapping("/status")
+public ResponseEntity<BattleStateDTO> getCombatStatus() {
+    if (currentState == null) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
     }
+    return ResponseEntity.ok(battleService.toDTO(currentState));
+}
 
     /**
      * Réinitialise le combat en mémoire.

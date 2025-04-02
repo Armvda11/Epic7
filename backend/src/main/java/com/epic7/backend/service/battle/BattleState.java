@@ -45,9 +45,11 @@ public class BattleState {
 
     public List<BattleParticipant> getAliveEnemiesOf(String side) {
         return participants.stream()
-            .filter(p -> !p.getSide().equals(side) && p.isAlive())
+            .filter(p -> !p.getSide().equals(side))
+            .filter(BattleParticipant::isAlive)
             .toList();
     }
+    
 
     public List<BattleParticipant> getAliveAlliesOf(String side) {
         return participants.stream()
