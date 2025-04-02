@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 import HeroView from "./pages/HeroView";
 import PrivateRoute from "./components/PrivateRoute";
 import { MailboxProvider } from "./context/MailboxContext";
+import FriendsPage from "./pages/FriendsPage";
 import Shop from "./pages/Shop";
 
 function App() {
@@ -24,10 +25,22 @@ function App() {
         <Route path="/hero" element={<PrivateRoute />}>
           <Route path=":heroId" element={<HeroView />} /> 
         </Route>
+        <Route path="/friends" element={<FriendsPage />} />
       </Routes>
 
       {/* Toast container en-dehors des Routes */}
-      <ToastContainer position="top-center" autoClose={3000} />
+      <ToastContainer 
+        position="top-center" 
+        autoClose={5000}
+        closeOnClick={true}
+        draggable={true}
+        pauseOnHover={true}
+        className="overlay-toast"
+        style={{
+          width: "auto",
+          maxWidth: "500px"
+        }}
+      />
     </MailboxProvider>
   );
 }

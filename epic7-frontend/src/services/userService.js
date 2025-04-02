@@ -3,7 +3,9 @@ import API from "../api/axiosInstance";
 // Récupère le profil de l'utilisateur
 export const fetchUserProfile = async () => {
   try {
-    const response = await API.get("/user/me");
+    const response = await API.get("/user/me", { 
+      useGlobalErrorHandler: false 
+    });
     return response.data;
   } catch (error) {
     console.error("Erreur lors du chargement du profil utilisateur :", error);
@@ -12,14 +14,21 @@ export const fetchUserProfile = async () => {
 };
 
 // Récupère la liste des amis de l'utilisateur
-export const fetchFriends = async (userId = 0, premier = 0, dernier = 5) => {
+export const fetchFriends = async (userId = 0, premier = 0, dernier = 100) => {
   try {
-    const response = await API.get(`/user/friends`, {
+    // Use standard API request - matching the pattern of other working requests
+    const response = await API.get("/user/friends", {
       params: { userId, premier, dernier }
     });
-    return response.data;
+    
+    // Simple validation and return
+    if (response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
   } catch (error) {
     console.error("Erreur lors du chargement des amis :", error);
+    // Forward the error for better handling in the component
     throw error;
   }
 };
@@ -38,27 +47,23 @@ export const sendFriendRequest = async (userId) => {
 };
 
 // Accepte une demande d'ami
-export const acceptFriendRequest = async (userId) => {
+export const acceptFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.get(`/user/accept-friend`, {
-      params: { userId }
-    });
+    const response = await API.post(`/friends/accept/${friendId}`, {}, options);
     return response.data;
   } catch (error) {
-    console.error("Erreur lors de l'acceptation de la demande d'ami :", error);
+    console.error("Error accepting friend request:", error);
     throw error;
   }
 };
 
 // Refuse une demande d'ami
-export const declineFriendRequest = async (userId) => {
+export const declineFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.get(`/user/decline-friend`, {
-      params: { userId }
-    });
+    const response = await API.post(`/friends/decline/${friendId}`, {}, options);
     return response.data;
   } catch (error) {
-    console.error("Erreur lors du refus de la demande d'ami :", error);
+    console.error("Error declining friend request:", error);
     throw error;
   }
 };

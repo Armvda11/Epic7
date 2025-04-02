@@ -12,13 +12,14 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
     const [actionLoading, setActionLoading] = useState(false);
     
     useEffect(() => {
-        // Si on doit afficher le message complet, on récupère les détails
-        if (showFullMessage && message.id) {
+        if (showFullMessage && message.id && !detailedMessage) {
             const fetchMessageDetails = async () => {
                 setLoading(true);
                 try {
-                    await markMessageAsRead(message.id);
-                    const details = await getMessageDetails(message.id);
+                    if (!message.isRead) {
+                        await markMessageAsRead(message.id, { handleErrorLocally: true }); // Mark as read only if not already read
+                    }
+                    const details = await getMessageDetails(message.id, { handleErrorLocally: true });
                     setDetailedMessage(details);
                     setError(null);
                 } catch (err) {
@@ -28,23 +29,32 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
                     setLoading(false);
                 }
             };
-            
+
             fetchMessageDetails();
         }
-    }, [message.id, showFullMessage, getMessageDetails, markMessageAsRead]);
+    }, [message.id, showFullMessage, getMessageDetails, markMessageAsRead, detailedMessage]);
     
     const { id, title, content, sender, date } = message;
     
     const handleAcceptFriend = async () => {
-        if (!detailedMessage?.senderId && !message.senderId) {
+        // Get the sender ID from the detailed message or the original message
+        const senderId = detailedMessage?.data?.senderId || 
+                        detailedMessage?.senderId || 
+                        message.data?.senderId || 
+                        message.senderId;
+        
+        console.log("Accept Friend - Detailed Message:", detailedMessage);
+        console.log("Accept Friend - Message:", message);
+        console.log("Accept Friend - Using Sender ID:", senderId);
+        
+        if (!senderId) {
             setError("Impossible de traiter cette demande: identifiant d'expéditeur manquant");
             return;
         }
         
-        const senderId = detailedMessage?.senderId || message.senderId;
         setActionLoading(true);
         try {
-            const result = await acceptFriendRequest(senderId);
+            const result = await acceptFriendRequest(senderId, { handleErrorLocally: true });
             if (result) {
                 setActionStatus({
                     success: true,
@@ -65,15 +75,24 @@ const MessageItem = ({ message, onSelect, showFullMessage = false }) => {
     };
     
     const handleDeclineFriend = async () => {
-        if (!detailedMessage?.senderId && !message.senderId) {
+        // Get the sender ID from the detailed message or the original message
+        const senderId = detailedMessage?.data?.senderId || 
+                        detailedMessage?.senderId || 
+                        message.data?.senderId || 
+                        message.senderId;
+        
+        console.log("Decline Friend - Detailed Message:", detailedMessage);
+        console.log("Decline Friend - Message:", message);
+        console.log("Decline Friend - Using Sender ID:", senderId);
+        
+        if (!senderId) {
             setError("Impossible de traiter cette demande: identifiant d'expéditeur manquant");
             return;
         }
         
-        const senderId = detailedMessage?.senderId || message.senderId;
         setActionLoading(true);
         try {
-            const result = await declineFriendRequest(senderId);
+            const result = await declineFriendRequest(senderId, { handleErrorLocally: true });
             if (result) {
                 setActionStatus({
                     success: true,

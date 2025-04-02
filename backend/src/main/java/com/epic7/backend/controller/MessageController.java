@@ -75,6 +75,7 @@ public class MessageController {
         MessageDTO messageDTO = new MessageDTO(
                 message.getId(),
                 message.getSender().getUsername(),
+                message.getSender().getId(),
                 message.getRecipient().getUsername(),
                 message.getSubject(),
                 message.getMessage(),

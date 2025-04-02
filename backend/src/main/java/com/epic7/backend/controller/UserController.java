@@ -7,8 +7,9 @@ import com.epic7.backend.service.UserService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
-import com.epic7.backend.dto.FriendUserDTO;
+import com.epic7.backend.dto.OtherUserDTO;
 import java.util.List;
+import java.util.ArrayList;
 
 
 @RestController
@@ -42,19 +43,38 @@ public class UserController {
     }
 
     @GetMapping("/friends")
-    public List<FriendUserDTO> getFriends(HttpServletRequest request,
+    public List<OtherUserDTO> getFriends(HttpServletRequest request,
                                         @RequestParam(defaultValue = "0") Long userId,
                                         @RequestParam(defaultValue = "0") int premier,
-                                        @RequestParam(defaultValue = "5") int dernier) {
-        userService.getFriends(userId, premier, dernier);
-
-        return userService.getFriends(userId, premier, dernier)
-                .stream()
-                .map(friend -> new FriendUserDTO(
-                        friend.getId(),
-                        friend.getUsername(),
-                        friend.getLevel()))
-                .toList();
+                                        @RequestParam(defaultValue = "100") int dernier) {
+        try {
+            // Simplify the token extraction logic to match other endpoints
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            // If userId is negative, use the current user's ID
+            if (userId < 0) {
+                userId = currentUser.getId();
+            }
+            
+            System.out.println("Fetching friends for user ID: " + userId);
+            
+            // Get friends with more robust error handling
+            List<User> friendsList = userService.getFriends(userId, premier, dernier);
+            
+            // Map to DTOs
+            return friendsList.stream()
+                    .map(friend -> new OtherUserDTO(
+                            friend.getId(),
+                            friend.getUsername(),
+                            friend.getLevel(),
+                            "ACCEPTED"))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error in /friends endpoint: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     @GetMapping("/send-friend-requests")

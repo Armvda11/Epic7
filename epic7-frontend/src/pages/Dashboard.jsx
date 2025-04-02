@@ -30,7 +30,11 @@ const Dashboard = () => {
       try {
         const data = await fetchUserProfile(); // Récupération des données utilisateur
         setUser(data); // Mise à jour de l'état avec les données utilisateur
-      } catch (error) {console.error("Failed to load user profile:", error);}
+      } catch (error) {
+        console.error("Failed to load user profile:", error);
+        // Redirection vers la page de connexion en cas d'erreur}
+        navigate("/");
+      }
     };
     loadUser();
   }, []);
@@ -44,7 +48,7 @@ const Dashboard = () => {
   const menuItems = [
     { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
     { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
-    { label: t("friends", language), icon: <FaUserFriends size={28} /> },
+    { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
     { label: t("guilds", language), icon: <FaUsers size={28} /> },
     { label: t("quests", language), icon: <FaBookOpen size={28} /> },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> },

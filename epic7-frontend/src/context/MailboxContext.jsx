@@ -42,10 +42,10 @@ const fetchMessages = useCallback(async () => {
 }, []);
 
 // Function to get details for a specific message
-const getMessageDetails = useCallback(async (messageId) => {
+const getMessageDetails = useCallback(async (messageId, options = {}) => {
     setLoading(true);
     try {
-    const messageDetails = await getFullMessage(messageId);
+    const messageDetails = await getFullMessage(messageId, options);
     setLoading(false);
     return messageDetails;
     } catch (error) {
@@ -88,9 +88,9 @@ const removeMessage = useCallback(async (messageId) => {
 }, []);
 
 // Function to mark a message as read
-const markMessageAsRead = useCallback(async (messageId) => {
+const markMessageAsRead = useCallback(async (messageId, options = {}) => {
     try {
-    await markAsRead(messageId);
+    await markAsRead(messageId, options);
     setMessages(prevMessages => 
         prevMessages.map(message => 
         message.id === messageId ? { ...message, isRead: true } : message
