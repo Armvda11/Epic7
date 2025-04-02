@@ -37,8 +37,9 @@ public class ShopService {
     private final MessageService messageService;
 
     public List<ShopItem> getAvailableItems() {
-        LocalDateTime now = LocalDateTime.now();
-        return shopItemRepo.findByStartAtBeforeAndEndAtAfter(now, now);
+        //LocalDateTime now = LocalDateTime.now();
+        //LocalDateTime end= LocalDateTime.now().plusDays(1);
+        return shopItemRepo.findAll();
     }
 
     /**

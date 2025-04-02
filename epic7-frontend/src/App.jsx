@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 import HeroView from "./pages/HeroView";
 import PrivateRoute from "./components/PrivateRoute";
 import { MailboxProvider } from "./context/MailboxContext";
+import Shop from "./pages/Shop";
 
 function App() {
   return (
@@ -17,10 +18,11 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/shop" element={<Shop />} />
         <Route path="/my-heroes" element={<MyHeroes />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/hero" element={<PrivateRoute />}>
-          <Route path=":heroId" element={<HeroView />} />
+          <Route path=":heroId" element={<HeroView />} /> 
         </Route>
       </Routes>
 

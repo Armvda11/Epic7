@@ -7,10 +7,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.epic7.backend.dto.ShopItemDTO;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ShopService;
 import com.epic7.backend.utils.JwtUtil;
+import com.epic7.backend.utils.ShopItemMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class ShopController {
     private final ShopService shopService;
     private final JwtUtil jwtUtil;
     private final AuthService authService;
+    private final ShopItemMapper toDTOshopService;
 
     private User getUser(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
@@ -31,7 +34,7 @@ public class ShopController {
 
     @GetMapping("/items")
     public ResponseEntity<?> getAvailableItems(HttpServletRequest request) {
-        return ResponseEntity.ok(shopService.getAvailableItems());
+        return ResponseEntity.ok(toDTOshopService.toDtoList(shopService.getAvailableItems()));
     }
 
     @PostMapping("/buy/{itemId}")
