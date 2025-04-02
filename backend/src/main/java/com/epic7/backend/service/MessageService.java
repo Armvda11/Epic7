@@ -368,6 +368,11 @@ public class MessageService {
         if (message == null) {
             return false; // Message introuvable ou accès non autorisé
         }
+        if (message.isContainItems()) {
+            // Si le message contient des objets, on ne peut pas le supprimer
+            throw new IllegalArgumentException("Impossible de supprimer un message contenant des objets");
+        }
+        // Supprimer le message
         messageRepository.delete(message);
         return true;
     }

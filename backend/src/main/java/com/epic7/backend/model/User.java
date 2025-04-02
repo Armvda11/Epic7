@@ -82,7 +82,7 @@ public class User {
         name = "user_pending_friend_requests",
         joinColumns = @JoinColumn(name = "user_id")
     )
-    @Column(name = "friend_email")
+    @Column(name = "pending_friend")
     private List<Long> pendingFriendRequests = new ArrayList<>(); // Liste des demandes d'amis en attente
     // (a modifier lorsque l'utilisateur envoie ou reçoit une demande d'ami)
 

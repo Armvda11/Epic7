@@ -18,10 +18,13 @@ public class UserSeeder {
 
     public void seedUsers() {
         if (userRepo.findByEmail("hermas@example.com").isEmpty()) {
+            // Créez un utilisateur administrateur avec un email et un mot de passe par défaut
+            // Il doit être le premier utilisateur créé
+            User u0 = createUser("admin@epic7.com", "Admin", "password", 999999999, 999999999);
             User u1 = createUser("hermas@example.com", "hermas", "toi", 5000, 100);
             User u2 = createUser("arya@example.com", "arya", "secret", 3000, 50);
-            User u3 = createUser("corentin@example.com", "Kaldah", "test", 999999, 9999);
-            userRepo.saveAll(List.of(u1, u2, u3));
+            User u3 = createUser("corentin@example.com", "Kaldah", "test", 9999999, 9999999);
+            userRepo.saveAll(List.of(u0,u1, u2, u3));
             System.out.println("✅ Utilisateurs créés.");
         }
     }

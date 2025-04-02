@@ -1,73 +1,68 @@
 // src/context/SettingsContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
-
-// Traductions simples
-const translations = {
-  fr: {
-    welcome: "Bienvenue",
-    logout: "Se déconnecter",
-    level: "Niveau",
-    loadingProfile: "Chargement du profil",
-    inventory: "Inventaire",
-    myHeroes: "Mes Héros",
-    friends: "Amis",
-    guilds: "Guildes",
-    quests: "Quêtes",
-    battle: "Combat",
-    back: "Retour",
-  attack: "Attaque",
-  defense: "Défense",
-  speed: "Vitesse",
-  health: "PV",
-  heroLoadError: "Impossible de charger les héros.",
-  locked: "Verrouillé",
-  unlocked: "Déverrouillé",
-  
-  },
-  en: {
-    welcome: "Welcome",
-    logout: "Logout",
-    level: "Level",
-    loadingProfile: "Loading profile",
-    inventory: "Inventory",
-    myHeroes: "My Heroes",
-    friends: "Friends",
-    guilds: "Guilds",
-    quests: "Quests",
-    battle: "Battle",
-    back: "Back",
-    attack: "Attack",
-    defense: "Defense",
-    speed: "Speed",
-    health: "HP",
-    heroLoadError: "Failed to load heroes.",
-
-  locked: "Locked",
-  unlocked: "Unlocked",
-  },
-};
+import { t as translateFunction } from "../i18n/translate"; // Import the translation function
 
 export const SettingsContext = createContext();
 
 export const SettingsProvider = ({ children }) => {
-  const [theme, setTheme] = useState("dark");
-  const [language, setLanguage] = useState("fr");
-
-  // Dark mode toggle (ajoute/remove la class "dark" sur <html>)
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+  // Initialize states from localStorage with fallback to system preference
+  const [theme, setTheme] = useState(() => {
+    // Check if there's a saved theme preference in localStorage
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme) {
+      return savedTheme;
+    }
     
+    // Otherwise, use system preference as default
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+  
+  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "fr");
+
+  // Apply theme to the entire application
+  useEffect(() => {
+    // Apply theme immediately on component mount and when theme changes
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    
+    // Save to localStorage
+    localStorage.setItem("theme", theme);
+    
+    // Log for debugging
+    console.log(`Theme set to: ${theme}`);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  // Save language preference to localStorage
+  useEffect(() => {
+    localStorage.setItem("language", language);
+  }, [language]);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    console.log(`Toggling theme from ${theme} to ${newTheme}`);
+    setTheme(newTheme);
+  };
+  
   const changeLanguage = (lang) => setLanguage(lang);
 
-  // Traduction avec fallback
-  const t = (key, lang = language) => translations[lang]?.[key] || key;
+  // Use the imported translation function with current language
+  const t = (key, lang = language) => translateFunction(key, lang);
 
   return (
     <SettingsContext.Provider
-      value={{ theme, toggleTheme, language, changeLanguage, t }}
+      value={{ 
+        theme, 
+        toggleTheme, 
+        language, 
+        changeLanguage, 
+        t,
+        // Add isLightMode and isDarkMode helpers for easier component logic 
+        isLightMode: theme === "light",
+        isDarkMode: theme === "dark"
+      }}
     >
       {children}
     </SettingsContext.Provider>

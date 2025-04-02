@@ -1,5 +1,6 @@
 package com.epic7.backend.service;
 
+import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 
 /**
  * Service de gestion des services utilisateurs.
@@ -130,6 +134,11 @@ public class UserService {
             friendUser.setFriends(new ArrayList<>());
         }
 
+        // On vérifie qu'ils ne soient pas déjà amis
+        if (askUser.getFriends().contains(friendUser)) {
+            throw new IllegalArgumentException("Vous êtes déjà amis avec cet utilisateur.");
+        }
+
         // On ajoute l'ami à la liste de l'autre ami
         askUser.getFriends().add(friendUser);
         friendUser.getFriends().add(askUser);
@@ -157,16 +166,35 @@ public class UserService {
         if (user.getPendingFriendRequests() == null) {
             user.setPendingFriendRequests(new ArrayList<>());
         }
+        // On interdit d'envoyer une demande d'ami à soi-même
+        if (user.getId().equals(friendId)) {
+            throw new IllegalArgumentException("Vous ne pouvez pas vous envoyer une demande d'ami à vous-même.");
+        }
+        // On vérifie si l'utilisateur a déjà envoyé une demande d'ami à l'autre utilisateur
+        if (user.getPendingFriendRequests().contains(friendId)) {
+            throw new IllegalArgumentException("Vous avez déjà envoyé une demande d'ami à cet utilisateur.");
+        }
+        // On vérifie si l'utilisateur a déjà accepté une demande d'ami de l'autre utilisateur
+        User friend = userRepository.findById(friendId)
+                .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+        if (friend.getFriends() != null && friend.getFriends().contains(user)) {
+            throw new IllegalArgumentException("Vous êtes déjà amis avec cet utilisateur.");
+        }
+        
         user.getPendingFriendRequests().add(friendId);
         userRepository.save(user);
         // Envoie un message de demande d'ami à l'utilisateur cible
         this.messageService.sendFriendRequest(user, friendId);
-        
+
         return true;
         }
     
     @Transactional
     public boolean acceptFriendRequest(User user, Long AskerfriendId) {
+
+        if (user.getId().equals(AskerfriendId)) {
+            throw new IllegalArgumentException("Vous ne pouvez pas vous avoir en ami.");
+        }
         
         // Ajoute l'ami à la liste des amis de l'utilisateur
         User friend = userRepository.findById(AskerfriendId)
@@ -180,6 +208,10 @@ public class UserService {
     public boolean refuseFriendRequest(User AnswererUser, Long AskerfriendId) {
         User askerFriendUser = userRepository.findById(AskerfriendId)
                 .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+        // On vérifie si l'utilisateur est déjà ami
+        if (askerFriendUser.getFriends() != null && askerFriendUser.getFriends().contains(AnswererUser)) {
+            throw new IllegalArgumentException("Vous êtes déjà amis avec cet utilisateur mais vous pouvez le supprimer dans la gestion de vos amis.");
+        }
         // Enlève l'ami de la liste des amis en attente de l'utilisateur
         if (askerFriendUser.getPendingFriendRequests() != null && askerFriendUser.getPendingFriendRequests().contains(AnswererUser.getId())) {
             askerFriendUser.getPendingFriendRequests().remove(AnswererUser.getId());
@@ -201,6 +233,10 @@ public class UserService {
         // Supprime l'ami de la liste des amis de l'utilisateur
         if (user.getFriends() != null) {
             user.getFriends().remove(friend);
+        }
+        // Supprime l'utilisateur de la liste des amis de l'ami
+        if (friend.getFriends() != null) {
+            friend.getFriends().remove(user);
         }
         userRepository.save(user);
         // Supprime l'utilisateur de la liste des amis de l'ami
@@ -229,10 +265,13 @@ public class UserService {
         if (user.getFriends() == null) {
             return new ArrayList<>();
         }
+        if (b < 0 || a < 0 || a > b) {
+            throw new IllegalArgumentException("Les indices de la plage d'amis sont invalides");
+        }
         return new ArrayList<>(user.getFriends().subList(a, Math.min(b, user.getFriends().size())));
     }
 
-        /**
+    /**
      * Récupère la liste des amis de l'utilisateur.
      *
      * @param user L'utilisateur dont on veut récupérer la liste d'amis.
@@ -254,4 +293,20 @@ public class UserService {
         return getFriends(user, a, b);
     }
 
+    /**
+     * Recherche des utilisateurs par leur nom d'utilisateur.
+     *
+     * @param searchTerm Le terme de recherche à utiliser.
+     * @return Une liste d'utilisateurs correspondant au terme de recherche.
+     */
+    public List<User> searchUsersByUsername(String searchTerm) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        // Recherche par correspondance partielle du nom d'utilisateur (contient le terme)
+        // Conversion en minuscules pour une recherche insensible à la casse
+        String searchPattern = "%" + searchTerm.toLowerCase() + "%";
+        return userRepository.findByUsernameLikeIgnoreCase(searchPattern);
+    }
 }

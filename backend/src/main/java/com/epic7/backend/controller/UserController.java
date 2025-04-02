@@ -7,8 +7,10 @@ import com.epic7.backend.service.UserService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
-import com.epic7.backend.dto.FriendUserDTO;
+import com.epic7.backend.dto.OtherUserDTO;
+
 import java.util.List;
+import java.util.ArrayList;
 
 
 @RestController
@@ -42,19 +44,38 @@ public class UserController {
     }
 
     @GetMapping("/friends")
-    public List<FriendUserDTO> getFriends(HttpServletRequest request,
+    public List<OtherUserDTO> getFriends(HttpServletRequest request,
                                         @RequestParam(defaultValue = "0") Long userId,
                                         @RequestParam(defaultValue = "0") int premier,
-                                        @RequestParam(defaultValue = "5") int dernier) {
-        userService.getFriends(userId, premier, dernier);
-
-        return userService.getFriends(userId, premier, dernier)
-                .stream()
-                .map(friend -> new FriendUserDTO(
-                        friend.getId(),
-                        friend.getUsername(),
-                        friend.getLevel()))
-                .toList();
+                                        @RequestParam(defaultValue = "100") int dernier) {
+        try {
+            // Simplify the token extraction logic to match other endpoints
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            // If userId is negative, use the current user's ID
+            if (userId < 0) {
+                userId = currentUser.getId();
+            }
+            
+            System.out.println("Fetching friends for user ID: " + userId);
+            
+            // Get friends with more robust error handling
+            List<User> friendsList = userService.getFriends(userId, premier, dernier);
+            
+            // Map to DTOs
+            return friendsList.stream()
+                    .map(friend -> new OtherUserDTO(
+                            friend.getId(),
+                            friend.getUsername(),
+                            friend.getLevel(),
+                            "ACCEPTED"))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error in /friends endpoint: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     @GetMapping("/send-friend-requests")
@@ -91,5 +112,60 @@ public class UserController {
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
 
         return userService.removeFriend(user, userId);
+    }
+
+    @GetMapping("/search")
+    public List<OtherUserDTO> searchUsers(HttpServletRequest request,
+                                        @RequestParam String query) {
+        try {
+            // Extraire le token et l'utilisateur courant pour journalisation/traçage
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            System.out.println("User " + currentUser.getUsername() + " is searching for: " + query);
+            
+            // Rechercher les utilisateurs correspondant au terme de recherche
+            List<User> foundUsers = userService.searchUsersByUsername(query);
+            
+            // Convertir les utilisateurs en DTOs
+            return foundUsers.stream()
+                    .map(user -> new OtherUserDTO(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getLevel(),
+                            // Déterminer si l'utilisateur est un ami de l'utilisateur courant
+                            currentUser.getFriends() != null && currentUser.getFriends().contains(user) ? "ACCEPTED" : "NONE"))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error in /search endpoint: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    @GetMapping("/profile/{userId}")
+    public UserProfileResponse getUserProfileById(HttpServletRequest request, 
+                                                @PathVariable Long userId) {
+        try {
+            // Extraction du token pour la journalisation (optionnel)
+            String token = jwtUtil.extractTokenFromHeader(request);
+            User currentUser = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            
+            System.out.println("User " + currentUser.getUsername() + " is viewing profile of user ID: " + userId);
+            
+            // Récupération du profil demandé
+            User targetUser = userService.getUserById(userId);
+            
+            return new UserProfileResponse(
+                    targetUser.getUsername(),
+                    targetUser.getLevel(),
+                    targetUser.getGold(),
+                    targetUser.getDiamonds(),
+                    targetUser.getEnergy());
+        } catch (Exception e) {
+            System.err.println("Error in /profile/{userId} endpoint: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

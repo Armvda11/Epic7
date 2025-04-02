@@ -1,26 +1,21 @@
 // src/components/MenuTile.jsx
-import { motion } from "framer-motion";
-import React from "react";
+import React from 'react';
 
-
-// Ce composant représente une tuile de menu avec une icône et un label.
-// Il utilise Framer Motion pour les animations.
-// Il prend en props une icône, un label, une fonction onClick et un index pour l'animation.
-// Il est utilisé dans le composant Menu pour afficher les différentes options de menu.
-const MenuTile = ({ icon, label, onClick, index }) => {
+const MenuTile = ({ label, icon, onClick, index }) => {
   return (
-    <motion.article
+    <button
       onClick={onClick}
-      className={`bg-[#332c56] hover:bg-[#4a3f78] p-6 rounded-xl shadow-lg flex flex-col items-center justify-center cursor-pointer ${
-        onClick ? "hover:ring-2 ring-blue-400" : ""
-      }`}
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1, duration: 0.4, ease: "easeOut" }}
+      className={`bg-white dark:bg-[#2f2b50] hover:bg-purple-50 dark:hover:bg-[#3a3660] 
+                text-gray-900 dark:text-white rounded-xl shadow-md hover:shadow-lg 
+                transition-all p-6 flex flex-col items-center gap-3 
+                transform hover:scale-105 active:scale-95`}
+      style={{ animationDelay: `${index * 0.1}s` }}
     >
-      <span className="text-4xl mb-2">{icon}</span>
-      <span className="text-lg font-semibold">{label}</span>
-    </motion.article>
+      <div className="text-purple-600 dark:text-purple-400">
+        {icon}
+      </div>
+      <span className="font-medium">{label}</span>
+    </button>
   );
 };
 

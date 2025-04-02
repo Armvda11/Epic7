@@ -134,4 +134,14 @@ public class PlayerHeroService {
                 spd,
                 hp);
     }
+
+    /**
+     * Récupère tous les héros d'un utilisateur avec son ID.
+     * @param userID L'utilisateur dont on veut récupérer les héros.
+     * @return Une liste de héros du joueur non verrouillés.
+     */
+    @Transactional(readOnly = true)
+    public List<PlayerHero> getAllByUserId(Long userID) {
+        return playerHeroRepository.findByUserId(userID);
+    }
 }

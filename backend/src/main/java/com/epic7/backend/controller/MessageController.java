@@ -75,6 +75,7 @@ public class MessageController {
         MessageDTO messageDTO = new MessageDTO(
                 message.getId(),
                 message.getSender().getUsername(),
+                message.getSender().getId(),
                 message.getRecipient().getUsername(),
                 message.getSubject(),
                 message.getMessage(),
@@ -111,11 +112,13 @@ public class MessageController {
      * @param id L'ID du message à supprimer.
      * @return Une réponse indiquant le succès ou l'échec de la suppression.
      */
-    @DeleteMapping("/delete/{id}")
+    @PostMapping("/delete/{id}")
     public ResponseEntity<?> deleteMessage(HttpServletRequest request, @PathVariable Long id) {
         User user = getCurrentUser(request);
         return ResponseEntity.ok(messageService.deleteMessage(id, user.getId()));
     }
+
+
     /**
      * Marque un message comme lu.
      *
