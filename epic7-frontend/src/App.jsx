@@ -26,6 +26,7 @@ function App() {
           <Route path=":heroId" element={<HeroView />} /> 
         </Route>
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/friends" element={<FriendsPage />} />
       </Routes>
 
       {/* Toast container en-dehors des Routes */}
