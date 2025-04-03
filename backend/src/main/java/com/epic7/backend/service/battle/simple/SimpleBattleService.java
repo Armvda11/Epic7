@@ -2,6 +2,7 @@ package com.epic7.backend.service.battle.simple;
 
 import com.epic7.backend.dto.simple.SimpleBattleStateDTO;
 import com.epic7.backend.dto.simple.SimpleSkillActionRequest;
+import com.epic7.backend.dto.simple.SkillActionResultDTO;
 import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.Skill;
@@ -60,79 +61,88 @@ public class SimpleBattleService {
         return processUntilNextPlayer(state);
     }
 
-    public SimpleBattleState useSkill(SimpleBattleState state, SimpleSkillActionRequest request) {
-        if (state == null || state.isFinished()) return state;
+        public SimpleBattleState useSkill(SimpleBattleState state, SimpleSkillActionRequest request) {
+            if (state == null || state.isFinished())
+                return state;
 
-        PlayerHero playerHero = playerHeroService.findById(request.getPlayerHeroId());
-        Hero hero = playerHero.getHero();
-        Skill skill = skillService.getSkillById(request.getSkillId());
+            PlayerHero playerHero = playerHeroService.findById(request.getPlayerHeroId());
+            Hero hero = playerHero.getHero();
+            Skill skill = skillService.getSkillById(request.getSkillId());
 
-        boolean belongsToHero = hero.getSkills().stream()
-                .anyMatch(s -> s.getId().equals(skill.getId()));
-        if (!belongsToHero) {
-            state.getLogs().add("❌ Cette compétence n'appartient pas au héros sélectionné.");
-            return state;
-        }
-
-        SimpleBattleParticipant actor = state.getParticipants().stream()
-                .filter(p -> p.isPlayer() && p.getId().equals(request.getPlayerHeroId()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("❌ Acteur non trouvé."));
-
-        if (actor.getCurrentHp() <= 0) return nextTurn(state);
-
-        if (state.isSkillOnCooldown(actor.getId(), skill.getId())) {
-            state.getLogs().add("⏳ Compétence en recharge !");
-            return state;
-        }
-
-        SimpleBattleParticipant target = state.getParticipants().stream()
-                .filter(p -> p.getId().equals(request.getTargetId()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("❌ Cible non trouvée."));
-
-        if (!skill.isActive()) {
-            state.getLogs().add("❌ Cette compétence n'est pas active.");
-            return state;
-        }
-
-        switch (skill.getAction()) {
-            case DAMAGE -> {
-                int damage = (int) (skill.getScalingFactor() * actor.getAttack() - target.getDefense());
-                damage = Math.max(1, damage);
-                target.setCurrentHp(Math.max(0, target.getCurrentHp() - damage));
-                state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
-                        " sur " + target.getName() + " et inflige " + damage + " dégâts.");
+            boolean belongsToHero = hero.getSkills().stream()
+                    .anyMatch(s -> s.getId().equals(skill.getId()));
+            if (!belongsToHero) {
+                state.getLogs().add("❌ Cette compétence n'appartient pas au héros sélectionné.");
+                return state;
             }
-            case HEAL -> {
-                int healAmount = (int) (skill.getScalingFactor() * actor.getMaxHp());
-                if (skill.getTargetGroup() == TargetGroup.ALL_ALLIES) {
-                    state.getParticipants().stream()
-                            .filter(p -> p.isPlayer() && p.getCurrentHp() > 0)
-                            .forEach(p -> p.setCurrentHp(Math.min(p.getMaxHp(), p.getCurrentHp() + healAmount)));
+
+            SimpleBattleParticipant actor = state.getParticipants().stream()
+                    .filter(p -> p.isPlayer() && p.getId().equals(request.getPlayerHeroId()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("❌ Acteur non trouvé."));
+
+            if (actor.getCurrentHp() <= 0)
+                return nextTurn(state);
+
+            if (state.isSkillOnCooldown(actor.getId(), skill.getId())) {
+                state.getLogs().add("⏳ Compétence en recharge !");
+                return state;
+            }
+
+            SimpleBattleParticipant target = state.getParticipants().stream()
+                    .filter(p -> p.getId().equals(request.getTargetId()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("❌ Cible non trouvée."));
+
+            if (!skill.isActive()) {
+                state.getLogs().add("❌ Cette compétence n'est pas active.");
+                return state;
+            }
+
+            int[] amountHolder = new int[1]; // Tableau mutable pour encapsuler la valeur
+
+            switch (skill.getAction()) {
+                case DAMAGE -> {
+                    amountHolder[0] = (int) (skill.getScalingFactor() * actor.getAttack() - target.getDefense());
+                    amountHolder[0] = Math.max(1, amountHolder[0]);
+                    target.setCurrentHp(Math.max(0, target.getCurrentHp() - amountHolder[0]));
                     state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
-                            " et soigne tous les alliés de " + healAmount + " points de vie.");
-                } else {
-                    actor.setCurrentHp(Math.min(actor.getMaxHp(), actor.getCurrentHp() + healAmount));
-                    state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
-                            " et se soigne de " + healAmount + " points de vie.");
+                            " sur " + target.getName() + " et inflige " + amountHolder[0] + " dégâts.");
+                }
+                case HEAL -> {
+                    amountHolder[0] = (int) (skill.getScalingFactor() * actor.getMaxHp());
+                    if (skill.getTargetGroup() == TargetGroup.ALL_ALLIES) {
+                        state.getParticipants().stream()
+                                .filter(p -> p.isPlayer() && p.getCurrentHp() > 0)
+                                .forEach(p -> p.setCurrentHp(Math.min(p.getMaxHp(), p.getCurrentHp() + amountHolder[0])));
+                        state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
+                                " et soigne tous les alliés de " + amountHolder[0] + " points de vie.");
+                    } else {
+                        actor.setCurrentHp(Math.min(actor.getMaxHp(), actor.getCurrentHp() + amountHolder[0]));
+                        state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
+                                " et se soigne de " + amountHolder[0] + " points de vie.");
+                    }
                 }
             }
+
+            // Utilisez amountHolder[0] comme la valeur finale de amount
+            int amount = amountHolder[0];
+
+            if (skill.getCooldown() > 0) {
+                state.putCooldown(actor.getId(), skill.getId(), skill.getCooldown());
+            }
+
+            if (checkEnd(state))
+                return state;
+
+            return processUntilNextPlayer(nextTurn(state));
         }
-
-        if (skill.getCooldown() > 0) {
-            state.putCooldown(actor.getId(), skill.getId(), skill.getCooldown());
-        }
-
-        if (checkEnd(state)) return state;
-
-        return processUntilNextPlayer(nextTurn(state));
-    }
 
     public SimpleBattleState processUntilNextPlayer(SimpleBattleState state) {
         while (!state.isFinished()) {
             SimpleBattleParticipant current = state.getParticipants().get(state.getCurrentTurnIndex());
-            if (current.isPlayer()) break;
+            if (current.isPlayer())
+                break;
 
             List<SimpleBattleParticipant> targets = state.getParticipants().stream()
                     .filter(p -> p.isPlayer() && p.getCurrentHp() > 0)
@@ -148,9 +158,11 @@ public class SimpleBattleService {
             int damage = Math.max(1, current.getAttack() - target.getDefense());
             target.setCurrentHp(Math.max(0, target.getCurrentHp() - damage));
 
-            state.getLogs().add(current.getName() + " (Boss) attaque " + target.getName() + " et inflige " + damage + " dégâts.");
+            state.getLogs().add(
+                    current.getName() + " (Boss) attaque " + target.getName() + " et inflige " + damage + " dégâts.");
 
-            if (checkEnd(state)) return state;
+            if (checkEnd(state))
+                return state;
 
             state = nextTurn(state);
         }
@@ -192,4 +204,92 @@ public class SimpleBattleService {
     public SimpleBattleStateDTO convertToDTO(SimpleBattleState state) {
         return new SimpleBattleStateDTO(state);
     }
+    public SkillActionResultDTO useSkillWithResult(SimpleBattleState state, SimpleSkillActionRequest request) {
+        if (state == null || state.isFinished()) {
+            return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
+        }
+    
+        // 👇 Héros courant (acteur)
+        SimpleBattleParticipant actor = state.getParticipants().get(state.getCurrentTurnIndex());
+        Skill skill = skillService.getSkillById(request.getSkillId());
+    
+        // ✅ Vérifier que le skill appartient bien au héros du joueur (si c'est un joueur)
+        if (actor.isPlayer()) {
+            try {
+                PlayerHero playerHero = playerHeroService.findById(actor.getId()); // actor.getId() = playerHeroId
+                Hero hero = playerHero.getHero();
+    
+                boolean belongsToHero = hero.getSkills().stream()
+                    .anyMatch(s -> s.getId().equals(skill.getId()));
+    
+                if (!belongsToHero) {
+                    state.getLogs().add("❌ Cette compétence n'appartient pas au héros sélectionné.");
+                    return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
+                }
+            } catch (Exception e) {
+                state.getLogs().add("❌ Erreur lors de la vérification du héros joueur.");
+                return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
+            }
+        }
+    
+        if (!skill.isActive()) {
+            state.getLogs().add("❌ Cette compétence n'est pas active.");
+            return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
+        }
+    
+        if (actor.getCurrentHp() <= 0) {
+            SimpleBattleState updated = processUntilNextPlayer(nextTurn(state));
+            return new SkillActionResultDTO(new SimpleBattleStateDTO(updated), 0, null, "NONE");
+        }
+    
+        if (state.isSkillOnCooldown(actor.getId(), skill.getId())) {
+            state.getLogs().add("⏳ Compétence en recharge !");
+            return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
+        }
+    
+        SimpleBattleParticipant target = state.getParticipants().stream()
+            .filter(p -> p.getId().equals(request.getTargetId()))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("❌ Cible non trouvée."));
+    
+        int[] amountHolder = new int[1];
+    
+        switch (skill.getAction()) {
+            case DAMAGE -> {
+                amountHolder[0] = (int) (skill.getScalingFactor() * actor.getAttack() - target.getDefense());
+                amountHolder[0] = Math.max(1, amountHolder[0]);
+                target.setCurrentHp(Math.max(0, target.getCurrentHp() - amountHolder[0]));
+                state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
+                    " sur " + target.getName() + " et inflige " + amountHolder[0] + " dégâts.");
+            }
+            case HEAL -> {
+                amountHolder[0] = (int) (skill.getScalingFactor() * actor.getMaxHp());
+                if (skill.getTargetGroup() == TargetGroup.ALL_ALLIES) {
+                    state.getParticipants().stream()
+                        .filter(p -> p.isPlayer() && p.getCurrentHp() > 0)
+                        .forEach(p -> p.setCurrentHp(Math.min(p.getMaxHp(), p.getCurrentHp() + amountHolder[0])));
+                    state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
+                        " et soigne tous les alliés de " + amountHolder[0] + " points de vie.");
+                } else {
+                    actor.setCurrentHp(Math.min(actor.getMaxHp(), actor.getCurrentHp() + amountHolder[0]));
+                    state.getLogs().add(actor.getName() + " utilise " + skill.getName() +
+                        " et se soigne de " + amountHolder[0] + " points de vie.");
+                }
+            }
+        }
+    
+        int amount = amountHolder[0];
+    
+        if (skill.getCooldown() > 0) {
+            state.putCooldown(actor.getId(), skill.getId(), skill.getCooldown());
+        }
+    
+        if (checkEnd(state)) {
+            return new SkillActionResultDTO(new SimpleBattleStateDTO(state), amount, target.getId(), skill.getAction().name());
+        }
+    
+        SimpleBattleState updated = processUntilNextPlayer(nextTurn(state));
+        return new SkillActionResultDTO(new SimpleBattleStateDTO(updated), amount, target.getId(), skill.getAction().name());
+    }
+    
 }

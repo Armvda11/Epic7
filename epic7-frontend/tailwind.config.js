@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // pour accentuer encore plus l'effet glow sur les barres de vie faibles
+boxShadow: {
+  healthGlow: '0 0 10px rgba(255, 0, 0, 0.6)',
+},
       animation: {
         backgroundZoom: 'backgroundZoom 12s infinite alternate ease-in-out',
         glowEffect: 'glowEffect 1.5s infinite alternate ease-in-out',
