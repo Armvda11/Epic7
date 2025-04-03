@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -22,6 +23,9 @@ public class SimpleBattleStateDTO {
     private boolean finished;
     private List<String> logs;
 
+    // ✅ Cooldowns : <playerHeroId, <skillId, cooldownLeft>>
+    private Map<Long, Map<Long, Integer>> cooldowns;
+
     public SimpleBattleStateDTO(SimpleBattleState state) {
         this.participants = state.getParticipants().stream()
                 .map(ParticipantDTO::new)
@@ -29,6 +33,7 @@ public class SimpleBattleStateDTO {
         this.currentTurnIndex = state.getCurrentTurnIndex();
         this.finished = state.isFinished();
         this.logs = state.getLogs();
+        this.cooldowns = state.getCooldowns(); // ✅ inclure les cooldowns dans la réponse
     }
 
     @Data
@@ -55,4 +60,4 @@ public class SimpleBattleStateDTO {
             this.isPlayer = p.isPlayer();
         }
     }
-} 
+}

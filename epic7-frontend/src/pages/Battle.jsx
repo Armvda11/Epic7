@@ -1,15 +1,16 @@
-// ✅ Battle.jsx (version complète avec sélection de cible par clic sur l'image du héros)
-
 import React, { useEffect, useState } from 'react';
 import axios from '../api/axiosInstance';
 import { motion } from 'framer-motion';
+import { useNavigate } from "react-router-dom";
 
 export default function Battle() {
+    const navigate = useNavigate();
   const [battleState, setBattleState] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSkillId, setSelectedSkillId] = useState(null);
-  const [selectedSkillType, setSelectedSkillType] = useState(null); // 'DAMAGE' ou 'HEAL'
+  const [selectedSkillType, setSelectedSkillType] = useState(null);
+  const [cooldowns, setCooldowns] = useState({});
 
   useEffect(() => {
     startCombat();
@@ -27,11 +28,14 @@ export default function Battle() {
   const fetchBattleState = async () => {
     const res = await axios.get('/combat/state');
     setBattleState(res.data);
+    setCooldowns(res.data.cooldowns || {});
+
     const currentHero = res.data.participants[res.data.currentTurnIndex];
     if (currentHero.player) {
       const skillsRes = await axios.get(`player-hero/${currentHero.id}/skills`);
       setCurrentHeroSkills(skillsRes.data);
     }
+
     setSelectedSkillId(null);
     setSelectedSkillType(null);
     setLoading(false);
@@ -42,7 +46,7 @@ export default function Battle() {
     await axios.post('/combat/action/skill', {
       playerHeroId: currentHero.id,
       skillId: selectedSkillId,
-      targetId
+      targetId,
     });
     fetchBattleState();
   };
@@ -51,17 +55,6 @@ export default function Battle() {
   const isPlayerTurn = currentHero?.player;
   const getHeroImage = (name) => `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
 
-  const renderHealthBar = (current, max) => {
-    const percent = (current / max) * 100;
-    return (
-      <div className="w-full bg-gray-700 rounded h-2 mt-2">
-        <div className="h-2 rounded" style={{ width: `${percent}%`, backgroundColor: percent > 50 ? '#4ade80' : '#f87171' }} />
-      </div>
-    );
-  };
-
-  const navigateToDashboard = () => window.location.href = "/dashboard";
-
   const getEndStatus = () => {
     if (!battleState?.finished) return null;
     return battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE";
@@ -69,6 +62,10 @@ export default function Battle() {
 
   const handleSkillClick = (skill) => {
     if (skill.category === 'PASSIVE') return;
+    const cooldownLeft = cooldowns?.[currentHero?.id]?.[skill.id] || 0;
+
+    if (cooldownLeft > 0) return;
+
     if (selectedSkillId === skill.id) {
       const defaultTarget = battleState.participants.find(p =>
         skill.action === 'HEAL' ? p.player : !p.player
@@ -86,6 +83,17 @@ export default function Battle() {
                              (selectedSkillType === 'HEAL' && participant.player);
     return shouldHighlight ? 'animate-pulse ring-4 ring-blue-500 cursor-pointer' : 'opacity-50 pointer-events-none';
   };
+
+  const renderHealthBar = (current, max) => {
+    const percent = (current / max) * 100;
+    return (
+      <div className="w-full bg-gray-700 rounded h-2 mt-2">
+        <div className="h-2 rounded" style={{ width: `${percent}%`, backgroundColor: percent > 50 ? '#4ade80' : '#f87171' }} />
+      </div>
+    );
+  };
+
+  const navigateToDashboard = () => window.location.href = "/dashboard";
 
   if (loading || !battleState) return <div>Chargement du combat...</div>;
 
@@ -139,20 +147,33 @@ export default function Battle() {
           {currentHeroSkills.map(skill => {
             const folder = currentHero.name.toLowerCase().replace(/ /g, '-');
             const skillImg = `/icons/${folder}_skill/${folder}_skill_${skill.position + 1}.webp`;
-            const isPassive = skill.category === 'PASSIVE';
+            const cooldownLeft = cooldowns?.[currentHero?.id]?.[skill.id] || 0;
+
+            const isDisabled = skill.category === 'PASSIVE' || cooldownLeft > 0;
 
             return (
               <motion.div key={skill.id} whileHover={{ scale: 1.05 }} className="relative group">
                 <button
-                  disabled={isPassive}
+                  disabled={isDisabled}
                   onClick={() => handleSkillClick(skill)}
-                  className={`w-16 h-16 rounded-xl overflow-hidden shadow-lg flex items-center justify-center
-                    ${isPassive ? 'bg-gray-700 opacity-50' : 'bg-gradient-to-br from-purple-700 to-indigo-800 ring-2 ring-purple-500'}
+                  className={`w-16 h-16 rounded-xl shadow-lg flex items-center justify-center relative transition-all duration-300
+                    ${isDisabled ? 'bg-gray-800 cursor-not-allowed' : 'bg-gradient-to-br from-purple-700 to-indigo-800 ring-2 ring-purple-500'}
                     ${selectedSkillId === skill.id ? 'ring-4 ring-yellow-400' : ''}`}
                 >
-                  <img src={skillImg} alt={skill.name} className="w-12 h-12 object-contain" />
+                  {cooldownLeft > 0 ? (
+                    <span className="text-white text-xl font-extrabold">{cooldownLeft}</span>
+                  ) : (
+                    <img
+                      src={skillImg}
+                      alt={skill.name}
+                      className="w-12 h-12 object-contain"
+                    />
+                  )}
                 </button>
+
                 <p className="text-xs text-center text-gray-200 mt-1">{skill.name}</p>
+
+                {/* Info Bulle */}
                 <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col bg-black/90 text-white rounded-lg px-4 py-3 w-64 shadow-lg z-50 text-left backdrop-blur-sm">
                   <p className="font-semibold text-sm text-blue-300">{skill.name}</p>
                   <p className="text-xs italic text-gray-400 mb-1">{skill.category}</p>
@@ -187,6 +208,16 @@ export default function Battle() {
           </div>
         </motion.div>
       )}
+{/* 🚪 Bouton Abandonner */}
+{/* 🚪 Bouton Abandonner */}
+<button
+  onClick={() => navigate("/")}
+  className="absolute inset-0 m-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition"
+  style={{ width: 'fit-content', height: 'fit-content' }}
+>
+  Abandonner
+</button>
     </div>
+    
   );
 }
