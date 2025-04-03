@@ -47,10 +47,12 @@ public class SimpleCombatController {
      * Utilise une compétence active.
      */
     @PostMapping("/action/skill")
-    public ResponseEntity<SimpleBattleStateDTO> useSkill(@RequestBody SimpleSkillActionRequest request) {
-        currentBattleState = battleService.useSkill(currentBattleState, request);
-        return ResponseEntity.ok(battleService.convertToDTO(currentBattleState));
+    public ResponseEntity<SkillActionResultDTO> useSkill(@RequestBody SimpleSkillActionRequest request) {
+        SkillActionResultDTO result = battleService.useSkillWithResult(currentBattleState, request);
+        //currentBattleState = battleService.convertFromDTO(result.getBattleState()); // si nécessaire
+        return ResponseEntity.ok(result);
     }
+    
 
     /**
      * Récupère l'état actuel du combat.
