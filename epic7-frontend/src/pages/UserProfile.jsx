@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchUserProfileById, sendFriendRequest } from '../services/userService';
+import { 
+fetchUserProfileById, 
+sendFriendRequest, 
+acceptFriendRequest, 
+declineFriendRequest,
+removeFriend 
+} from '../services/userService';
 import { getUserHeroes } from '../services/heroService';
 import HeroProfileCard from '../components/hero/HeroProfileCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { toast } from 'react-toastify';
 
 const UserProfile = () => {
 const { userId } = useParams();
@@ -38,11 +45,18 @@ useEffect(() => {
 
 const handleSendFriendRequest = async () => {
     try {
-    await sendFriendRequest(userId);
-    alert(t("friendRequestSuccess", language) || 'Demande d\'ami envoyée avec succès!');
+        const success = await sendFriendRequest(userId);
+        if (success) {
+            toast.success(t("friendRequestSuccess", language) || 'Demande d\'ami envoyée avec succès!');
+            // Refresh user data to update the status
+            const userData = await fetchUserProfileById(userId);
+            setUser(userData);
+        } else {
+            toast.info(t("friendRequestAlreadySent", language) || 'Une demande d\'ami a déjà été envoyée.');
+        }
     } catch (err) {
-    alert(t("friendRequestError", language) || 'Erreur lors de l\'envoi de la demande d\'ami');
-    console.error(err);
+        toast.error(t("friendRequestError", language) || 'Erreur lors de l\'envoi de la demande d\'ami');
+        console.error(err);
     }
 };
 
@@ -66,6 +80,107 @@ const handleShowHeroes = async () => {
 const closeHeroOverlay = () => {
     setShowHeroesOverlay(false);
     setSelectedHero(null);
+};
+
+// Render appropriate friend button based on friendship status
+const renderFriendButton = () => {
+if (!user) return null;
+
+switch(user.friendshipStatus) {
+    case 'SELF':
+    // Don't render a button for own profile
+    return null;
+    case 'ACCEPTED':
+    return (
+        <div className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 px-4 py-2 rounded-lg flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        {t("friend", language) || "Ami"}
+        </div>
+    );
+    case 'REQUESTED':
+    return (
+        <button 
+        disabled
+        className="bg-gray-400 text-white font-bold py-2 px-6 rounded-lg shadow cursor-not-allowed"
+        >
+        {t("requestSent", language) || "Demande envoyée"}
+        </button>
+    );
+    case 'PENDING':
+    return (
+        <div className="flex gap-2">
+        <button 
+            onClick={() => handleAcceptFriend()} 
+            className="bg-green-600 hover:bg-green-700 transition text-white font-bold py-2 px-4 rounded-lg shadow"
+        >
+            {t("accept", language) || "Accepter"}
+        </button>
+        <button 
+            onClick={() => handleDeclineFriend()} 
+            className="bg-red-600 hover:bg-red-700 transition text-white font-bold py-2 px-4 rounded-lg shadow"
+        >
+            {t("decline", language) || "Refuser"}
+        </button>
+        </div>
+    );
+    case 'NONE':
+    default:
+    return (
+        <button 
+        onClick={() => handleSendFriendRequest()} 
+        className="bg-purple-600 hover:bg-purple-700 transition text-white font-bold py-2 px-6 rounded-lg shadow"
+        >
+        {t("sendFriendRequest", language) || "Envoyer une demande d'ami"}
+        </button>
+    );
+}
+};
+
+const handleAcceptFriend = async () => {
+try {
+    const success = await acceptFriendRequest(userId);
+    if (success) {
+    toast.success(t("friendRequestAccepted", language) || 'Demande d\'ami acceptée!');
+    // Refresh user data to update the status
+    const userData = await fetchUserProfileById(userId);
+    setUser(userData);
+    }
+} catch (err) {
+    toast.error(t("friendAcceptError", language) || 'Erreur lors de l\'acceptation de la demande');
+    console.error(err);
+}
+};
+
+const handleDeclineFriend = async () => {
+try {
+    const success = await declineFriendRequest(userId);
+    if (success) {
+    toast.info(t("friendRequestDeclined", language) || 'Demande d\'ami refusée');
+    // Refresh user data to update the status
+    const userData = await fetchUserProfileById(userId);
+    setUser(userData);
+    }
+} catch (err) {
+    toast.error(t("friendDeclineError", language) || 'Erreur lors du refus de la demande');
+    console.error(err);
+}
+};
+
+const handleRemoveFriend = async () => {
+try {
+    const success = await removeFriend(userId);
+    if (success) {
+    toast.info(t("friendRemoved", language) || 'Ami supprimé');
+    // Refresh user data to update the status
+    const userData = await fetchUserProfileById(userId);
+    setUser(userData);
+    }
+} catch (err) {
+    toast.error(t("friendRemoveError", language) || 'Erreur lors de la suppression de l\'ami');
+    console.error(err);
+}
 };
 
 if (loading) return (
@@ -119,12 +234,7 @@ return (
             </div>
             </div>
             
-            <button 
-            onClick={handleSendFriendRequest} 
-            className="bg-purple-600 hover:bg-purple-700 transition text-white font-bold py-2 px-6 rounded-lg shadow"
-            >
-            {t("sendFriendRequest", language) || "Envoyer une demande d'ami"}
-            </button>
+            {renderFriendButton()}
         </div>
         </div>
         

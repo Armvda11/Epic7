@@ -185,6 +185,15 @@ const translations = {
     boots: "Bottes",
     scaling: "Scaling",
     targets: "cible(s)",
+
+    // Friend status translations
+    friend: "Ami",
+    requestSent: "Demande envoyée",
+    friendRemoved: "Ami supprimé",
+    friendAcceptError: "Erreur lors de l'acceptation de la demande",
+    friendDeclineError: "Erreur lors du refus de la demande",
+    friendRemoveError: "Erreur lors de la suppression de l'ami",
+    friendRequestAlreadySent: "Une demande d'ami a déjà été envoyée",
   },
   en: {
     inventory: "Inventory",
@@ -379,6 +388,15 @@ const translations = {
     boots: "Boots",
     scaling: "Scaling",
     targets: "target(s)",
+
+    // Friend status translations
+    friend: "Friend",
+    requestSent: "Request sent",
+    friendRemoved: "Friend removed",
+    friendAcceptError: "Error accepting friend request",
+    friendDeclineError: "Error declining friend request",
+    friendRemoveError: "Error removing friend",
+    friendRequestAlreadySent: "A friend request has already been sent",
   },
 };
 

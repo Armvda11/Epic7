@@ -11,6 +11,7 @@ import com.epic7.backend.dto.OtherUserDTO;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;import java.util.Map;
 
 
 @RestController
@@ -83,8 +84,13 @@ public class UserController {
                                     @RequestParam Long userId) {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
-
-        return userService.sendFriendRequest(user, userId);
+        try {
+            return userService.sendFriendRequest(user, userId);
+        } catch (Exception e) {
+            System.err.println("Error in /send-friend-requests endpoint: " + e.getMessage());
+            return false;
+        }
+        
     }
 
     @GetMapping("/accept-friend")
@@ -156,12 +162,35 @@ public class UserController {
             // Récupération du profil demandé
             User targetUser = userService.getUserById(userId);
             
+            // Déterminer le statut d'amitié entre l'utilisateur actuel et le profil cible
+            String friendshipStatus = "NONE";
+            
+            // Si c'est le profil de l'utilisateur actuel
+            if (currentUser.getId().equals(targetUser.getId())) {
+                friendshipStatus = "SELF";
+            }
+            // Si l'utilisateur cible est un ami
+            else if (userService.isFriend(currentUser, targetUser)) {
+                friendshipStatus = "ACCEPTED";
+            }
+            // Si l'utilisateur actuel a envoyé une demande d'ami à l'utilisateur cible
+            else if (currentUser.getPendingFriendRequests() != null && 
+                    currentUser.getPendingFriendRequests().contains(targetUser.getId())) {
+                friendshipStatus = "REQUESTED";
+            }
+            // Si l'utilisateur cible a envoyé une demande d'ami à l'utilisateur actuel
+            else if (targetUser.getPendingFriendRequests() != null && 
+                    targetUser.getPendingFriendRequests().contains(currentUser.getId())) {
+                friendshipStatus = "PENDING";
+            }
+            
             return new UserProfileResponse(
                     targetUser.getUsername(),
                     targetUser.getLevel(),
                     targetUser.getGold(),
                     targetUser.getDiamonds(),
-                    targetUser.getEnergy());
+                    targetUser.getEnergy(),
+                    friendshipStatus);
         } catch (Exception e) {
             System.err.println("Error in /profile/{userId} endpoint: " + e.getMessage());
             e.printStackTrace();

@@ -17,4 +17,14 @@ public class UserProfileResponse {
     private int gold;
     private int diamonds;
     private int energy;
+    private String friendshipStatus; // "NONE", "PENDING", "ACCEPTED", "REQUESTED"
+
+    public UserProfileResponse(String username, int level, int gold, int diamonds, int energy) {
+        this.username = username;
+        this.level = level;
+        this.gold = gold;
+        this.diamonds = diamonds;
+        this.energy = energy;
+        this.friendshipStatus = "NONE"; // Default value
+    }
 }
