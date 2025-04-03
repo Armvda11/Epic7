@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from '../api/axiosInstance';
 import { useNavigate } from "react-router-dom";
 
@@ -7,15 +7,19 @@ import BattleCombatLog from '../components/battle/BattleCombatLog';
 import BattleSkillBar from '../components/battle/BattleSkillBar';
 import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
+import FloatingDamage from '../components/battle/FloatingDamage';
 
 export default function Battle() {
-  const navigate = useNavigate();
   const [battleState, setBattleState] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSkillId, setSelectedSkillId] = useState(null);
   const [selectedSkillType, setSelectedSkillType] = useState(null);
   const [cooldowns, setCooldowns] = useState({});
+  const [floatingDamages, setFloatingDamages] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+  const targetRefs = useRef({});
 
   useEffect(() => {
     startCombat();
@@ -24,7 +28,7 @@ export default function Battle() {
   const startCombat = async () => {
     try {
       await axios.post('/combat/start', { bossHeroId: 1 });
-      fetchBattleState();
+      await fetchBattleState();
     } catch (error) {
       console.error('Erreur au démarrage du combat :', error);
     }
@@ -32,13 +36,16 @@ export default function Battle() {
 
   const fetchBattleState = async () => {
     const res = await axios.get('/combat/state');
-    setBattleState(res.data);
-    setCooldowns(res.data.cooldowns || {});
+    const state = res.data;
+    setBattleState(state);
+    setCooldowns(state.cooldowns || {});
 
-    const currentHero = res.data.participants[res.data.currentTurnIndex];
+    const currentHero = state.participants[state.currentTurnIndex];
     if (currentHero.player) {
-      const skillsRes = await axios.get(`player-hero/${currentHero.id}/skills`);
+      const skillsRes = await axios.get(`/player-hero/${currentHero.id}/skills`);
       setCurrentHeroSkills(skillsRes.data);
+    } else {
+      setCurrentHeroSkills([]);
     }
 
     setSelectedSkillId(null);
@@ -48,16 +55,49 @@ export default function Battle() {
 
   const useSkill = async (targetId) => {
     const currentHero = battleState.participants[battleState.currentTurnIndex];
-    await axios.post('/combat/action/skill', {
-      playerHeroId: currentHero.id,
-      skillId: selectedSkillId,
-      targetId,
-    });
-    fetchBattleState();
+    try {
+      const res = await axios.post('/combat/action/skill', {
+        playerHeroId: currentHero.id,
+        skillId: selectedSkillId,
+        targetId,
+      });
+
+      const { damageDealt, targetId: resultTargetId, type, battleState: newState } = res.data;
+      setBattleState(newState);
+      setCooldowns(newState.cooldowns || {});
+
+      const newCurrentHero = newState.participants[newState.currentTurnIndex];
+      if (newCurrentHero.player) {
+        const skillsRes = await axios.get(`/player-hero/${newCurrentHero.id}/skills`);
+        setCurrentHeroSkills(skillsRes.data);
+      } else {
+        setCurrentHeroSkills([]);
+      }
+
+      if (damageDealt && resultTargetId) {
+        const targetElement = targetRefs.current[resultTargetId];
+        if (targetElement) {
+          const rect = targetElement.getBoundingClientRect();
+          const x = rect.left + rect.width / 2;
+          const y = rect.top;
+          const floatingId = Date.now();
+
+          setFloatingDamages(prev => [...prev, { id: floatingId, x, y, value: damageDealt, type }]);
+          setTimeout(() => {
+            setFloatingDamages(prev => prev.filter(d => d.id !== floatingId));
+          }, 1500);
+        }
+      }
+
+    } catch (error) {
+      console.error("Erreur lors de l'utilisation de la compétence :", error);
+    }
   };
 
   const handleSkillClick = (skill) => {
     if (skill.category === 'PASSIVE') return;
+
+    const currentHero = battleState.participants[battleState.currentTurnIndex];
     const cooldownLeft = cooldowns?.[currentHero?.id]?.[skill.id] || 0;
     if (cooldownLeft > 0) return;
 
@@ -74,9 +114,13 @@ export default function Battle() {
 
   const getHighlightClass = (participant) => {
     if (!selectedSkillId || !selectedSkillType) return '';
-    const shouldHighlight = (selectedSkillType === 'DAMAGE' && !participant.player) ||
-                             (selectedSkillType === 'HEAL' && participant.player);
-    return shouldHighlight ? 'animate-pulse ring-4 ring-blue-500 cursor-pointer' : 'opacity-50 pointer-events-none';
+    const shouldHighlight =
+      (selectedSkillType === 'DAMAGE' && !participant.player) ||
+      (selectedSkillType === 'HEAL' && participant.player);
+
+    return shouldHighlight
+      ? 'animate-pulse ring-4 ring-blue-500 cursor-pointer'
+      : 'opacity-50 pointer-events-none';
   };
 
   const getEndStatus = () => {
@@ -86,7 +130,9 @@ export default function Battle() {
 
   const navigateToDashboard = () => navigate("/dashboard");
 
-  if (loading || !battleState) return <div className="text-center text-white mt-12 text-xl animate-pulse">Chargement du combat...</div>;
+  if (loading || !battleState) {
+    return <div className="text-center text-white mt-12 text-xl animate-pulse">Chargement du combat...</div>;
+  }
 
   const currentHero = battleState.participants[battleState.currentTurnIndex];
   const isPlayerTurn = currentHero?.player;
@@ -97,13 +143,14 @@ export default function Battle() {
         {/* Alliés */}
         <div className="flex flex-col justify-center items-center gap-4 col-span-1">
           {battleState.participants.filter(p => p.player).map(hero => (
-            <BattleHeroCard
-              key={hero.id}
-              hero={hero}
-              isCurrent={hero.id === currentHero.id}
-              highlight={getHighlightClass(hero)}
-              onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
-            />
+            <div key={hero.id} ref={el => targetRefs.current[hero.id] = el}>
+              <BattleHeroCard
+                hero={hero}
+                isCurrent={hero.id === currentHero.id}
+                highlight={getHighlightClass(hero)}
+                onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
+              />
+            </div>
           ))}
         </div>
 
@@ -115,19 +162,20 @@ export default function Battle() {
         {/* Ennemis */}
         <div className="flex flex-col justify-center items-center gap-4 col-span-1">
           {battleState.participants.filter(p => !p.player).map(boss => (
-            <BattleHeroCard
-              key={boss.id}
-              hero={boss}
-              isCurrent={boss.id === currentHero.id}
-              highlight={getHighlightClass(boss)}
-              onClick={() => selectedSkillId && selectedSkillType === 'DAMAGE' && useSkill(boss.id)}
-            />
+            <div key={boss.id} ref={el => targetRefs.current[boss.id] = el}>
+              <BattleHeroCard
+                hero={boss}
+                isCurrent={boss.id === currentHero.id}
+                highlight={getHighlightClass(boss)}
+                onClick={() => selectedSkillId && selectedSkillType === 'DAMAGE' && useSkill(boss.id)}
+              />
+            </div>
           ))}
         </div>
       </div>
 
       {/* Compétences */}
-      {isPlayerTurn && (
+      {isPlayerTurn && currentHeroSkills.length > 0 && (
         <BattleSkillBar
           currentHero={currentHero}
           currentHeroSkills={currentHeroSkills}
@@ -142,8 +190,13 @@ export default function Battle() {
         <BattleEndOverlay status={getEndStatus()} onReturn={navigateToDashboard} />
       )}
 
+      {/* Dégâts flottants */}
+      {floatingDamages.map(fd => (
+        <FloatingDamage key={fd.id} {...fd} />
+      ))}
+
       {/* Bouton abandon */}
-      <BattleForfeitButton onClick={() => navigate("/dashboard")} />
+      <BattleForfeitButton onClick={navigateToDashboard} />
     </div>
   );
 }
