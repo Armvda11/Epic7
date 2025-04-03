@@ -42,7 +42,7 @@ export const SettingsProvider = ({ children }) => {
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
-    console.log(`Toggling theme from ${theme} to ${newTheme}`);
+    //console.log(`Toggling theme from ${theme} to ${newTheme}`);
     setTheme(newTheme);
   };
   

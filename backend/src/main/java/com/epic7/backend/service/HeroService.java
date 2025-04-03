@@ -6,6 +6,7 @@ import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.Skill;
 import org.springframework.stereotype.Service;
 
+
 import java.util.List;
 
 @Service
@@ -50,4 +51,19 @@ public class HeroService {
         dto.setTriggerCondition(skill.getTriggerCondition() != null ? skill.getTriggerCondition().name() : null);
         return dto;
     }
+
+
+    public Hero copyForBoss(Hero original) {
+        return Hero.builder()
+            .name("Boss " + original.getName())
+            .element(original.getElement())
+            .rarity(original.getRarity())
+            .baseAttack(original.getBaseAttack())
+            .baseDefense(original.getBaseDefense())
+            .baseSpeed(original.getBaseSpeed())
+            .health(original.getHealth())
+            .code("BOSS_" + original.getCode())
+            .build();
+    }
+    
 }
