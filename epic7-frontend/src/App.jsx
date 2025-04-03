@@ -11,8 +11,11 @@ import PrivateRoute from "./components/PrivateRoute";
 import { MailboxProvider } from "./context/MailboxContext";
 import FriendsPage from "./pages/FriendsPage";
 import Shop from "./pages/Shop";
+import Battle from "./pages/battle";
 
 import UserProfile from './pages/UserProfile';
+
+
 
 
 function App() {
@@ -25,6 +28,7 @@ function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/my-heroes" element={<MyHeroes />} />
         <Route path="/inventory" element={<Inventory />} />
+        <Route path ="/battle" element={<Battle />} />
 
         
         <Route path="/hero" element={<PrivateRoute />}>
