@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from '../api/axiosInstance';
-import { useNavigate } from "react-router-dom";
-
+import { useNavigate } from 'react-router-dom';
+import API from '../api/axiosInstance';
 import BattleHeroCard from '../components/battle/BattleHeroCard';
 import BattleCombatLog from '../components/battle/BattleCombatLog';
 import BattleSkillBar from '../components/battle/BattleSkillBar';
@@ -9,45 +8,62 @@ import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
 import FloatingDamage from '../components/battle/FloatingDamage';
 
-/**
- * Battle pour le combat entre le jouer et le 
- * @returns 
- */
-
 export default function Battle() {
+  const [selectionPhase, setSelectionPhase] = useState(true);
+  const [availableHeroes, setAvailableHeroes] = useState([]);
+  const [selectedHeroes, setSelectedHeroes] = useState([]);
   const [battleState, setBattleState] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
   const [selectedSkillId, setSelectedSkillId] = useState(null);
   const [selectedSkillType, setSelectedSkillType] = useState(null);
   const [cooldowns, setCooldowns] = useState({});
   const [floatingDamages, setFloatingDamages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const targetRefs = useRef({});
 
   useEffect(() => {
-    startCombat();
+    fetchAvailableHeroes();
   }, []);
+
+  const fetchAvailableHeroes = async () => {
+    try {
+      const res = await API.get('/player-hero/my');
+      setAvailableHeroes(res.data);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des héros :", error);
+    }
+  };
+
+  const toggleHeroSelection = (hero) => {
+    if (selectedHeroes.some(h => h.id === hero.id)) {
+      setSelectedHeroes(prev => prev.filter(h => h.id !== hero.id));
+    } else if (selectedHeroes.length < 4) {
+      setSelectedHeroes(prev => [...prev, hero]);
+    }
+  };
 
   const startCombat = async () => {
     try {
-      await axios.post('/combat/start', { bossHeroId: 1 });
+      const heroIds = selectedHeroes.map(h => h.id);
+      await API.post('/combat/start', { bossHeroId: 1, selectedPlayerHeroIds: heroIds });
       await fetchBattleState();
+      setSelectionPhase(false);
     } catch (error) {
       console.error('Erreur au démarrage du combat :', error);
     }
   };
 
   const fetchBattleState = async () => {
-    const res = await axios.get('/combat/state');
+    const res = await API.get('/combat/state');
     const state = res.data;
     setBattleState(state);
     setCooldowns(state.cooldowns || {});
 
     const currentHero = state.participants[state.currentTurnIndex];
     if (currentHero.player) {
-      const skillsRes = await axios.get(`/player-hero/${currentHero.id}/skills`);
+      const skillsRes = await API.get(`/player-hero/${currentHero.id}/skills`);
       setCurrentHeroSkills(skillsRes.data);
     } else {
       setCurrentHeroSkills([]);
@@ -55,13 +71,12 @@ export default function Battle() {
 
     setSelectedSkillId(null);
     setSelectedSkillType(null);
-    setLoading(false);
   };
 
   const useSkill = async (targetId) => {
     const currentHero = battleState.participants[battleState.currentTurnIndex];
     try {
-      const res = await axios.post('/combat/action/skill', {
+      const res = await API.post('/combat/action/skill', {
         playerHeroId: currentHero.id,
         skillId: selectedSkillId,
         targetId,
@@ -73,7 +88,7 @@ export default function Battle() {
 
       const newCurrentHero = newState.participants[newState.currentTurnIndex];
       if (newCurrentHero.player) {
-        const skillsRes = await axios.get(`/player-hero/${newCurrentHero.id}/skills`);
+        const skillsRes = await API.get(`/player-hero/${newCurrentHero.id}/skills`);
         setCurrentHeroSkills(skillsRes.data);
       } else {
         setCurrentHeroSkills([]);
@@ -93,7 +108,6 @@ export default function Battle() {
           }, 1500);
         }
       }
-
     } catch (error) {
       console.error("Erreur lors de l'utilisation de la compétence :", error);
     }
@@ -128,8 +142,6 @@ export default function Battle() {
       : 'opacity-50 pointer-events-none';
   };
 
-  
-
   const getEndStatus = () => {
     if (!battleState?.finished) return null;
     return battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE";
@@ -137,7 +149,33 @@ export default function Battle() {
 
   const navigateToDashboard = () => navigate("/dashboard");
 
-  if (loading || !battleState) {
+  if (selectionPhase) {
+    return (
+      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center text-white p-4">
+        <h2 className="text-2xl font-bold mb-4">Sélectionnez jusqu'à 4 héros</h2>
+        <div className="flex flex-wrap gap-4 justify-center">
+          {availableHeroes.map(hero => (
+            <div
+              key={hero.id}
+              className={`p-2 rounded-lg border-2 ${selectedHeroes.some(h => h.id === hero.id) ? 'border-green-500' : 'border-transparent'} cursor-pointer`}
+              onClick={() => toggleHeroSelection(hero)}
+            >
+              <BattleHeroCard hero={hero} />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={startCombat}
+          className="mt-6 px-6 py-2 bg-green-600 rounded hover:bg-green-700"
+          disabled={selectedHeroes.length === 0}
+        >
+          Lancer le combat
+        </button>
+      </div>
+    );
+  }
+
+  if (!battleState) {
     return <div className="text-center text-white mt-12 text-xl animate-pulse">Chargement du combat...</div>;
   }
 
@@ -152,41 +190,34 @@ export default function Battle() {
     }
     return null;
   };
-  
+
   const nextHeroId = battleState.participants[getNextTurnIndex()]?.id;
 
   return (
-    
-    
     <div className="relative h-screen w-screen bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] text-white overflow-hidden">
-<div className="absolute top-4 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-xl bg-gray-800/80 text-white shadow-lg border border-gray-600 text-lg font-bold z-50">
-  🌀 Tour : {battleState.roundCount}
-</div>
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-xl bg-gray-800/80 text-white shadow-lg border border-gray-600 text-lg font-bold z-50">
+        🌀 Tour : {battleState.roundCount}
+      </div>
 
       <div className="grid grid-cols-5 gap-2 h-full p-4">
-        {/* Alliés */}
         <div className="flex flex-col justify-center items-center gap-4 col-span-1">
           {battleState.participants.filter(p => p.player).map(hero => (
             <div key={hero.id} ref={el => targetRefs.current[hero.id] = el}>
-             <BattleHeroCard
-  key={hero.id}
-  hero={hero}
-  isCurrent={hero.id === currentHero.id}
-  isNext={hero.id === nextHeroId}
-  highlight={getHighlightClass(hero)}
-  onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
-/>
-
+              <BattleHeroCard
+                hero={hero}
+                isCurrent={hero.id === currentHero.id}
+                isNext={hero.id === nextHeroId}
+                highlight={getHighlightClass(hero)}
+                onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
+              />
             </div>
           ))}
         </div>
 
-        {/* Log de combat */}
         <div className="col-span-3 bg-black/40 rounded-xl shadow-lg border border-gray-700 px-6 py-4 backdrop-blur overflow-y-auto">
           <BattleCombatLog logs={battleState.logs} />
         </div>
 
-        {/* Ennemis */}
         <div className="flex flex-col justify-center items-center gap-4 col-span-1">
           {battleState.participants.filter(p => !p.player).map(boss => (
             <div key={boss.id} ref={el => targetRefs.current[boss.id] = el}>
@@ -201,7 +232,6 @@ export default function Battle() {
         </div>
       </div>
 
-      {/* Compétences */}
       {isPlayerTurn && currentHeroSkills.length > 0 && (
         <BattleSkillBar
           currentHero={currentHero}
@@ -212,17 +242,14 @@ export default function Battle() {
         />
       )}
 
-      {/* Fin du combat */}
       {battleState.finished && (
         <BattleEndOverlay status={getEndStatus()} onReturn={navigateToDashboard} />
       )}
 
-      {/* Dégâts flottants */}
       {floatingDamages.map(fd => (
         <FloatingDamage key={fd.id} {...fd} />
       ))}
 
-      {/* Bouton abandon */}
       <BattleForfeitButton onClick={navigateToDashboard} />
     </div>
   );

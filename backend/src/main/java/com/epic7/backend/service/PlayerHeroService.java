@@ -144,4 +144,11 @@ public class PlayerHeroService {
     public List<PlayerHero> getAllByUserId(Long userID) {
         return playerHeroRepository.findByUserId(userID);
     }
+
+    public PlayerHero findByIdAndUser(Long id, User user) {
+        return playerHeroRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("PlayerHero not found or not owned by user"));
+    }
+    
+
 }

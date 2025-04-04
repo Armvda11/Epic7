@@ -9,6 +9,7 @@ import com.epic7.backend.model.PlayerEquipment;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.Skill;
 import com.epic7.backend.model.User;
+import com.epic7.backend.repository.PlayerHeroRepository;
 
 import com.epic7.backend.model.skill_kit.TargetGroup;
 import com.epic7.backend.model.skill_kit.TriggerCondition;
@@ -26,6 +27,7 @@ import java.util.*;
  * Service de gestion des combats simples.
  * Il gère l'initialisation du combat, le traitement des tours,
  * l'utilisation des compétences et la vérification de la fin du combat.
+ * 
  * @author Hermas
  */
 @Service
@@ -37,37 +39,55 @@ public class SimpleBattleService {
     private final HeroService heroService;
     private final SkillService skillService;
     private final PlayerEquipmentRepository playerEquipmentRepository;
+    private final PlayerHeroRepository playerHeroRepository;
 
     /**
      * Initialise un combat simple avec un boss spécifique.
      * Récupère les héros du joueur, crée une copie du boss,
      * initialise les participants et l'état du combat.
      * Trie les héros par vitesse et limite le nombre de héros à 4.
-     * @param user          L'utilisateur qui initie le combat.
-     * @param bossHeroId    L'identifiant du héros boss.
-     * @return              L'état du combat initialisé.
+     * 
+     * @param user       L'utilisateur qui initie le combat.
+     * @param bossHeroId L'identifiant du héros boss.
+     * @return L'état du combat initialisé.
      */
-    public SimpleBattleState initBattle(User user, Long bossHeroId) {
-        // Récupération des héros du joueur 
-        List<PlayerHero> allPlayerHeroes = playerHeroService.getAllByUser(user);
-        // Trie des héros par vitesse et limite à 4
-        List<PlayerHero> playerHeroes = allPlayerHeroes.stream()
-                .sorted(Comparator.comparingInt(ph -> ph.getHero().getBaseSpeed()))
-                .limit(4)
-                .toList();
+    public SimpleBattleState initBattle(User user, Long bossHeroId, List<Long> selectedHeroIds) {
+        // Vérifie qu'on ne dépasse pas 4 héros
+        if (selectedHeroIds.size() > 4) {
+            throw new IllegalArgumentException("Tu ne peux sélectionner que 4 héros maximum.");
+        }
 
-        //Creation d'un copie du hero de base pour le boss
+        List<PlayerHero> playerHeroes = new ArrayList<>();
+        for (Long id : selectedHeroIds) {
+            PlayerHero ph = (PlayerHero) playerHeroService.findByIdAndUser(id, user);
+            if (ph != null) {
+                playerHeroes.add(ph);
+            }
+        }
+
+        if (playerHeroes.size() != selectedHeroIds.size()) {
+            throw new IllegalArgumentException("Un ou plusieurs héros sélectionnés ne vous appartiennent pas.");
+        }
+
+        if (playerHeroes.size() != selectedHeroIds.size()) {
+            throw new IllegalArgumentException("Un ou plusieurs héros sélectionnés ne vous appartiennent pas.");
+        }
+
+        // Récupération et préparation du boss
         Hero baseBossHero = heroRepository.findById(bossHeroId)
                 .orElseThrow(() -> new IllegalArgumentException("Boss introuvable: " + bossHeroId));
-        // Création d'une copie du boss pour le combat
-        Hero bossHero = heroService.copyForBoss(baseBossHero);
 
-        // Mise en place des différents heros du joueur participant au combat
+        Hero bossHero = heroService.copyForBoss(baseBossHero);
+        bossHero.setBaseAttack(bossHero.getBaseAttack() + 300000);
+        bossHero.setBaseDefense(bossHero.getBaseDefense() + 200);
+
+        // Création des participants (héros + boss)
         List<SimpleBattleParticipant> participants = new ArrayList<>();
+
         for (PlayerHero ph : playerHeroes) {
             Hero h = ph.getHero();
 
-            // Récupération des équipements équipés
+            // Récupération des équipements
             List<PlayerEquipment> equippedItems = playerEquipmentRepository.findByPlayerHeroId(ph.getId());
 
             int totalAttack = h.getBaseAttack();
@@ -92,8 +112,12 @@ public class SimpleBattleService {
                 -1L, bossHero.getName(), bossHero.getHealth(), bossHero.getHealth(),
                 bossHero.getBaseAttack(), bossHero.getBaseDefense(), bossHero.getBaseSpeed(), false));
 
+        // Tri par vitesse (ordre de jeu)
         participants.sort(Comparator.comparingInt(SimpleBattleParticipant::getSpeed).reversed());
+        System.out.println("💥 Heroes sélectionnés : " + selectedHeroIds);
+        System.out.println("✅ PlayerHeroes valides : " + playerHeroes.stream().map(ph -> ph.getId()).toList());
 
+        // Initialisation de l'état de combat
         SimpleBattleState state = new SimpleBattleState();
         state.setParticipants(participants);
         state.setCurrentTurnIndex(0);
@@ -110,15 +134,16 @@ public class SimpleBattleService {
      * Si le boss est vaincu, le combat est terminé.
      * Si le joueur est en train de jouer, il ne fait rien.
      * Sinon, le boss attaque un héros joueur au hasard.
+     * 
      * @param state
      * @return
      */
     public SimpleBattleState processUntilNextPlayer(SimpleBattleState state) {
         // Vérifie si le combat est terminé
         while (!state.isFinished()) {
-           
+
             SimpleBattleParticipant current = state.getParticipants().get(state.getCurrentTurnIndex());
-             // Vérifie si c'est le tour d'un joueur
+            // Vérifie si c'est le tour d'un joueur
             if (current.isPlayer())
                 break;
 
@@ -155,18 +180,19 @@ public class SimpleBattleService {
      * Vérifie si le combat est terminé après chaque action.
      * Si tous les héros sont morts, le combat est terminé.
      * Si le boss est vaincu, le combat est terminé.
+     * 
      * @param state
      * @return
      */
     private SimpleBattleState nextTurn(SimpleBattleState state) {
         int size = state.getParticipants().size();
         int currentIndex = state.getCurrentTurnIndex();
-        
+
         // Parcourt la liste des participants pour trouver le prochain joueur
         for (int i = 1; i <= size; i++) {
             int nextIndex = (currentIndex + i) % size;
             SimpleBattleParticipant next = state.getParticipants().get(nextIndex);
-    
+
             if (next.getCurrentHp() > 0) {
                 // incrémente le compteur de tours si on boucle dans la liste
                 if (nextIndex <= currentIndex) {
@@ -183,9 +209,10 @@ public class SimpleBattleService {
         state.setFinished(true);
         return state;
     }
-    
+
     /**
      * Active les passifs au début du tour.
+     * 
      * @param state
      * @param participant
      */
@@ -269,6 +296,7 @@ public class SimpleBattleService {
 
     /**
      * Convertit l'état de la bataille simple en DTO.
+     * 
      * @param state
      * @return
      */
@@ -290,7 +318,6 @@ public class SimpleBattleService {
             return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
         }
 
-
         SimpleBattleParticipant actor = state.getParticipants().get(state.getCurrentTurnIndex());
         Skill skill = skillService.getSkillById(request.getSkillId());
 
@@ -302,7 +329,8 @@ public class SimpleBattleService {
 
                 boolean belongsToHero = hero.getSkills().stream()
                         .anyMatch(s -> s.getId().equals(skill.getId()));
-                // vérifier que la compétence appartient au héros, sinon on ne peut pas l'utiliser et l'erreur est remontée
+                // vérifier que la compétence appartient au héros, sinon on ne peut pas
+                // l'utiliser et l'erreur est remontée
                 if (!belongsToHero) {
                     state.getLogs().add("❌ Cette compétence n'appartient pas au héros sélectionné.");
                     return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
