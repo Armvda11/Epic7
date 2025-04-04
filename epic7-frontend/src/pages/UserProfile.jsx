@@ -25,6 +25,25 @@ const [heroes, setHeroes] = useState([]);
 const [loadingHeroes, setLoadingHeroes] = useState(false);
 const [selectedHero, setSelectedHero] = useState(null);
 
+// Format date based on language (French: dd/mm/yyyy, Others: mm/dd/yyyy)
+const formatDate = (dateString) => {
+if (!dateString) return t("notSpecified", language) || 'Non spécifié';
+
+try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return t("notSpecified", language) || 'Non spécifié';
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return language === 'fr' ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
+} catch (err) {
+    console.error("Date formatting error:", err);
+    return t("notSpecified", language) || 'Non spécifié';
+}
+};
+
 useEffect(() => {
     const loadUserProfile = async () => {
     try {
@@ -183,6 +202,56 @@ try {
 }
 };
 
+// Calculate win rate percentage
+const calculateWinRate = () => {
+  const wins = user.winNumber || 0;
+  const losses = user.loseNumber || 0;
+  const totalMatches = wins + losses;
+  
+  if (totalMatches === 0) return 0;
+  return Math.round((wins / totalMatches) * 100);
+};
+
+// Component for win rate pie chart
+const WinRatePieChart = () => {
+  const winRate = calculateWinRate();
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (winRate / 100) * circumference;
+  
+  return (
+    <div className="relative w-24 h-24 mx-auto my-4">
+      {/* Background circle (red for losses) */}
+      <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
+        <circle 
+          cx="50" 
+          cy="50" 
+          r={radius} 
+          stroke="#f87171" 
+          strokeWidth="12" 
+          fill="none" 
+        />
+        {/* Foreground circle (green for wins) */}
+        <circle 
+          cx="50" 
+          cy="50" 
+          r={radius} 
+          stroke="#4ade80" 
+          strokeWidth="12" 
+          fill="none" 
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+        />
+      </svg>
+      {/* Percentage text in the middle */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-2xl font-bold">{winRate}%</span>
+      </div>
+    </div>
+  );
+};
+
 if (loading) return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
     {t("loadingProfile", language) || "Chargement..."}
@@ -243,8 +312,8 @@ return (
         <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-lg p-5 hover:ring-2 hover:ring-purple-400 transition">
             <h3 className="text-xl font-bold mb-4 text-purple-600 dark:text-purple-300">{t("personalInfo", language) || "Informations personnelles"}</h3>
             <div className="space-y-2">
-            <p><strong>{t("memberSince", language) || "Membre depuis"}:</strong> {user.registrationDate || t("notSpecified", language) || 'Non spécifié'}</p>
-            <p><strong>{t("lastLogin", language) || "Dernière connexion"}:</strong> {user.lastLoginDate || t("notSpecified", language) || 'Non spécifié'}</p>
+            <p><strong>{t("memberSince", language) || "Membre depuis"}:</strong> {formatDate(user.registerDate)}</p>
+            <p><strong>{t("lastLogin", language) || "Dernière connexion"}:</strong> {formatDate(user.lastLoginDate)}</p>
             </div>
         </div>
         
@@ -253,8 +322,22 @@ return (
             <div className="space-y-2">
             <p><strong>{t("rank", language) || "Rang"}:</strong> {user.rank || t("unranked", language) || 'Non classé'}</p>
             <p><strong>{t("arenaTier", language) || "Tier d'arène"}:</strong> {user.arenaTier || t("unranked", language) || 'Non classé'}</p>
-            <p><strong>{t("matchesWon", language) || "Matchs gagnés"}:</strong> {user.wins || 0}</p>
-            <p><strong>{t("matchesLost", language) || "Matchs perdus"}:</strong> {user.losses || 0}</p>
+            
+            {/* Win rate pie chart */}
+            <div className="mt-4">
+                <p className="text-center font-semibold mb-2">{t("winRate", language) || "Taux de victoire"}</p>
+                <WinRatePieChart />
+                <div className="flex justify-center gap-6 mt-2 text-sm">
+                <div className="flex items-center">
+                    <span className="inline-block w-3 h-3 bg-green-400 rounded-full mr-1"></span>
+                    <span>{user.winNumber || 0} {t("wins", language) || "Victoires"}</span>
+                </div>
+                <div className="flex items-center">
+                    <span className="inline-block w-3 h-3 bg-red-400 rounded-full mr-1"></span>
+                    <span>{user.loseNumber || 0} {t("losses", language) || "Défaites"}</span>
+                </div>
+                </div>
+            </div>
             </div>
         </div>
         
@@ -262,7 +345,7 @@ return (
             <h3 className="text-xl font-bold mb-4 text-purple-600 dark:text-purple-300">{t("community", language) || "Communauté"}</h3>
             <div className="space-y-2">
             <p><strong>{t("guild", language) || "Guilde"}:</strong> {user.guild || t("none", language) || 'Aucune'}</p>
-            <p><strong>{t("friends", language) || "Amis"}:</strong> {user.friendCount || 0}</p>
+            <p><strong>{t("friends", language) || "Amis"}:</strong> {user.friendNumber || 0}</p>
             </div>
         </div>
         </div>
@@ -272,7 +355,7 @@ return (
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
             <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-300">{t("heroCollection", language) || "Collection de héros"}</h2>
-            <p className="mt-2">{t("totalHeroes", language) || "Nombre total de héros"}: {user.heroCount || 0}</p>
+            <p className="mt-2">{t("totalHeroes", language) || "Nombre total de héros"}: {user.heroesNumber || 0}</p>
             </div>
             
             <button 
