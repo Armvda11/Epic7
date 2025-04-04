@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
 /**
  * Contrôleur pour gérer les combats simples.
  * Il permet de démarrer un combat, d'utiliser une compétence active,
@@ -52,9 +53,18 @@ public class SimpleCombatController {
     public ResponseEntity<SimpleBattleStateDTO> startCombat(HttpServletRequest request,
             @RequestBody StartCombatRequest combatRequest) {
         User user = getCurrentUser(request);
-        currentBattleState = battleService.initBattle(user, combatRequest.getBossHeroId());
+    
+        currentBattleState = battleService.initBattle(
+                user,
+                combatRequest.getBossHeroId(),
+                combatRequest.getSelectedPlayerHeroIds()
+        );
+        System.out.println("🛡️ Démarrage du combat avec : " + combatRequest.getSelectedPlayerHeroIds());
+
+    
         return ResponseEntity.ok(battleService.convertToDTO(currentBattleState));
     }
+    
 
     /**
      * Effectuer un skill choisi par le joueur.
@@ -79,6 +89,10 @@ public class SimpleCombatController {
      */
     @GetMapping("/state")
     public ResponseEntity<SimpleBattleStateDTO> getCombatState() {
+        if (currentBattleState == null) {
+            return ResponseEntity.badRequest().build(); // ou 204 No Content
+        }
         return ResponseEntity.ok(battleService.convertToDTO(currentBattleState));
     }
+    
 }
