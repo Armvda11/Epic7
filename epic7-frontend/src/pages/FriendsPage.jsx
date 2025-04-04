@@ -91,36 +91,46 @@ const handleRemoveFriend = async (friendId) => {
 };
 
 const handleSendRequest = async (e) => {
-    e.preventDefault();
-    if (!newFriendId || isNaN(Number(newFriendId))) {
+e.preventDefault();
+if (!newFriendId || isNaN(Number(newFriendId))) {
     setRequestStatus({
-        success: false,
-        message: t("enterValidId", language)
+    success: false,
+    message: t("enterValidId", language)
     });
     return;
-    }
+}
 
-    try {
+try {
     const result = await sendFriendRequest(Number(newFriendId));
     console.log("Send friend request result:", result);
-    if (result) {
-        setRequestStatus({
-        success: true,
-        message: t("friendRequestSuccess", language)
-        });
-        setNewFriendId("");
-        // Refresh friends list after adding a new friend
-        loadFriends();
-    } else {
-        throw new Error(t("friendRequestError", language));
-    }
-    } catch (err) {
-    console.error("Erreur lors de l'envoi de la demande d'ami:", err);
     setRequestStatus({
-        success: false,
-        message: err.response?.data?.message || t("friendRequestError", language)
+    success: true,
+    message: t("friendRequestSuccess", language)
     });
+    setNewFriendId("");
+    // Refresh friends list after adding a new friend
+    loadFriends();
+} catch (err) {
+    console.error("Friend request error:", err);
+    
+    // Handle specific error codes
+    let errorMessage = t("friendRequestError", language);
+    
+    if (err.code === "SELF_FRIEND_REQUEST") {
+    errorMessage = t("cannotAddSelf", language) || "You cannot add yourself as a friend";
+    } else if (err.code === "DUPLICATE_FRIEND_REQUEST") {
+    errorMessage = t("alreadySentRequest", language) || "You've already sent a request to this user";
+    } else if (err.code === "ALREADY_FRIENDS") {
+    errorMessage = t("alreadyFriends", language) || "You are already friends with this user";
+    } else if (err.code === "FRIEND_NOT_FOUND") {
+    errorMessage = t("userNotFound", language) || "User not found";
     }
+    
+    setRequestStatus({
+    success: false,
+    message: errorMessage
+    });
+}
 };
 
 // Sécurité pour éviter des erreurs si friends n'est pas un tableau

@@ -66,12 +66,23 @@ export const fetchFriends = async (userId = 0, premier = 0, dernier = 100) => {
 // Envoie une demande d'ami
 export const sendFriendRequest = async (userId) => {
   try {
-    const response = await API.get(`/user/send-friend-requests`, {
+    const response = await API.post('/user/send-friend-request', null, {
       params: { userId }
     });
     return response.data;
   } catch (error) {
-    console.error("Erreur lors de l'envoi de la demande d'ami :", error);
+    if (error.response && error.response.data) {
+      const errorData = error.response.data;
+      console.error("Friend request error:", errorData);
+      
+      // Pass the error details to the caller
+      throw {
+        code: errorData.errorCode,
+        message: errorData.errorMessage,
+        ...error
+      };
+    }
+    console.error("Erreur lors de l'envoi de la demande d'ami:", error);
     throw error;
   }
 };
@@ -114,12 +125,18 @@ export const fetchUserProfileById = async (userId) => {
 // Accepte une demande d'ami
 export const acceptFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.get('/user/accept-friend', {
+    const response = await API.post('/user/accept-friend', null, {
       params: { userId: friendId }
-    }, options);
+    });
     return response.data;
   } catch (error) {
-    console.error("Error accepting friend request:", error);
+    if (error.response && error.response.data) {
+      throw {
+        code: error.response.data.errorCode,
+        message: error.response.data.errorMessage,
+        ...error
+      };
+    }
     throw error;
   }
 };
@@ -127,25 +144,37 @@ export const acceptFriendRequest = async (friendId, options = {}) => {
 // Refuse une demande d'ami
 export const declineFriendRequest = async (friendId, options = {}) => {
   try {
-    const response = await API.get('/user/decline-friend', {
+    const response = await API.post('/user/decline-friend', null, {
       params: { userId: friendId }
-    }, options);
+    });
     return response.data;
   } catch (error) {
-    console.error("Error declining friend request:", error);
+    if (error.response && error.response.data) {
+      throw {
+        code: error.response.data.errorCode,
+        message: error.response.data.errorMessage,
+        ...error
+      };
+    }
     throw error;
   }
 };
 
 // Supprime un ami
-export const removeFriend = async (userId) => {
+export const removeFriend = async (friendId) => {
   try {
-    const response = await API.get(`/user/remove-friend`, {
-      params: { userId }
+    const response = await API.delete('/user/remove-friend', {
+      params: { userId: friendId }
     });
     return response.data;
   } catch (error) {
-    console.error("Erreur lors de la suppression de l'ami :", error);
+    if (error.response && error.response.data) {
+      throw {
+        code: error.response.data.errorCode,
+        message: error.response.data.errorMessage,
+        ...error
+      };
+    }
     throw error;
   }
 };
