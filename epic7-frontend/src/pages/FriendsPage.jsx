@@ -109,6 +109,8 @@ const handleSendRequest = async (e) => {
         message: t("friendRequestSuccess", language)
         });
         setNewFriendId("");
+        // Refresh friends list after adding a new friend
+        loadFriends();
     } else {
         throw new Error(t("friendRequestError", language));
     }
@@ -228,7 +230,14 @@ return (
                     {friend.username?.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div>
-                    <h3 className="font-bold">{friend.username}</h3>
+                    <h3 className="font-bold">
+                        <a 
+                            href={`/profile/${friend.id}`}
+                            className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition"
+                        >
+                            {friend.username}
+                        </a>
+                    </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t("level", language)} {friend.level}</p>
                     {friend.friendshipStatus === "PENDING" && (
                         <span className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center">
