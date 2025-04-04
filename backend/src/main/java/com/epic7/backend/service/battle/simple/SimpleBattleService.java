@@ -11,6 +11,7 @@ import com.epic7.backend.model.Skill;
 import com.epic7.backend.model.User;
 
 import com.epic7.backend.model.skill_kit.TargetGroup;
+import com.epic7.backend.model.skill_kit.TriggerCondition;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.PlayerEquipmentRepository;
 import com.epic7.backend.service.HeroService;
@@ -112,20 +113,95 @@ public class SimpleBattleService {
         }
         return state;
     }
-
     private SimpleBattleState nextTurn(SimpleBattleState state) {
         int size = state.getParticipants().size();
+        int currentIndex = state.getCurrentTurnIndex();
+    
         for (int i = 1; i <= size; i++) {
-            int nextIndex = (state.getCurrentTurnIndex() + i) % size;
-            if (state.getParticipants().get(nextIndex).getCurrentHp() > 0) {
-                Long nextHeroId = state.getParticipants().get(nextIndex).getId();
-                state.reduceCooldownsForHero(nextHeroId);
+            int nextIndex = (currentIndex + i) % size;
+            SimpleBattleParticipant next = state.getParticipants().get(nextIndex);
+    
+            if (next.getCurrentHp() > 0) {
+                // ✅ Incrément si on boucle (retour en arrière dans la liste)
+                if (nextIndex <= currentIndex) {
+                    state.setRoundCount(state.getRoundCount() + 1);
+                    state.getLogs().add("🔁 Début du tour " + state.getRoundCount());
+                }
+    
                 state.setCurrentTurnIndex(nextIndex);
+                state.reduceCooldownsForHero(next.getId());
+    
+                activateOnTurnStartPassives(state, next);
+    
                 return state;
             }
         }
+    
+        // Aucun survivant
         state.setFinished(true);
         return state;
+    }
+    
+    
+    private void activateOnTurnStartPassives(SimpleBattleState state, SimpleBattleParticipant participant) {
+        if (!participant.isPlayer())
+            return; // Boss n'a pas encore de passif
+
+        try {
+            PlayerHero playerHero = playerHeroService.findById(participant.getId());
+            Hero hero = playerHero.getHero();
+
+            hero.getSkills().stream()
+                    .filter(skill -> !skill.isActive() &&
+                            skill.getTriggerCondition() == TriggerCondition.ON_TURN_START)
+                    .forEach(skill -> {
+                        if (skill.getPassiveBonus() != null) {
+                            switch (skill.getPassiveBonus()) {
+                                case ATTACK_UP -> {
+                                    int bonus = (int) (participant.getAttack() * (skill.getBonusValue() / 100.0));
+                                    participant.setAttack(participant.getAttack() + bonus);
+                                    state.getLogs().add("✨ " + participant.getName() + " déclenche " + skill.getName()
+                                            + " (passif) et gagne +" + bonus + " ATK (" + skill.getBonusValue()
+                                            + "%).");
+                                }
+                                case DEFENSE_UP -> {
+                                    int bonus = (int) (participant.getDefense() * (skill.getBonusValue() / 100.0));
+                                    participant.setDefense(participant.getDefense() + bonus);
+                                    state.getLogs().add("🛡️ " + participant.getName() + " déclenche " + skill.getName()
+                                            + " (passif) et gagne +" + bonus + " DEF.");
+                                }
+                                case SPEED_UP -> {
+                                    int bonus = (int) (participant.getSpeed() * (skill.getBonusValue() / 100.0));
+                                    participant.setSpeed(participant.getSpeed() + bonus);
+                                    state.getLogs().add("💨 " + participant.getName() + " déclenche " + skill.getName()
+                                            + " (passif) et gagne +" + bonus + " Vitesse.");
+                                }
+                                default -> {
+                                    state.getLogs().add("⚠️ Passif non géré : " + skill.getPassiveBonus());
+                                }
+                            }
+                        } else if (skill.getAction() != null) {
+                            // gestion des anciens passifs de type HEAL/DAMAGE
+                            switch (skill.getAction()) {
+                                case HEAL -> {
+                                    int healAmount = (int) (skill.getScalingFactor() * participant.getMaxHp());
+                                    participant.setCurrentHp(
+                                            Math.min(participant.getMaxHp(), participant.getCurrentHp() + healAmount));
+                                    state.getLogs().add("✨ " + participant.getName() + " déclenche " + skill.getName() +
+                                            " (passif) et se soigne de " + healAmount + " points de vie.");
+                                }
+                                case DAMAGE -> {
+                                    // implémenter si besoin
+                                }
+                            }
+                        } else {
+                            state.getLogs().add("❌ Passif mal configuré : aucun effet connu.");
+                        }
+
+                    });
+        } catch (Exception e) {
+            state.getLogs().add("❌ Erreur lors de l’activation du passif de " + participant.getName());
+        }
     }
 
     private boolean checkEnd(SimpleBattleState state) {

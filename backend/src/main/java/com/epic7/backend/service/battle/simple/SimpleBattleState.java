@@ -13,6 +13,8 @@ public class SimpleBattleState {
     private int currentTurnIndex;
     private boolean finished;
     private List<String> logs;
+    
+    private int roundCount = 1;
 
     /**
      * Cooldowns par héros : Map<PlayerHeroId, Map<SkillId, cooldownRestant>>

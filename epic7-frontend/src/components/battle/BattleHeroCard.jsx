@@ -2,10 +2,18 @@ import React from 'react';
 import BattleHealthBar from './HealthBar';
 import { motion } from 'framer-motion';
 
-export default function BattleHeroCard({ hero, isCurrent, highlight, onClick }) {
+export default function BattleHeroCard({ hero, isCurrent, isNext, highlight, onClick }) {
+
   const getHeroImage = (name) => `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
+  {isNext && (
+    <span className="absolute top-2 right-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full shadow-md">
+      ⏭️ Prochain
+    </span>
+  )}
+  
 
   return (
+    
     <motion.div
       whileHover={{ scale: 1.05 }}
       className={`relative w-40 bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-2xl shadow-xl border-2 p-4 transform transition duration-300 hover:shadow-2xl ${
