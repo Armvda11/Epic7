@@ -22,6 +22,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * Service de gestion des combats simples.
+ * Il gère l'initialisation du combat, le traitement des tours,
+ * l'utilisation des compétences et la vérification de la fin du combat.
+ * @author Hermas
+ */
 @Service
 @RequiredArgsConstructor
 public class SimpleBattleService {
@@ -32,17 +38,31 @@ public class SimpleBattleService {
     private final SkillService skillService;
     private final PlayerEquipmentRepository playerEquipmentRepository;
 
+    /**
+     * Initialise un combat simple avec un boss spécifique.
+     * Récupère les héros du joueur, crée une copie du boss,
+     * initialise les participants et l'état du combat.
+     * Trie les héros par vitesse et limite le nombre de héros à 4.
+     * @param user          L'utilisateur qui initie le combat.
+     * @param bossHeroId    L'identifiant du héros boss.
+     * @return              L'état du combat initialisé.
+     */
     public SimpleBattleState initBattle(User user, Long bossHeroId) {
+        // Récupération des héros du joueur 
         List<PlayerHero> allPlayerHeroes = playerHeroService.getAllByUser(user);
+        // Trie des héros par vitesse et limite à 4
         List<PlayerHero> playerHeroes = allPlayerHeroes.stream()
                 .sorted(Comparator.comparingInt(ph -> ph.getHero().getBaseSpeed()))
                 .limit(4)
                 .toList();
 
+        //Creation d'un copie du hero de base pour le boss
         Hero baseBossHero = heroRepository.findById(bossHeroId)
                 .orElseThrow(() -> new IllegalArgumentException("Boss introuvable: " + bossHeroId));
+        // Création d'une copie du boss pour le combat
         Hero bossHero = heroService.copyForBoss(baseBossHero);
 
+        // Mise en place des différents heros du joueur participant au combat
         List<SimpleBattleParticipant> participants = new ArrayList<>();
         for (PlayerHero ph : playerHeroes) {
             Hero h = ph.getHero();
@@ -83,9 +103,22 @@ public class SimpleBattleService {
         return processUntilNextPlayer(state);
     }
 
+    /**
+     * Traite le combat jusqu'au prochain joueur.
+     * Vérifie si le combat est terminé après chaque action.
+     * Si tous les héros sont morts, le combat est terminé.
+     * Si le boss est vaincu, le combat est terminé.
+     * Si le joueur est en train de jouer, il ne fait rien.
+     * Sinon, le boss attaque un héros joueur au hasard.
+     * @param state
+     * @return
+     */
     public SimpleBattleState processUntilNextPlayer(SimpleBattleState state) {
+        // Vérifie si le combat est terminé
         while (!state.isFinished()) {
+           
             SimpleBattleParticipant current = state.getParticipants().get(state.getCurrentTurnIndex());
+             // Vérifie si c'est le tour d'un joueur
             if (current.isPlayer())
                 break;
 
@@ -113,36 +146,49 @@ public class SimpleBattleService {
         }
         return state;
     }
+
+    /**
+     * Passe au tour suivant.
+     * Incrémente le compteur de tours si on boucle dans la liste des participants.
+     * Réduit les cooldowns des compétences du héros actuel.
+     * Active les passifs au début du tour.
+     * Vérifie si le combat est terminé après chaque action.
+     * Si tous les héros sont morts, le combat est terminé.
+     * Si le boss est vaincu, le combat est terminé.
+     * @param state
+     * @return
+     */
     private SimpleBattleState nextTurn(SimpleBattleState state) {
         int size = state.getParticipants().size();
         int currentIndex = state.getCurrentTurnIndex();
-    
+        
+        // Parcourt la liste des participants pour trouver le prochain joueur
         for (int i = 1; i <= size; i++) {
             int nextIndex = (currentIndex + i) % size;
             SimpleBattleParticipant next = state.getParticipants().get(nextIndex);
     
             if (next.getCurrentHp() > 0) {
-                // ✅ Incrément si on boucle (retour en arrière dans la liste)
+                // incrémente le compteur de tours si on boucle dans la liste
                 if (nextIndex <= currentIndex) {
                     state.setRoundCount(state.getRoundCount() + 1);
                     state.getLogs().add("🔁 Début du tour " + state.getRoundCount());
                 }
-    
                 state.setCurrentTurnIndex(nextIndex);
                 state.reduceCooldownsForHero(next.getId());
-    
                 activateOnTurnStartPassives(state, next);
-    
                 return state;
             }
         }
-    
         // Aucun survivant
         state.setFinished(true);
         return state;
     }
     
-    
+    /**
+     * Active les passifs au début du tour.
+     * @param state
+     * @param participant
+     */
     private void activateOnTurnStartPassives(SimpleBattleState state, SimpleBattleParticipant participant) {
         if (!participant.isPlayer())
             return; // Boss n'a pas encore de passif
@@ -221,6 +267,11 @@ public class SimpleBattleService {
         return false;
     }
 
+    /**
+     * Convertit l'état de la bataille simple en DTO.
+     * @param state
+     * @return
+     */
     public SimpleBattleStateDTO convertToDTO(SimpleBattleState state) {
         return new SimpleBattleStateDTO(state);
     }
@@ -234,9 +285,11 @@ public class SimpleBattleService {
      * @return
      */
     public SkillActionResultDTO useSkillWithResult(SimpleBattleState state, SimpleSkillActionRequest request) {
+        // Vérifie si le combat est terminé
         if (state == null || state.isFinished()) {
             return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
         }
+
 
         SimpleBattleParticipant actor = state.getParticipants().get(state.getCurrentTurnIndex());
         Skill skill = skillService.getSkillById(request.getSkillId());
@@ -249,12 +302,14 @@ public class SimpleBattleService {
 
                 boolean belongsToHero = hero.getSkills().stream()
                         .anyMatch(s -> s.getId().equals(skill.getId()));
-
+                // vérifier que la compétence appartient au héros, sinon on ne peut pas l'utiliser et l'erreur est remontée
                 if (!belongsToHero) {
                     state.getLogs().add("❌ Cette compétence n'appartient pas au héros sélectionné.");
                     return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
                 }
             } catch (Exception e) {
+                // normalement pas possible car on a déjà vérifié que le héros est joueur
+                // mais au cas où, on remonte l'erreur
                 state.getLogs().add("❌ Erreur lors de la vérification du héros joueur.");
                 return new SkillActionResultDTO(new SimpleBattleStateDTO(state), 0, null, "NONE");
             }

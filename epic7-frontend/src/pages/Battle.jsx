@@ -9,6 +9,11 @@ import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
 import FloatingDamage from '../components/battle/FloatingDamage';
 
+/**
+ * Battle pour le combat entre le jouer et le 
+ * @returns 
+ */
+
 export default function Battle() {
   const [battleState, setBattleState] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);

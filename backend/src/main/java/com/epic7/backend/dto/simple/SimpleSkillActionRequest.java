@@ -9,12 +9,13 @@ import lombok.AllArgsConstructor;
  * - Le héros qui agit
  * - La compétence choisie
  * - La cible
+ * @author Hermas
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class SimpleSkillActionRequest {
-    private Long playerHeroId;
+    private Long playerHeroId; 
     private Long skillId;
     private Long targetId;
 }
