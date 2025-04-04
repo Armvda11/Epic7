@@ -22,10 +22,10 @@ public class SimpleBattleStateDTO {
     private int currentTurnIndex;
     private boolean finished;
     private List<String> logs;
+    private int roundCount = 1; // Nombre de tours écoulés
 
     // ✅ Cooldowns : <playerHeroId, <skillId, cooldownLeft>>
     private Map<Long, Map<Long, Integer>> cooldowns;
-
     public SimpleBattleStateDTO(SimpleBattleState state) {
         this.participants = state.getParticipants().stream()
                 .map(ParticipantDTO::new)
@@ -33,8 +33,10 @@ public class SimpleBattleStateDTO {
         this.currentTurnIndex = state.getCurrentTurnIndex();
         this.finished = state.isFinished();
         this.logs = state.getLogs();
-        this.cooldowns = state.getCooldowns(); // ✅ inclure les cooldowns dans la réponse
+        this.cooldowns = state.getCooldowns();
+        this.roundCount = state.getRoundCount();
     }
+    
 
     @Data
     @NoArgsConstructor

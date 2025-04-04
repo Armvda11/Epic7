@@ -123,6 +123,8 @@ export default function Battle() {
       : 'opacity-50 pointer-events-none';
   };
 
+  
+
   const getEndStatus = () => {
     if (!battleState?.finished) return null;
     return battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE";
@@ -137,19 +139,39 @@ export default function Battle() {
   const currentHero = battleState.participants[battleState.currentTurnIndex];
   const isPlayerTurn = currentHero?.player;
 
+  const getNextTurnIndex = () => {
+    const total = battleState.participants.length;
+    for (let i = 1; i < total; i++) {
+      const idx = (battleState.currentTurnIndex + i) % total;
+      if (battleState.participants[idx].currentHp > 0) return idx;
+    }
+    return null;
+  };
+  
+  const nextHeroId = battleState.participants[getNextTurnIndex()]?.id;
+
   return (
+    
+    
     <div className="relative h-screen w-screen bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] text-white overflow-hidden">
+<div className="absolute top-4 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-xl bg-gray-800/80 text-white shadow-lg border border-gray-600 text-lg font-bold z-50">
+  🌀 Tour : {battleState.roundCount}
+</div>
+
       <div className="grid grid-cols-5 gap-2 h-full p-4">
         {/* Alliés */}
         <div className="flex flex-col justify-center items-center gap-4 col-span-1">
           {battleState.participants.filter(p => p.player).map(hero => (
             <div key={hero.id} ref={el => targetRefs.current[hero.id] = el}>
-              <BattleHeroCard
-                hero={hero}
-                isCurrent={hero.id === currentHero.id}
-                highlight={getHighlightClass(hero)}
-                onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
-              />
+             <BattleHeroCard
+  key={hero.id}
+  hero={hero}
+  isCurrent={hero.id === currentHero.id}
+  isNext={hero.id === nextHeroId}
+  highlight={getHighlightClass(hero)}
+  onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)}
+/>
+
             </div>
           ))}
         </div>
