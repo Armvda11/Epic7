@@ -39,7 +39,7 @@ const translations = {
     moreResults: "autres résultats",
     close: "Fermer",
     loadingProfile: "Chargement du profil",
-    
+
     // Dashboard additions
     shop: "Boutique",
     level: "Niveau",

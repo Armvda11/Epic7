@@ -12,8 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Contrôleur REST pour gérer les combats simples.
- * Le système de combat est tour par tour, déterministe, et basé sur la vitesse.
+ * Contrôleur pour gérer les combats simples.
+ * Il permet de démarrer un combat, d'utiliser une compétence active,
+ * de récupérer l'état actuel du combat et de gérer les actions automatiques.
+ * 
+ * @author Hermas
  */
 @RestController
 @RequestMapping("/api/combat")
@@ -23,9 +26,15 @@ public class SimpleCombatController {
     private final SimpleBattleService battleService;
     private final AuthService authService;
     private final JwtUtil jwtUtil;
-
     private SimpleBattleState currentBattleState;
 
+    /**
+     * Récupère l'utilisateur actuel à partir du token JWT dans l'en-tête de la
+     * requête.
+     * 
+     * @param request La requête HTTP contenant le token JWT.
+     * @return L'utilisateur correspondant au token JWT.
+     */
     private User getCurrentUser(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
         String email = jwtUtil.extractEmail(token);
@@ -33,29 +42,40 @@ public class SimpleCombatController {
     }
 
     /**
-     * Démarre un nouveau combat contre un boss donné.
+     * Démarre un combat avec un boss spécifique.
+     * 
+     * @param request       La requête HTTP contenant le token JWT.
+     * @param combatRequest La requête contenant l'identifiant du boss.
+     * @return L'état actuel du combat.
      */
     @PostMapping("/start")
     public ResponseEntity<SimpleBattleStateDTO> startCombat(HttpServletRequest request,
-                                                            @RequestBody StartCombatRequest combatRequest) {
+            @RequestBody StartCombatRequest combatRequest) {
         User user = getCurrentUser(request);
         currentBattleState = battleService.initBattle(user, combatRequest.getBossHeroId());
         return ResponseEntity.ok(battleService.convertToDTO(currentBattleState));
     }
 
     /**
-     * Utilise une compétence active.
+     * Effectuer un skill choisi par le joueur.
+     * 
+     * @param request La requête contenant l'identifiant du héros joueur,
+     *                l'identifiant de la compétence et l'identifiant de la cible.
+     * @return Le résultat de l'action de compétence, y compris l'état de la
+     *         bataille, les dégâts infligés et l'identifiant de la cible.
      */
     @PostMapping("/action/skill")
     public ResponseEntity<SkillActionResultDTO> useSkill(@RequestBody SimpleSkillActionRequest request) {
         SkillActionResultDTO result = battleService.useSkillWithResult(currentBattleState, request);
-        //currentBattleState = battleService.convertFromDTO(result.getBattleState()); // si nécessaire
+        // currentBattleState = battleService.convertFromDTO(result.getBattleState());
+        // // si nécessaire
         return ResponseEntity.ok(result);
     }
-    
 
     /**
      * Récupère l'état actuel du combat.
+     * 
+     * @return
      */
     @GetMapping("/state")
     public ResponseEntity<SimpleBattleStateDTO> getCombatState() {

@@ -11,7 +11,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * DTO pour exposer l'état du combat au frontend.
+ * DTO pour représenter l'état d'une bataille simple.
+ * Il contient des informations sur les participants, l'index du tour actuel,
+ * l'état de la bataille (terminée ou non), les logs de la bataille,
+ * le nombre de tours effectués et les cooldowns des compétences.
+ *  @author Hermas
  */
 @Data
 @NoArgsConstructor
@@ -19,14 +23,20 @@ import java.util.stream.Collectors;
 public class SimpleBattleStateDTO {
 
     private List<ParticipantDTO> participants;
-    private int currentTurnIndex;
-    private boolean finished;
-    private List<String> logs;
-    private int roundCount = 1; // Nombre de tours écoulés
+    private int currentTurnIndex; // Index du participant dont c'est le tour
+    private boolean finished;   // Indique si la bataille est terminée
+    private List<String> logs;   // Logs de la bataille
+    private int roundCount = 1; // Nombre de tours effectués
+    private Map<Long, Map<Long, Integer>> cooldowns;  // Cooldowns des compétences
 
-    // ✅ Cooldowns : <playerHeroId, <skillId, cooldownLeft>>
-    private Map<Long, Map<Long, Integer>> cooldowns;
+
+
+    /**
+     * Constructeur pour initialiser le DTO à partir d'un état de bataille simple.
+     * @param state L'état de la bataille simple à partir duquel initialiser le DTO.
+     */
     public SimpleBattleStateDTO(SimpleBattleState state) {
+
         this.participants = state.getParticipants().stream()
                 .map(ParticipantDTO::new)
                 .collect(Collectors.toList());
@@ -37,7 +47,11 @@ public class SimpleBattleStateDTO {
         this.roundCount = state.getRoundCount();
     }
     
-
+    /**
+     * DTO pour représenter un participant à la bataille.
+     * Il contient des informations sur l'identifiant, le nom, les points de vie,
+     * l'attaque, la défense, la vitesse et si c'est un joueur ou non.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
