@@ -1,6 +1,7 @@
 package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.UserProfileResponse;
+import com.epic7.backend.dto.UserStats;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.UserService;
@@ -8,11 +9,10 @@ import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 import com.epic7.backend.dto.OtherUserDTO;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;import java.util.Map;
-
 
 @RestController
 @RequestMapping("/api/user")
@@ -79,45 +79,40 @@ public class UserController {
         }
     }
 
-    @GetMapping("/send-friend-requests")
-    public boolean sendFriendRequest(HttpServletRequest request,
-                                    @RequestParam Long userId) {
+    @PostMapping("/send-friend-request")
+    public ResponseEntity<Boolean> sendFriendRequest(HttpServletRequest request, @RequestParam Long userId) {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
-        try {
-            return userService.sendFriendRequest(user, userId);
-        } catch (Exception e) {
-            System.err.println("Error in /send-friend-requests endpoint: " + e.getMessage());
-            return false;
-        }
         
+        boolean result = userService.sendFriendRequest(user, userId);
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/accept-friend")
-    public boolean addFriend(HttpServletRequest request,
-                                    @RequestParam Long userId) {
+    @PostMapping("/accept-friend")
+    public ResponseEntity<Boolean> acceptFriendRequest(HttpServletRequest request, @RequestParam Long userId) {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
-
-        return userService.acceptFriendRequest(user, userId);
+        
+        boolean result = userService.acceptFriendRequest(user, userId);
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/decline-friend")
-    public boolean declineFriendRequest(HttpServletRequest request,
-                                    @RequestParam Long userId) {
+    @PostMapping("/decline-friend")
+    public ResponseEntity<Boolean> declineFriendRequest(HttpServletRequest request, @RequestParam Long userId) {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
-
-        return userService.refuseFriendRequest(user, userId);
+        
+        boolean result = userService.refuseFriendRequest(user, userId);
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/remove-friend")
-    public boolean removeFriend(HttpServletRequest request,
-                                    @RequestParam Long userId) {
+    @DeleteMapping("/remove-friend")
+    public ResponseEntity<Boolean> removeFriend(HttpServletRequest request, @RequestParam Long userId) {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
-
-        return userService.removeFriend(user, userId);
+        
+        boolean result = userService.removeFriend(user, userId);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/search")
@@ -150,7 +145,7 @@ public class UserController {
     }
 
     @GetMapping("/profile/{userId}")
-    public UserProfileResponse getUserProfileById(HttpServletRequest request, 
+    public UserStats getUserProfileById(HttpServletRequest request, 
                                                 @PathVariable Long userId) {
         try {
             // Extraction du token pour la journalisation (optionnel)
@@ -184,13 +179,21 @@ public class UserController {
                 friendshipStatus = "PENDING";
             }
             
-            return new UserProfileResponse(
+            // Création de la réponse
+            UserStats userStats = new UserStats(
                     targetUser.getUsername(),
                     targetUser.getLevel(),
-                    targetUser.getGold(),
-                    targetUser.getDiamonds(),
-                    targetUser.getEnergy(),
+                    targetUser.getRegisterDateString(),
+                    targetUser.getLastLoginDateString(),
+                    targetUser.getRank(),
+                    targetUser.getArenaTier(),
+                    targetUser.getWinNumber(),
+                    targetUser.getLoseNumber(),
+                    targetUser.getHeroesNumber(),
+                    targetUser.getGuildName(),
+                    targetUser.getFriends() != null ? targetUser.getFriends().size() : 0,
                     friendshipStatus);
+            return userStats;
         } catch (Exception e) {
             System.err.println("Error in /profile/{userId} endpoint: " + e.getMessage());
             e.printStackTrace();

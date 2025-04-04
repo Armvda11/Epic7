@@ -1,6 +1,5 @@
 package com.epic7.backend.service;
 
-
 import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -13,6 +12,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+/*Importer les exceptions */
+import com.epic7.backend.exception.FriendRequestException;
 
 
 /**
@@ -166,29 +167,35 @@ public class UserService {
         if (user.getPendingFriendRequests() == null) {
             user.setPendingFriendRequests(new ArrayList<>());
         }
+        
         // On interdit d'envoyer une demande d'ami à soi-même
         if (user.getId().equals(friendId)) {
-            throw new IllegalArgumentException("Vous ne pouvez pas vous envoyer une demande d'ami à vous-même.");
+            throw new FriendRequestException("Vous ne pouvez pas vous envoyer une demande d'ami à vous-même.", "SELF_FRIEND_REQUEST");
         }
+        
         // On vérifie si l'utilisateur a déjà envoyé une demande d'ami à l'autre utilisateur
         if (user.getPendingFriendRequests().contains(friendId)) {
-            throw new IllegalArgumentException("Vous avez déjà envoyé une demande d'ami à cet utilisateur.");
+            throw new FriendRequestException("Vous avez déjà envoyé une demande d'ami à cet utilisateur.", "DUPLICATE_FRIEND_REQUEST");
         }
-        // On vérifie si l'utilisateur a déjà accepté une demande d'ami de l'autre utilisateur
+        
+        // On vérifie si l'utilisateur existe
         User friend = userRepository.findById(friendId)
-                .orElseThrow(() -> new IllegalArgumentException("Ami introuvable"));
+                .orElseThrow(() -> new FriendRequestException("Utilisateur introuvable", "FRIEND_NOT_FOUND"));
+        
+        // On vérifie si l'utilisateur est déjà ami avec cet utilisateur
         if (friend.getFriends() != null && friend.getFriends().contains(user)) {
-            throw new IllegalArgumentException("Vous êtes déjà amis avec cet utilisateur.");
+            throw new FriendRequestException("Vous êtes déjà amis avec cet utilisateur.", "ALREADY_FRIENDS");
         }
         
         user.getPendingFriendRequests().add(friendId);
         userRepository.save(user);
+        
         // Envoie un message de demande d'ami à l'utilisateur cible
         this.messageService.sendFriendRequest(user, friendId);
 
         return true;
-        }
-    
+    }
+
     @Transactional
     public boolean acceptFriendRequest(User user, Long AskerfriendId) {
 

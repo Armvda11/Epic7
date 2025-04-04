@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -89,6 +91,21 @@ public class User {
     @Column(name = "last_login")
     private Instant lastLogin = Instant.now(); // Date de la dernière connexion de l'utilisateur
     // (a modifier lorsque l'utilisateur se connecte, ou se déconnecte)
+    
+    @Column(name = "register_date")
+    private Instant registerDate = Instant.now(); // Date d'inscription de l'utilisateur
+    
+    @Column(nullable = false)
+    private int rank = 0; // Classement du joueur
+    
+    @Column(nullable = false)
+    private String arenaTier = "Unranked"; // Niveau dans l'arène (ex: Bronze, Silver, Gold, etc.)
+    
+    @Column(nullable = false)
+    private int winNumber = 0; // Nombre de victoires
+    
+    @Column(nullable = false)
+    private int loseNumber = 0; // Nombre de défaites
 
     /**
      * Ajoute un héros à la liste des héros possédés par l'utilisateur.
@@ -109,5 +126,49 @@ public class User {
         if (friends != null) {
             friends.remove(friend);
         }
+    }
+    
+    /**
+     * Obtient le nombre de héros possédés par l'utilisateur.
+     * @return Le nombre de héros.
+     */
+    public int getHeroesNumber() {
+        return ownedHeroes != null ? ownedHeroes.size() : 0;
+    }
+    
+    /**
+     * Obtient la date de la dernière connexion de l'utilisateur formatée.
+     * @return La date formatée.
+     */
+    public String getLastLoginDateString() {
+        return formatInstant(lastLogin);
+    }
+    
+    /**
+     * Obtient la date d'inscription de l'utilisateur formatée.
+     * @return La date formatée.
+     */
+    public String getRegisterDateString() {
+        return formatInstant(registerDate);
+    }
+    
+    /**
+     * Obtient le nom de la guilde de l'utilisateur.
+     * @return Le nom de la guilde ou null si l'utilisateur n'est pas dans une guilde.
+     */
+    public String getGuildName() {
+        return guildMembership != null ? guildMembership.getGuild().getName() : "None";
+    }
+    
+    /**
+     * Formate un Instant en chaîne de caractères lisible.
+     * @param instant L'instant à formater.
+     * @return La chaîne formatée.
+     */
+    private String formatInstant(Instant instant) {
+        if (instant == null) return null;
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(ZoneId.systemDefault())
+                .format(instant);
     }
 }
