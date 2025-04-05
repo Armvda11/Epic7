@@ -1,4 +1,3 @@
-// src/components/MenuTile.jsx
 import React from 'react';
 
 const MenuTile = ({ label, icon, onClick, index }) => {
