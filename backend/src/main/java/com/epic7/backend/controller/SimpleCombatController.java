@@ -64,6 +64,9 @@ public class SimpleCombatController {
     
         return ResponseEntity.ok(battleService.convertToDTO(currentBattleState));
     }
+
+
+    
     
 
     /**
