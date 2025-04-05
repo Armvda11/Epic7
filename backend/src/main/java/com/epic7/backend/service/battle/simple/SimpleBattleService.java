@@ -78,7 +78,7 @@ public class SimpleBattleService {
                 .orElseThrow(() -> new IllegalArgumentException("Boss introuvable: " + bossHeroId));
 
         Hero bossHero = heroService.copyForBoss(baseBossHero);
-        bossHero.setBaseAttack(bossHero.getBaseAttack() + 300000);
+        bossHero.setBaseAttack(bossHero.getBaseAttack() + 30);
         bossHero.setBaseDefense(bossHero.getBaseDefense() + 200);
 
         // Création des participants (héros + boss)
