@@ -9,7 +9,7 @@ import ProfileCard from "../components/ProfileCard";
 import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 
-import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen } from "react-icons/fa";
+import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,FaStar } from "react-icons/fa";
 
 // Cette page affiche le tableau de bord de l'utilisateur
 // Elle affiche les informations de l'utilisateur, un menu de navigation
@@ -125,6 +125,7 @@ const Dashboard = () => {
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> },
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
+    { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
   ];
   if (!user) {
     return (

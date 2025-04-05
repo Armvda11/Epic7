@@ -6,6 +6,7 @@ const translations = {
     guilds: "Guildes",
     quests: "Quêtes",
     battle: "Combat",
+    summon : "Invocation",
     settings: "Paramètres",
     theme: "Thème",
     lightMode: "☀️ Mode Clair",
