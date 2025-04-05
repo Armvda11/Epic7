@@ -16,6 +16,7 @@ boxShadow: {
         glowEffect: 'glowEffect 1.5s infinite alternate ease-in-out',
         shake: "shake 0.4s ease-in-out",
         fall: 'fall 4s linear forwards',
+        'hero-idle': 'idleBounce 2.4s ease-in-out infinite',
       },
       keyframes: {
         shake: {
@@ -35,6 +36,10 @@ boxShadow: {
         fall: {
           '0%': { transform: 'translateY(-100px) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(100vh) rotate(360deg)', opacity: '0' },
+        },
+        idleBounce: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
         },
       },
       colors: {

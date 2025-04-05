@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../../context/SettingsContext";
+import { heroImg, heroImgAvif, heroImgUnknown } from "../heroUtils"; 
 
 const rarityColors = {
   COMMON: "bg-gray-600",
@@ -62,15 +63,15 @@ const HeroCard = ({ heroInstance, onSelect }) => {
       {/* Image du héros */}
       <figure className="overflow-hidden rounded-lg shadow-inner">
         <picture>
-          <source srcSet={`/epic7-Hero/avif/${imgCode}.avif`} type="image/avif" />
-          <source srcSet={`/epic7-Hero/webp/${imgCode}.webp`} type="image/webp" />
+        <source srcSet={heroImgAvif(imgCode)} type="image/avif" />
+        <source srcSet={heroImg(imgCode)} type="image/webp" />
           <img
-            src={`/epic7-Hero/sprite-hero/mavuika.png`}
+            src={heroImg(imgCode)}
             alt={`Portrait de ${name}`}
             className="w-full h-44 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ease-in-out"
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+              e.target.src = heroImgUnknown;
             }}
           />
         </picture>

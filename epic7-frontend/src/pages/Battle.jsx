@@ -7,7 +7,7 @@ import BattleSkillBar from '../components/battle/BattleSkillBar';
 import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
 import FloatingDamage from '../components/battle/FloatingDamage';
-import HeroSelectionPanel from '../components/battle/HeroSelectionDragAndDropPanel'; 
+import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel'; 
 
 export default function Battle() {
   const [selectionPhase, setSelectionPhase] = useState(true);

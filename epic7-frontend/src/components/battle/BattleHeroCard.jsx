@@ -1,50 +1,50 @@
 import React from 'react';
-import BattleHealthBar from './HealthBar';
 import { motion } from 'framer-motion';
+import BattleHealthBar from './HealthBar';
+import { heroImg } from '../heroUtils';
 
 export default function BattleHeroCard({ hero, isCurrent, isNext, highlight, onClick, isSelected }) {
-  const getHeroImage = (name) =>
-    `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
-
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      className={`relative w-40 bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-2xl shadow-xl border-2 p-4 transition duration-300 
-        ${isCurrent ? 'border-yellow-400 animate-pulse' : isSelected ? 'border-green-500 ring-2 ring-green-400' : 'border-gray-700'} 
-        ${highlight}`}
       onClick={onClick}
+      whileHover={{ scale: 1.05 }}
+      className={`relative flex flex-col items-center cursor-pointer transition-all duration-300 ease-out 
+        ${highlight || ''} 
+        ${isCurrent ? 'z-20' : 'z-10'}`}
     >
-      {/* Badge ⏭️ Prochain */}
-      {isNext && (
-        <div className="absolute top-2 right-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full shadow-md z-20">
-          ⏭️ Prochain
-        </div>
-      )}
-
-      {/* Badge ✅ Sélectionné */}
-      {isSelected && (
-        <div className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md z-20">
-          ✅
-        </div>
-      )}
+      {/* Effet ombre au sol */}
+      <div className="absolute bottom-0 w-24 h-4 bg-black/60 rounded-full blur-md opacity-60 -z-10" />
 
       {/* Image du héros */}
-      <div className="relative w-full h-32 mb-2">
-        <img
-          src={getHeroImage(hero.name)}
-          alt={hero.name}
-          className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]"
-        />
+      <motion.img
+        src={heroImg(hero.name)}
+        alt={hero.name}
+        className="w-28 h-40 object-contain drop-shadow-2xl pointer-events-none"
+        initial={{ y: 0 }}
+        animate={{ y: [0, -5, 0] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      {/* Badges */}
+      <div className="absolute top-1 right-1 flex gap-1 z-30">
+        {isNext && (
+          <div className="bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-full shadow">
+            ⏭️
+          </div>
+        )}
+        {isSelected && (
+          <div className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">
+            ✅
+          </div>
+        )}
       </div>
 
-      {/* Nom et barre de vie */}
-      <h3 className="text-center text-sm font-bold text-white truncate">
-        {hero.name}
-      </h3>
-      <BattleHealthBar current={hero.currentHp} max={hero.maxHp} />
-      <p className="text-center text-xs text-gray-300 mt-1">
-        {hero.currentHp} / {hero.maxHp}
-      </p>
+      {/* Nom et HP */}
+      <div className="mt-2 w-full px-2">
+        <h3 className="text-sm font-semibold text-center text-white truncate">{hero.name}</h3>
+        <BattleHealthBar current={hero.currentHp} max={hero.maxHp} />
+        <p className="text-center text-xs text-gray-300 mt-1">{hero.currentHp} / {hero.maxHp}</p>
+      </div>
     </motion.div>
   );
 }

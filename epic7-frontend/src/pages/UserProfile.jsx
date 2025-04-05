@@ -12,6 +12,7 @@ import HeroProfileCard from '../components/hero/HeroProfileCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { toast } from 'react-toastify';
+import { heroImg, heroImgUnknown } from '../components/heroUtils';
 
 const UserProfile = () => {
 const { userId } = useParams();
@@ -288,12 +289,12 @@ return (
         <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6 mb-6">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <img 
-            src={user.avatar || "/epic7-Hero/sprite-hero/unknown.png"} 
+            src={heroImg("mavuika") } 
             alt={user.username}
             className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gray-600 object-cover shadow-lg"
             onError={(e) => {
                 e.target.onerror = null;
-                e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                e.target.src = heroImgUnknown;
             }}
             />
             <div className="text-center md:text-left flex-1">
@@ -385,12 +386,12 @@ return (
                 onClick={() => setSelectedHero(hero)}
                 >
                 <img 
-                    src={hero.image || `/epic7-Hero/sprite-hero/${(hero.name || 'unknown').toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                    src={heroImg(hero.name)}
                     alt={hero.name}
                     className="w-16 h-16 mx-auto rounded-full bg-gray-700 object-cover"
                     onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                    e.target.src = heroImgUnknown;
                     }}
                 />
                 <p className="mt-2 font-medium text-sm">{hero.name}</p>
@@ -488,12 +489,12 @@ return (
 
                         <div className="w-full max-w-[300px] aspect-[4/5] overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-[#1a1a2e] rounded-xl mb-4">
                             <img 
-                                src={`/epic7-Hero/sprite-hero/${(selectedHero.name || selectedHero.hero?.name || 'unknown').toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                                src={heroImg(selectedHero.name || selectedHero.hero?.name)}
                                 alt={selectedHero.name || selectedHero.hero?.name}
                                 className="max-w-full max-h-full object-contain"
                                 onError={(e) => {
                                     e.target.onerror = null;
-                                    e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
+                                    e.target.src = heroImgUnknown;
                                 }}
                             />
                         </div>
