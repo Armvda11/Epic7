@@ -7,11 +7,13 @@ import BattleSkillBar from '../components/battle/BattleSkillBar';
 import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
 import FloatingDamage from '../components/battle/FloatingDamage';
+import HeroSelectionPanel from '../components/battle/HeroSelectionDragAndDropPanel'; 
 
 export default function Battle() {
   const [selectionPhase, setSelectionPhase] = useState(true);
   const [availableHeroes, setAvailableHeroes] = useState([]);
-  const [selectedHeroes, setSelectedHeroes] = useState([]);
+  const [selectedHeroes, setSelectedHeroes] = useState([null, null, null, null]);
+
   const [battleState, setBattleState] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
   const [selectedSkillId, setSelectedSkillId] = useState(null);
@@ -46,14 +48,22 @@ export default function Battle() {
 
   const startCombat = async () => {
     try {
-      const heroIds = selectedHeroes.map(h => h.id);
-      await API.post('/combat/start', { bossHeroId: 1, selectedPlayerHeroIds: heroIds });
+      const heroIds = selectedHeroes
+        .filter(Boolean) // ignore slots vides
+        .map(h => h.id);
+        
+      await API.post('/combat/start', {
+        bossHeroId: 1,
+        selectedPlayerHeroIds: heroIds
+      });
+  
       await fetchBattleState();
       setSelectionPhase(false);
     } catch (error) {
       console.error('Erreur au démarrage du combat :', error);
     }
   };
+  
 
   const fetchBattleState = async () => {
     const res = await API.get('/combat/state');
@@ -151,29 +161,15 @@ export default function Battle() {
 
   if (selectionPhase) {
     return (
-      <div className="h-screen w-screen bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center text-white p-4">
-        <h2 className="text-2xl font-bold mb-4">Sélectionnez jusqu'à 4 héros</h2>
-        <div className="flex flex-wrap gap-4 justify-center">
-          {availableHeroes.map(hero => (
-            <div
-              key={hero.id}
-              className={`p-2 rounded-lg border-2 ${selectedHeroes.some(h => h.id === hero.id) ? 'border-green-500' : 'border-transparent'} cursor-pointer`}
-              onClick={() => toggleHeroSelection(hero)}
-            >
-              <BattleHeroCard hero={hero} />
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={startCombat}
-          className="mt-6 px-6 py-2 bg-green-600 rounded hover:bg-green-700"
-          disabled={selectedHeroes.length === 0}
-        >
-          Lancer le combat
-        </button>
-      </div>
+      <HeroSelectionPanel
+        availableHeroes={availableHeroes}
+        selectedHeroes={selectedHeroes}
+        setSelectedHeroes={setSelectedHeroes}
+        onStart={startCombat}
+      />
     );
   }
+  
 
   if (!battleState) {
     return <div className="text-center text-white mt-12 text-xl animate-pulse">Chargement du combat...</div>;

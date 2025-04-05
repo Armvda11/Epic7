@@ -1,12 +1,17 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 export default function BattleForfeitButton({ onClick }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className="fixed bottom-6 right-6 px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm tracking-wide uppercase rounded-full shadow-lg transition-all duration-300 ease-in-out z-50"
+      className="fixed bottom-6 right-6 z-50 px-6 py-3 rounded-full font-bold tracking-wide text-white text-sm uppercase 
+        bg-gradient-to-br from-red-700 to-red-900 backdrop-blur-md shadow-xl border border-red-500/60
+        hover:shadow-red-600/40 transition-all duration-300"
     >
-      Abandonner
-    </button>
+      ⚠️ Abandonner
+    </motion.button>
   );
 }
