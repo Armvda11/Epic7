@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function BattleEndOverlay({ status, onReturn }) {
+export default function BattleEndOverlay({ status, reward, onReturn }) {
   const isVictory = status === 'VICTOIRE';
 
   return (
@@ -25,11 +25,19 @@ export default function BattleEndOverlay({ status, onReturn }) {
           <h2 className={`text-5xl font-extrabold mb-6 drop-shadow-lg ${isVictory ? 'text-green-300' : 'text-red-300'}`}>
             {isVictory ? '🎉 Victoire !' : '💀 Défaite'}
           </h2>
-          <p className="text-gray-200 text-lg mb-8 leading-relaxed tracking-wide">
+
+          <p className="text-gray-200 text-lg mb-6 leading-relaxed tracking-wide">
             {isVictory
               ? 'Le boss a été vaincu. Vos héros rentrent victorieux !'
               : "Tous vos héros ont péri... mais l'espoir subsiste."}
           </p>
+
+          {/* Affichage de la récompense */}
+          {reward && (
+            <div className="bg-black/30 rounded-xl p-4 text-yellow-300 font-semibold text-lg mb-6 border border-yellow-400">
+              {reward.message}
+            </div>
+          )}
 
           <motion.button
             whileHover={{ scale: 1.05 }}

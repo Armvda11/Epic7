@@ -34,6 +34,9 @@ export default function Battle() {
   const navigate = useNavigate();
   const targetRefs = useRef({}); // Références aux éléments DOM des cibles pour positionner les animations de dégâts
 
+  const [reward, setReward] = useState(null); // Récompense à la fin du combat
+
+
   // Récupère les héros disponibles au montage du composant
   useEffect(() => { fetchAvailableHeroes(); }, []);
 
@@ -48,6 +51,21 @@ export default function Battle() {
       console.error("Erreur lors de la récupération des héros :", error);
     }
   };
+
+
+  // -- FONCTIONS POUR LA GESTION DES RECOMPENSES --
+  const fetchReward = async () => {
+    try {
+      const res = await API.post('/combat/reward');
+      setReward(res.data);
+      // affihcher la quantité de diamant de l'utilisateur
+      const userDiamonds = res.data.diamonds;
+      console.log("Diamants de l'utilisateur :", userDiamonds);
+    } catch (error) {
+      console.error("Erreur lors de la récupération de la récompense :", error);
+    }
+  };
+  
 
   // --- FONCTIONS DE GESTION DU COMBAT ---
 
@@ -76,7 +94,7 @@ export default function Battle() {
     const state = res.data;
     setBattleState(state);
     setCooldowns(state.cooldowns || {});
-    const currentHero = state.participants[state.currentTurnIndex];
+    const currentHero = state.participants[state.currentTurnIndex];    
 
     // Si c'est au tour d'un boss de jouer et que le combat n'est pas terminé
     if (!currentHero.player && !state.finished) {
@@ -200,6 +218,12 @@ export default function Battle() {
           }, 1500);
         }
       }
+
+      if (newState.finished) {
+        // Si le combat est terminé, affiche la récompense
+        fetchReward();
+      }
+      
     } catch (error) {
       console.error("Erreur lors de l'utilisation de la compétence :", error);
     }
@@ -407,16 +431,14 @@ export default function Battle() {
 
       {/* Overlay de fin de combat (victoire ou défaite) */}
       {battleState.finished && (
-        <BattleEndOverlay 
-          status={battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE"} 
-          onReturn={() => navigate("/dashboard")} 
-        />
-      )}
-
-      {/* Bouton d'abandon du combat */}
-      {!battleState.finished && (
-  <BattleForfeitButton onClick={() => navigate("/dashboard")} />
+  <BattleEndOverlay 
+    status={battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE"} 
+    reward={reward}
+    onReturn={() => navigate("/dashboard")} 
+  />
 )}
+
+
 
     </div>
   );
