@@ -1,172 +1,196 @@
-# **README - Installation et Configuration du Projet Epic7**
+# 🚀 Epic7 - Guide de Déploiement et Architecture
 
-## 📌 **Prérequis**
-Avant de commencer, assurez-vous d’avoir installé :
-- [Node.js (LTS recommandé)](https://nodejs.org/)
-- [PostgreSQL 14+](https://www.postgresql.org/download/)
-- [Maven](https://maven.apache.org/download.cgi)
+---
+
+## 📦 Prérequis
+
+Avant de commencer, installez :
+
 - [Java 17+](https://adoptium.net/)
+- [Maven](https://maven.apache.org/)
+- [Docker + Docker Compose](https://www.docker.com/)
+- [Node.js (LTS)](https://nodejs.org/)
 
 ---
 
-## 🛠 **Installation Backend**
-### **1️⃣ Cloner le projet**
-```sh
+## 🧱 Architecture Générale
+
+```
+Epic7/
+├── backend/               # Serveur Spring Boot
+│   ├── docker-compose.yml
+│   ├── .env               # Variables d'environnement (non versionnées)
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/epic7/backend/
+│   │   │   │   ├── controller/         # Contrôleurs REST (API)
+│   │   │   │   ├── service/            # Logique métier (Combat, Guildes, RTA)
+│   │   │   │   ├── repository/         # Interfaces JPA vers PostgreSQL
+│   │   │   │   ├── model/              # Entités (Hero, Equipment, Guild, etc.)
+│   │   │   │   ├── config/             # Configuration Spring, JWT, Seeds
+│   │   │   │   ├── dto/                # Objets de transfert (DTO)
+│   │   │   │   ├── security/           # Filtre JWT
+│   │   │   │   └── utils/              # Aides diverses (JWT, Mapper)
+│   │   │   └── resources/
+│   │   │       └── application.properties
+│   └── pom.xml
+│
+├── epic7-frontend/        # Frontend React + Vite + Tailwind
+│   ├── public/            # Images, icônes, sprites des héros
+│   ├── src/
+│   │   ├── pages/         # Pages principales (Login, Dashboard, Battle...)
+│   │   ├── components/    # Composants réutilisables (Battle, Héros, Equip...)
+│   │   ├── context/       # Contexte global (Settings, Battle...)
+│   │   ├── services/      # Appels API (heroService, userService...)
+│   │   └── api/           # Axios instance configurée
+│   └── package.json
+```
+
+---
+
+## ⚙️ Installation Backend
+
+### 1. Cloner le projet
+```bash
 git clone https://github.com/Armvda11/Epic7.git
-cd epic7/backend
+cd Epic7/backend
 ```
 
-### **2️⃣ Configurer PostgreSQL**
-#### ✅ **Sur Mac**
-```sh
-brew install postgresql@14
-brew services start postgresql
+### 2. Créer le fichier `.env`
+```env
+POSTGRES_DB=epic7
+POSTGRES_USER=epic7_user
+POSTGRES_PASSWORD=password
+REDIS_HOST=redis
+REDIS_PORT=6379
 ```
 
-#### ✅ **Sur Linux (Debian/Ubuntu)**
-```sh
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
+### 3. Lancer les services Docker
+```bash
+docker-compose up -d
 ```
 
-#### ✅ **Sur Windows**
-- Télécharger PostgreSQL depuis : [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)
-- Lancer **pgAdmin** pour configurer la base de données.
-
-### **3️⃣ Créer la base de données et l'utilisateur**
-Dans le terminal PostgreSQL (`psql`), exécuter :
-```sql
-CREATE DATABASE epic7;
-CREATE USER epic7_user WITH ENCRYPTED PASSWORD 'password';
-ALTER ROLE epic7_user SET client_encoding TO 'utf8';
-ALTER ROLE epic7_user SET default_transaction_isolation TO 'read committed';
-ALTER ROLE epic7_user SET timezone TO 'UTC';
-GRANT ALL PRIVILEGES ON DATABASE epic7 TO epic7_user;
-
-\c epic7  -- Se connecter à la base epic7
-
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO epic7_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO epic7_user;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO epic7_user;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO epic7_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO epic7_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO epic7_user;
-
-GRANT ALL PRIVILEGES ON SCHEMA public TO epic7_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO epic7_user;
-ALTER SCHEMA public OWNER TO epic7_user;
-GRANT USAGE, CREATE ON SCHEMA public TO epic7_user;
-
-
-
+Vérifie que les services tournent :
+```bash
+docker ps
 ```
 
-### **4️⃣ Configurer le backend**
-Modifier `src/main/resources/application.properties` :
-```
-spring.datasource.url=jdbc:postgresql://localhost:5432/epic7
-spring.datasource.username=epic7_user
-spring.datasource.password=password
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.show-sql=true
+### 4. Lancer le backend
+```bash
+./mvnw spring-boot:run
 ```
 
-### **5️⃣ Lancer le backend**
-```sh
-mvn spring-boot:run
-```
-Le backend doit être accessible sur **http://localhost:8080**.
+📍 Accessible à : `http://localhost:8080`
 
 ---
 
-## 🎨 **Installation Frontend**
-### **1️⃣ Installer les dépendances**
-```sh
-cd ../frontend
+## 🎨 Installation Frontend
+
+### 1. Aller dans le dossier frontend
+```bash
+cd ../epic7-frontend
 npm install
 ```
 
-### **2️⃣ Configurer le frontend**
-Si nécessaire, modifier `src/config.js` pour pointer vers l'API backend :
-```js
-export const API_BASE_URL = "http://localhost:8080/api";
+### 2. Configurer l'URL de l'API
+
+Dans `.env` :
+```env
+VITE_API_URL=http://localhost:8080/api
 ```
 
-### **3️⃣ Démarrer le frontend**
-```sh
+### 3. Démarrer le frontend
+```bash
 npm run dev
 ```
-Accédez à **http://localhost:5173**.
+
+🌐 Interface sur : `http://localhost:5173`
 
 ---
 
-## 🔄 **Arrêter les services**
-| Service | Mac | Linux | Windows |
-|---------|-----|-------|---------|
-| PostgreSQL | `brew services stop postgresql` | `sudo systemctl stop postgresql` | Arrêter via pgAdmin ou le gestionnaire de services |
-| Backend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
-| Frontend | `Ctrl + C` | `Ctrl + C` | `Ctrl + C` |
+## 🛠️ Services Docker
 
----
+| Service     | Port | Description                 |
+|-------------|------|-----------------------------|
+| PostgreSQL  | 5432 | Base de données             |
+| Redis       | 6379 | File matchmaking / combat   |
+| Spring Boot | 8080 | Serveur API (hors conteneur) |
 
-## 📂 **Structure du projet**
-```
-epic7
-│── backend  # Serveur Spring Boot
-│   ├── src/main/java/com/epic7/backend
-│   ├── pom.xml
-│   └── ...
-│
-│── frontend  # Interface React
-│   ├── src/
-│   ├── package.json
-│   ├── vite.config.js
-│   └── ...
-│
-└── README.md
+### Accès rapide :
+```bash
+# Accès PostgreSQL :
+docker exec -it epic7-postgres psql -U epic7_user -d epic7
+
+# Accès Redis :
+docker exec -it epic7-redis redis-cli
+> ping
 ```
 
 ---
 
-## ❓ **Dépannage**
-### **Problèmes avec PostgreSQL ?**
-- Vérifier si PostgreSQL fonctionne :
-  ```sh
-  sudo systemctl status postgresql  # Linux
-  brew services list  # Mac
-  ```
-- Vérifier si l'utilisateur `epic7_user` a bien les permissions :
-  ```sql
-  SELECT * FROM pg_roles WHERE rolname = 'epic7_user';
-  ```
+## 🧪 Débogage
 
-### **Problèmes avec le backend ?**
-- Vérifier les logs avec :
-  ```sh
-  mvn spring-boot:run
-  ```
-- Vérifier si la base est bien configurée avec `pgAdmin` ou `psql`.
-
-### **Problèmes avec le frontend ?**
-- Vider le cache et réinstaller :
-  ```sh
-  rm -rf node_modules package-lock.json
-  npm install
-  ```
+- Logs backend : `./mvnw spring-boot:run`
+- Rebuild Node : `rm -rf node_modules && npm install`
+- Vérifier PostgreSQL : `docker logs epic7-postgres`
+- Vérifier Redis : `docker logs epic7-redis`
 
 ---
 
-Si vous avez des problèmes, ouvrez une issue ou contactez l'équipe. 🚀
-Mais si le bug est trop ancien, trop profond, né des ténèbres du legacy code… alors il est peut-être déjà trop tard.
+## 🐳 Gestion des conteneurs Docker
 
-Dans ce cas, une seule solution : gravir les montagnes sacrées du Git Rebase, affronter le dragon du Merge Conflict, et réciter l’incantation interdite du --force.
+### Commandes de base
+```bash
+# Vérifier les conteneurs en cours d'exécution
+docker ps
 
-Et si tout échoue…
+# Vérifier tous les conteneurs (même arrêtés)
+docker ps -a
 
-Invoquez GoatHagimont ou ChefBoris.
+# Arrêter les conteneurs
+docker-compose down
 
-⚠️ Mais attention : leur aide ne sera accordée qu’aux élus… ceux qui n’ont jamais push **un code qui ne fonctionne que sur leur machine**.
+# Redémarrer les conteneurs
+docker-compose up -d
+
+# Voir les logs en temps réel
+docker-compose logs -f
+
+# Arrêter et supprimer les conteneurs (garde les volumes)
+docker-compose down
+
+# Arrêter et supprimer les conteneurs ET les volumes (⚠️ perte de données)
+docker-compose down -v
+
+# Supprimer toutes les images, conteneurs, volumes et réseaux inutilisés
+docker system prune -a --volumes
+
+# Supprimer un conteneur spécifique
+docker rm epic7-postgres
+docker rm epic7-redis
+
+# Redémarrage complet (arrêt, suppression et recréation)
+docker-compose down && docker-compose up -d
+```
+
+---
+
+## 🤝 Aide & Maintenance
+
+> Si un bug étrange surgit, invoquez les forces anciennes :
+> - `git reset --hard`
+> - `docker system prune`
+> - `rm -rf target/`
+
+Et si tout échoue…  
+C'est la faute de **Wilkens**
+
+
+> NB : Si il n'y a que des meufs comme personnages dans le projet n'oubliez pas que **Wilkens** est un membre du groupe
+
+Aussi n'oubliez pas :
+> Celui qui pousse du code qui ne marche que chez lui... sera maudit à jamais.
+
+---
+
+Bon développement à toute l'équipe
