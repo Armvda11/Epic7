@@ -4,14 +4,14 @@ import { heroImgUnknown, skillIcon } from '../heroUtils';
 
 
 export default function BattleSkillBar({ currentHero, currentHeroSkills, cooldowns, selectedSkillId, onSkillClick }) {
-  console.log("currentHeroSkills", currentHeroSkills , "currentHero", currentHero, "cooldowns", cooldowns, "selectedSkillId", selectedSkillId);
+
   return (
     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex justify-center gap-6 z-40 bg-black/40 backdrop-blur-md px-10 py-6 rounded-3xl border border-indigo-600 shadow-2xl ring-1 ring-indigo-800/30">
       {currentHeroSkills.map(skill => {
         // Obtenir l'URL de l'icône et la stocker dans une variable
         const skillIconUrl = skillIcon(currentHero.name, skill.position);
 
-        console.log("skillIconUrl", skillIconUrl);
+
 
 
         

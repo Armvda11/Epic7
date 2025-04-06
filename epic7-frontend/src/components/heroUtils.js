@@ -1,6 +1,12 @@
 // Fonction pour obtenir l'URL d'une image webp d'un héros
-export const heroImg = (name) => 
-    `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
+export const heroImg = (name) => {
+    // Vérifier si le nom commence par "boss" (insensible à la casse)
+    if (name.toLowerCase().startsWith("boss")) {
+        return `/epic7-Hero/webp/boss.webp`;
+    }
+    // Comportement original pour les autres noms
+    return `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
+};
 
 // Fonction pour obtenir l'URL d'une image avif d'un héros
 export const heroImgAvif = (name) => 
