@@ -125,7 +125,7 @@ const Dashboard = () => {
     { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
     { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
     { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
-    { label: t("guilds", language), icon: <FaUsers size={28} /> },
+    { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> },
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },

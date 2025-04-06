@@ -12,11 +12,8 @@ import { MailboxProvider } from "./context/MailboxContext";
 import FriendsPage from "./pages/FriendsPage";
 import Shop from "./pages/Shop";
 import Battle from "./pages/battle";
-
 import UserProfile from './pages/UserProfile';
-
-
-
+import GuildsPage from "./pages/GuildsPage";
 
 function App() {
   return (
@@ -28,8 +25,8 @@ function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/my-heroes" element={<MyHeroes />} />
         <Route path="/inventory" element={<Inventory />} />
-        <Route path ="/battle" element={<Battle />} />
-
+        <Route path="/battle" element={<Battle />} />
+        <Route path="/guilds" element={<GuildsPage />} />
         
         <Route path="/hero" element={<PrivateRoute />}>
           <Route path=":heroId" element={<HeroView />} /> 
