@@ -8,23 +8,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.List;
+
 /**
- * Service pour gérer les invocations de héros.
- * Permet d'effectuer des invocations de héros, de gérer les bannières et
- * de vérifier la disponibilité des héros.
- * @author yannis
+ * Service de gestion des invocations de héros dans le jeu.
+ * 
+ * Ce service gère les invocations de héros, y compris la vérification des
+ * bannières actives,
+ * la probabilité d'invocation en fonction de la rareté du héros et la mise à
+ * jour des diamants du joueur.
+ * @author hermas
  */
 @Service
 public class SummonService {
 
-    public static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
+    private static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
 
     private final PlayerHeroRepository playerHeroRepository; 
     private final BannerRepository bannerRepository;
 
     /**
      * Constructeur du service d'invocation.
+     * @param heroRepository         Le dépôt de héros pour accéder aux données des héros.
      * @param playerHeroRepository   Le dépôt de héros du joueur pour gérer les héros du joueur.
      * @param bannerRepository       Le dépôt de bannières pour accéder aux données des bannières.
      */ 
@@ -60,56 +64,61 @@ public class SummonService {
             default -> 0.0;
         };
     }
-
+    /** 
+     * Effectue une invocation de héros aléatoire pour un utilisateur donné.
+     * @param user L'utilisateur effectuant l'invocation.
+     * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide. 
+     */
 
     /**
-     * Effectue une invocation aléatoire de héros pour un utilisateur donné.
+     * Effectue une invocation de héros pour un utilisateur donné.
      * @param user L'utilisateur effectuant l'invocation.
-     * @return Un PlayerHero si l'invocation a réussi, sinon une valeur vide.
+     * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide.
      */
     @Transactional
-    public Optional<PlayerHero> performRandomSummon(User user) {
-        // Vérifier si une bannière active existe
+    public Optional<PlayerHero> performSummon(User user) {
+
+        // Obtenir toutes les bannières actives et vérifier si le héros est disponible
+        // dans l'une d'elles
         Optional<Banner> activeBanner = getActiveBanner();
         if (activeBanner.isEmpty()) {
-            return Optional.empty(); // Pas de bannière active
+            return Optional.empty(); // Héros non disponible
         }
 
-        // Vérifier si l'utilisateur a suffisamment de gemmes
+        // Vérifier si l'utilisateur a suffisamment de diamants pour invoquer
+        // (50 diamants par invocation)
         if (user.getDiamonds() < SUMMON_COST) {
-            return Optional.empty(); // Pas assez de ressources
+            return Optional.empty();
         }
 
-        // Déduire le coût de l'invocation
-        user.setDiamonds(user.getDiamonds() - SUMMON_COST);
-
-        // Récupérer les héros de la bannière active
-        List<Hero> featuredHeroes = activeBanner.get().getFeaturedHeroes();
-        if (featuredHeroes.isEmpty()) {
-            return Optional.empty(); // Aucun héros disponible
-        }
-        // Effectuer l'invocation aléatoire
-        Hero summonedHero = featuredHeroes.stream()
-        .min((hero1, hero2) -> hero1.getRarity().compareTo(hero2.getRarity()))
-        .orElse(null); // Si la liste est vide, summonedHero sera null
-
-
-        for (Hero hero : featuredHeroes) {
+        for (Hero hero : activeBanner.get().getFeaturedHeroes()) {
+            // Calculer la probabilité d'invocation en fonction de la rareté du héros
+            // et effectuer l'invocation
             double probability = getProbabilityByRarity(hero.getRarity());
-            if (Math.random() < probability) {
-                summonedHero = hero;
-                break;
+            double draw = Math.random();
+
+            if (draw < probability) {
+                PlayerHero playerHero = new PlayerHero(user, hero);
+                playerHeroRepository.save(playerHero);
+                user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+                return Optional.of(playerHero);
             }
         }
+        // Si aucun héros n'a été invoqué, retourner le héros le moins rare
+        // de la bannière active
+        Hero leastRareHero = activeBanner.get().getFeaturedHeroes().stream()
+                .min((h1, h2) -> Double.compare(getProbabilityByRarity(h1.getRarity()),
+                        getProbabilityByRarity(h2.getRarity())))
+                .orElse(null);
 
-        if (summonedHero == null) {
-            return Optional.empty(); // Aucun héros invoqué
+        if (leastRareHero != null) {
+            PlayerHero playerHero = new PlayerHero(user, leastRareHero);
+            playerHeroRepository.save(playerHero);
+            user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+            return Optional.of(playerHero);
         }
-
-        // Créer et sauvegarder le héros invoqué
-        PlayerHero playerHero = new PlayerHero(user, summonedHero);
-        playerHeroRepository.save(playerHero);
-        return Optional.of(playerHero);
+        // Si plus de héros disponibles dans la bannière, retourner une valeur vide
+        return Optional.empty();
     }
 
 }

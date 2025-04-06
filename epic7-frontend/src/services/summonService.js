@@ -1,6 +1,6 @@
 import API from "../api/axiosInstance";
 
-export const performRandomSummon = async () => {
+export const performSummon = async () => {
   try {
     const response = await API.post("/api/summons/random");
     return response.data;

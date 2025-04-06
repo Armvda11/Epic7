@@ -1,3 +1,4 @@
+
 package com.epic7.backend.controller;
 
 import com.epic7.backend.model.Banner;
@@ -27,25 +28,19 @@ public class SummonController {
     }
 
     /**
-     * Invoque un héros aléatoire.
+     * Invoque un héros spécifique via son code.
      */
     @PostMapping("/random")
-    public ResponseEntity<String> summonRandomHero(HttpServletRequest request) {
-        // Extraire l'utilisateur à partir du token JWT
+    public ResponseEntity<String> summon(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
         String email = jwtUtil.extractEmail(token);
         User user = authService.getUserByEmail(email);
 
-        // Appeler le service pour effectuer une invocation aléatoire
-        Optional<PlayerHero> result = summonService.performRandomSummon(user);
-        if (user.getDiamonds() < SummonService.SUMMON_COST) {
-            return ResponseEntity.badRequest().body("❌ Vous n'avez pas assez de gemmes pour invoquer !");
-        }
+        Optional<PlayerHero> result = summonService.performSummon(user);
 
-        // Retourner la réponse en fonction du résultat
         return result.isPresent()
-                ? ResponseEntity.ok("✅ Héros invoqué : " + result.get().getHero().getName())
-                : ResponseEntity.badRequest().body("❌ Invocation échouée ou pas assez de gemmes !");
+                ? ResponseEntity.ok("✅ Héros invoqué !")
+                : ResponseEntity.ok("❌ Invocation échouée");
     }
 
     /**

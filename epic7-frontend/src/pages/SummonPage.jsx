@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { performRandomSummon } from "../services/summonService";
+import { performSummon } from "../services/summonService";
 
 export default function SummonPage() {
   const [result, setResult] = useState(null);
@@ -8,7 +8,7 @@ export default function SummonPage() {
   const handleSummon = async () => {
     setLoading(true);
     try {
-      const summonResult = await performRandomSummon();
+      const summonResult = await performSummon();
       setResult(summonResult);
     } catch (error) {
       setResult("❌ Erreur lors de l'invocation");
@@ -29,7 +29,10 @@ export default function SummonPage() {
       </button>
       {result && (
         <div className="mt-6 text-center">
-          <p className="text-2xl">{result}</p>
+          <h2 className="text-3xl font-bold">Héros invoqué :</h2>
+          <p className="text-xl">Nom : {result.heroName}</p>
+          <p className="text-xl">Rareté : {result.rarity}</p>
+          <p className="text-xl">Élément : {result.element}</p>
         </div>
       )}
     </div>
