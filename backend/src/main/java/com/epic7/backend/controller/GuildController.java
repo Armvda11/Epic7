@@ -451,4 +451,13 @@ public class GuildController {
             return ResponseEntity.badRequest().body("❌ " + e.getMessage());
         }
     }
+
+    /**
+     * Récupère les guildes les plus récemment créées.
+     */
+    @GetMapping("/recent")
+    public ResponseEntity<List<GuildInfoDTO>> getRecentGuilds(@RequestParam(defaultValue = "10") int limit) {
+        List<GuildInfoDTO> recentGuilds = guildService.getRecentGuilds(limit);
+        return ResponseEntity.ok(recentGuilds);
+    }
 }

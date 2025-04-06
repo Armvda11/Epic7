@@ -15,7 +15,8 @@ import {
   updateGuildDescription,
   updateGuildOpenStatus,
   deleteGuild,
-  banUserFromGuild
+  banUserFromGuild,
+  fetchRecentGuilds
 } from "../services/guildService";
 import { 
   FaSearch, 
@@ -51,6 +52,7 @@ const GuildsPage = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const guildParamsRef = useRef(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [recentGuilds, setRecentGuilds] = useState([]);
 
   // Close guild parameters dropdown when clicking outside
   useEffect(() => {
@@ -66,7 +68,7 @@ const GuildsPage = () => {
     };
   }, []);
 
-  // Load user and guild data on component mount
+  // Load user, guild data, and recent guilds on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -80,6 +82,15 @@ const GuildsPage = () => {
         // Attempt to load guild information
         const guildData = await fetchUserGuild();
         console.log("Guild data:", guildData);
+        
+        // Load recent guilds
+        try {
+          const recentGuildsData = await fetchRecentGuilds(10);
+          setRecentGuilds(recentGuildsData || []);
+        } catch (recentGuildsError) {
+          console.error("Failed to load recent guilds:", recentGuildsError);
+          setRecentGuilds([]);
+        }
         
         // Initialize default values for properties that might be missing
         if (guildData) {
@@ -118,17 +129,6 @@ const GuildsPage = () => {
     loadData();
   }, []);
 
-  // Function to check a guild's status (open/closed)
-  const checkGuildStatus = async (guildId) => {
-    try {
-      // Get updated guild info
-      const guildInfo = await searchGuilds(guildId);
-      return guildInfo[0] || { isOpen: false };
-    } catch (error) {
-      console.error(`Error checking guild status: ${guildId}`, error);
-      return { isOpen: false };
-    }
-  };
 
   // Handle joining a guild
   const handleJoinGuild = async (guildId) => {
@@ -136,38 +136,71 @@ const GuildsPage = () => {
       setJoinLoading(true);
       console.log(`Attempting to join guild: ${guildId}`);
       
-      // Verify guild status before joining
-      const guildInfo = await checkGuildStatus(guildId);
-      console.log(`Joining guild ${guildId}, isOpen: ${guildInfo.isOpen}`);
+      // Use the recent guilds data if we have it
+      const guildInfo = recentGuilds.find(g => g.id === guildId);
       
-      // Check if guild is open
-      if (!guildInfo.isOpen) {
-        console.error(`Cannot join guild ${guildId} - guild is not open`);
-        alert(t("guildNotOpen", language));
+      if (!guildInfo) {
+        console.log("Guild info not found in cached data, proceeding anyway");
+      } else {
+        console.log("Using cached guild info:", guildInfo);
+      }
+      
+      // Determine if the guild is open (if we have guild info)
+      const isOpen = guildInfo ? guildInfo.isOpen : true; // Assume open if we don't have info
+      console.log(`Guild ${guildId} isOpen status: ${isOpen}`);
+      
+      if (!isOpen) {
+        // If the guild is closed, send a request to join
+        console.log(`Guild ${guildId} is closed, sending request to join`);
+        await requestToJoinGuild(guildId);
+        
+        // Show success message temporarily
+        setPendingJoinRequestGuildId(guildId);
+        setTimeout(() => {
+          setPendingJoinRequestGuildId(null);
+        }, 3000);
+        
+        // Close search modal
+        setShowSearchModal(false);
         setJoinLoading(false);
         return;
       }
       
+      // If the guild is open, join directly
       await joinGuild(guildId);
       
-      // Reload guild information after joining
-      const guildData = await fetchUserGuild();
-      
-      // Ensure isOpen property is maintained correctly when setting user guild
-      if (guildData) {
+      // If we have guild info, use it
+      if (guildInfo) {
         setUserGuild({
-          ...guildData,
-          isOpen: guildData.isOpen !== undefined ? guildData.isOpen : true,
-          memberCount: guildData.memberCount || 0,
-          maxMembers: guildData.maxMembers || 20,
-          gold: guildData.gold || 0,
-          guildPoints: guildData.guildPoints || 0,
-          rank: guildData.rank || "BRONZE",
-          userRole: guildData.userRole || "MEMBRE"
+          ...guildInfo,
+          userRole: "MEMBRE", // Default role for new members
+          gold: 0,
+          guildPoints: 0
         });
-        
-        const members = await fetchGuildMembers(guildData.id);
-        setGuildMembers(members);
+      } else {
+        // Otherwise, fetch the guild data
+        const guildData = await fetchUserGuild();
+        if (guildData) {
+          setUserGuild({
+            ...guildData,
+            memberCount: guildData.memberCount || 0,
+            maxMembers: guildData.maxMembers || 20,
+            gold: guildData.gold || 0,
+            guildPoints: guildData.guildPoints || 0,
+            rank: guildData.rank || "BRONZE",
+            isOpen: guildData.isOpen !== undefined ? guildData.isOpen : true,
+            userRole: guildData.userRole || "MEMBRE"
+          });
+        }
+      }
+      
+      // Fetch members to update the member list with the user included
+      try {
+        const members = await fetchGuildMembers(guildId);
+        setGuildMembers(members || []);
+      } catch (memberError) {
+        console.error("Failed to load guild members:", memberError);
+        setGuildMembers([]);
       }
       
       // Close search modal
@@ -652,6 +685,51 @@ const GuildsPage = () => {
             </div>
           </section>
         )}
+
+        {/* Display recently created guilds */}
+        <section className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 shadow-xl mb-8">
+          <h2 className="text-2xl font-bold mb-4">{t("recentGuilds", language) || "Recently Created Guilds"}</h2>
+          
+          {recentGuilds.length > 0 ? (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {recentGuilds.map(guild => (
+                <li key={guild.id} className="py-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold">{guild.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{t("members", language)}: {guild.memberCount}/{guild.maxMembers}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{guild.description || t("noDescription", language)}</p>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-4 flex items-center">
+                      {guild.isOpen ? (
+                        <><FaLockOpen className="text-green-500 mr-1" /> {t("open", language)}</>
+                      ) : (
+                        <><FaLock className="text-red-500 mr-1" /> {t("closed", language)}</>
+                      )}
+                    </span>
+                    <button
+                      onClick={() => guild.isOpen ? handleJoinGuild(guild.id) : handleRequestJoin(guild.id)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm"
+                      disabled={joinLoading || (pendingJoinRequestGuildId === guild.id)}
+                    >
+                      {pendingJoinRequestGuildId === guild.id ? (
+                        t("requestSent", language)
+                      ) : guild.isOpen ? (
+                        t("join", language)
+                      ) : (
+                        t("requestJoin", language)
+                      )}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-center text-gray-500 dark:text-gray-400">
+              {t("noRecentGuilds", language) || "No recently created guilds found."}
+            </p>
+          )}
+        </section>
       </div>
     </main>
   );

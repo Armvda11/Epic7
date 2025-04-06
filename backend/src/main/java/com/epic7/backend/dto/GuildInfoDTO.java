@@ -2,6 +2,9 @@ package com.epic7.backend.dto;
 
 import com.epic7.backend.model.Guild;
 import com.epic7.backend.model.enums.GuildRank;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,7 +24,9 @@ public class GuildInfoDTO {
     private GuildRank rank;
     private int memberCount;
     private int maxMembers;
-    private boolean isOpen; // Added this field
+    private String status; // This should be changed to isOpen for consistency
+    @JsonProperty("isOpen")
+    private boolean isOpen; // Add this property for frontend compatibility
 
     /**
      * Constructeur à partir d'une entité Guild
@@ -35,7 +40,11 @@ public class GuildInfoDTO {
         dto.setRank(guild.getRank());
         dto.setMemberCount(guild.getMembers().size());
         dto.setMaxMembers(20 + (guild.getLevel() * 5)); // Exemple: 20 membres de base + 5 par niveau
-        dto.setOpen(guild.isOpen()); // Set the isOpen status
+        
+        // Set both properties for backward compatibility
+        dto.setStatus(guild.isOpen() ? "open" : "closed");
+        dto.setOpen(guild.isOpen());
+        
         return dto;
     }
 }
