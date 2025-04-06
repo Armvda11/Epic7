@@ -21,7 +21,7 @@ import java.util.Optional;
 @Service
 public class SummonService {
 
-    private static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
+    public static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
 
     private final PlayerHeroRepository playerHeroRepository; 
     private final BannerRepository bannerRepository;
@@ -64,11 +64,6 @@ public class SummonService {
             default -> 0.0;
         };
     }
-    /** 
-     * Effectue une invocation de héros aléatoire pour un utilisateur donné.
-     * @param user L'utilisateur effectuant l'invocation.
-     * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide. 
-     */
 
     /**
      * Effectue une invocation de héros pour un utilisateur donné.
@@ -77,48 +72,60 @@ public class SummonService {
      */
     @Transactional
     public Optional<PlayerHero> performSummon(User user) {
-
-        // Obtenir toutes les bannières actives et vérifier si le héros est disponible
-        // dans l'une d'elles
+        // Obtenir la bannière active
         Optional<Banner> activeBanner = getActiveBanner();
         if (activeBanner.isEmpty()) {
-            return Optional.empty(); // Héros non disponible
+            return Optional.empty();
         }
-
-        // Vérifier si l'utilisateur a suffisamment de diamants pour invoquer
-        // (50 diamants par invocation)
+        Banner banner = activeBanner.get();
+        // Vérifier si l'utilisateur possède tous les héros de la bannière
+        if (userOwnsAllHeroesInBanner(user, banner)) {
+            return Optional.empty();
+        }
+        // Vérifier si l'utilisateur a suffisamment de diamants
         if (user.getDiamonds() < SUMMON_COST) {
             return Optional.empty();
         }
+        // Lui faire payer
+        user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+        // Parcourir les héros de la bannière active
+        for (Hero hero : banner.getFeaturedHeroes()) {
+            // Vérifier si l'utilisateur possède déjà ce héros
+            boolean alreadyOwned = playerHeroRepository.existsByUserAndHero(user, hero);
+            if (alreadyOwned) {
+                continue; // Passer au héros suivant
+            }
 
-        for (Hero hero : activeBanner.get().getFeaturedHeroes()) {
-            // Calculer la probabilité d'invocation en fonction de la rareté du héros
-            // et effectuer l'invocation
+            // Calculer la probabilité d'invocation
             double probability = getProbabilityByRarity(hero.getRarity());
             double draw = Math.random();
 
             if (draw < probability) {
+                // Ajouter le héros à l'utilisateur
                 PlayerHero playerHero = new PlayerHero(user, hero);
-                playerHeroRepository.save(playerHero);
-                user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+                user.getOwnedHeroes().add(playerHero);
                 return Optional.of(playerHero);
             }
         }
-        // Si aucun héros n'a été invoqué, retourner le héros le moins rare
-        // de la bannière active
-        Hero leastRareHero = activeBanner.get().getFeaturedHeroes().stream()
-                .min((h1, h2) -> Double.compare(getProbabilityByRarity(h1.getRarity()),
-                        getProbabilityByRarity(h2.getRarity())))
-                .orElse(null);
-
-        if (leastRareHero != null) {
-            PlayerHero playerHero = new PlayerHero(user, leastRareHero);
-            playerHeroRepository.save(playerHero);
-            user.setDiamonds(user.getDiamonds() - SUMMON_COST);
-            return Optional.of(playerHero);
-        }
-        // Si plus de héros disponibles dans la bannière, retourner une valeur vide
         return Optional.empty();
     }
+    /**
+     * Vérifie si l'utilisateur possède tous les héros de la bannière.
+     * @param user   L'utilisateur à vérifier.
+     * @param banner La bannière à vérifier.
+     * @return true si l'utilisateur possède tous les héros de la bannière, false sinon.
+     */
+    @Transactional(readOnly = true)
+    public boolean userOwnsAllHeroesInBanner(User user, Banner banner) {
 
+        // Vérifier si l'utilisateur possède chaque héros de la bannière
+        for (Hero hero : banner.getFeaturedHeroes()) {
+            boolean ownsHero = playerHeroRepository.existsByUserAndHero(user, hero);
+            if (!ownsHero) {
+                return false; // Si un héros n'est pas possédé, retourner false
+            }
+        }
+
+        return true; // Si tous les héros sont possédés, retourner true
+    }
 }

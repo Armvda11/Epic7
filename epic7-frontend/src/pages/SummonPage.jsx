@@ -6,12 +6,18 @@ export default function SummonPage() {
   const [loading, setLoading] = useState(false);
 
   const handleSummon = async () => {
+    setResult(null);
     setLoading(true);
     try {
       const summonResult = await performSummon();
-      setResult(summonResult);
+      setResult(summonResult); // Affiche le résultat si l'invocation réussit
     } catch (error) {
-      setResult("❌ Erreur lors de l'invocation");
+      // Vérifie si le backend a retourné un message d'erreur
+      if (error.response && error.response.data && error.response.data.message) {
+        setResult({ error: true, message: error.response.data.message }); // Affiche le message d'erreur du backend
+      } else {
+        setResult({ error: true, message: "❌ Une erreur inattendue s'est produite." });
+      }
     } finally {
       setLoading(false);
     }
@@ -29,10 +35,16 @@ export default function SummonPage() {
       </button>
       {result && (
         <div className="mt-6 text-center">
-          <h2 className="text-3xl font-bold">Héros invoqué :</h2>
-          <p className="text-xl">Nom : {result.heroName}</p>
-          <p className="text-xl">Rareté : {result.rarity}</p>
-          <p className="text-xl">Élément : {result.element}</p>
+          {result.error ? ( // Vérifie si le résultat contient une erreur
+            <p className="text-xl text-red-500">{result.message}</p>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold">Héros invoqué :</h2>
+              <p className="text-xl">Nom : {result.heroName}</p>
+              <p className="text-xl">Rareté : {result.rarity}</p>
+              <p className="text-xl">Élément : {result.element}</p>
+            </>
+          )}
         </div>
       )}
     </div>

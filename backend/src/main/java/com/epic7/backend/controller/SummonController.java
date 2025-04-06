@@ -1,6 +1,6 @@
-
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.SummonResultDTO;
 import com.epic7.backend.model.Banner;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -31,16 +32,48 @@ public class SummonController {
      * Invoque un héros spécifique via son code.
      */
     @PostMapping("/random")
-    public ResponseEntity<String> summon(HttpServletRequest request) {
+    public ResponseEntity<?> summon(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
         String email = jwtUtil.extractEmail(token);
         User user = authService.getUserByEmail(email);
 
+        Optional<Banner> activeBanner = summonService.getActiveBanner();
+        if (activeBanner.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Aucune bannière active."
+            ));
+        }
+
+        if (summonService.userOwnsAllHeroesInBanner(user, activeBanner.get())) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Tu possèdes déjà tous les héros de la bannière !"
+            ));
+        }
+
+        if (user.getDiamonds() < SummonService.SUMMON_COST) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Pas assez de diamants !"
+            ));
+        }
+
         Optional<PlayerHero> result = summonService.performSummon(user);
 
-        return result.isPresent()
-                ? ResponseEntity.ok("✅ Héros invoqué !")
-                : ResponseEntity.ok("❌ Invocation échouée");
+        if (result.isPresent()) {
+            PlayerHero hero = result.get();
+            return ResponseEntity.ok(new SummonResultDTO(
+                hero.getHero().getName(),
+                hero.getHero().getRarity().toString(),
+                hero.getHero().getElement().toString()
+            ));
+        } else {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ L'invocation a échoué, retente ta chance."
+            ));
+        }
     }
 
     /**
