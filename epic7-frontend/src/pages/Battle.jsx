@@ -314,7 +314,7 @@ export default function Battle() {
   // --- RENDU PRINCIPAL ---
   
   return (
-    <div className="relative h-screen w-screen bg-[url('epic7-frontend/public/arena.webp')] bg-cover bg-center text-white overflow-hidden">
+    <div className="relative h-screen w-screen bg-[url('/arena.webp')] bg-cover bg-center text-white overflow-hidden">
       {/* Affiche le portrait du héros dont c'est le tour */}
       <HeroPortraitOverlay hero={currentHero} />
 
@@ -437,6 +437,13 @@ export default function Battle() {
     onReturn={() => navigate("/dashboard")} 
   />
 )}
+{/* Bouton pour abandonner le combat (visible uniquement quand c'est au tour du joueur) */}
+{(isPlayerTurn && !battleState.finished) && (
+  <div className="absolute bottom-4 right-4 z-50">
+    <BattleForfeitButton onClick={() => setSelectionPhase(true)} />   
+  </div>
+)}
+
 
 
 
