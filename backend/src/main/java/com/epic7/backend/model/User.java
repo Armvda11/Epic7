@@ -85,7 +85,7 @@ public class User {
         joinColumns = @JoinColumn(name = "user_id")
     )
     @Column(name = "pending_friend")
-    private List<Long> pendingFriendRequests = new ArrayList<>(); // Liste des demandes d'amis en attente
+    private List<Long> pendingFriendRequests = new ArrayList<>(); // Liste des demandes d'amis en attente (id des utilisateurs)
     // (a modifier lorsque l'utilisateur envoie ou reçoit une demande d'ami)
 
     @Column(name = "last_login")
