@@ -18,6 +18,21 @@ export const fetchUserGuild = async () => {
 export const searchGuilds = async (query) => {
   try {
     const response = await API.get(`/guilds/search?query=${encodeURIComponent(query)}`);
+    console.log("Search guilds response:", response.data);
+    
+    // Add isOpen property if it doesn't exist but status does
+    if (response.data && Array.isArray(response.data)) {
+      response.data = response.data.map(guild => {
+        if (guild.isOpen === undefined && guild.status) {
+          return {
+            ...guild,
+            isOpen: guild.status.toLowerCase() === "open"
+          };
+        }
+        return guild;
+      });
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error searching guilds:', error);
@@ -367,6 +382,31 @@ export const banGuildMember = async (memberId, reason = "") => {
     return response.data;
   } catch (error) {
     console.error(`Error banning guild member (ID: ${memberId}):`, error);
+    throw error;
+  }
+};
+
+// Récupérer les guildes les plus récentes
+export const fetchRecentGuilds = async (limit = 10) => {
+  try {
+    const response = await API.get(`/guilds/recent?limit=${limit}`);
+    
+    // Add isOpen property for consistency with other guild data
+    if (response.data && Array.isArray(response.data)) {
+      response.data = response.data.map(guild => {
+        if (guild.isOpen === undefined && guild.status) {
+          return {
+            ...guild,
+            isOpen: guild.status.toLowerCase() === "open"
+          };
+        }
+        return guild;
+      });
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching recent guilds:', error);
     throw error;
   }
 };

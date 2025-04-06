@@ -1031,4 +1031,17 @@ public class GuildService {
         guild.removePendingAdhesion(userId);
         guildRepository.save(guild);
     }
+
+    /**
+     * Récupère les guildes les plus récemment créées.
+     * @param limit Le nombre maximum de guildes à récupérer
+     * @return Liste des DTOs d'informations de base sur les guildes
+     */
+    @Transactional(readOnly = true)
+    public List<GuildInfoDTO> getRecentGuilds(int limit) {
+        List<Guild> guilds = guildRepository.findAllByOrderByCreationDateDesc(limit);
+        return guilds.stream()
+                .map(GuildInfoDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
 }

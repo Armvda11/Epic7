@@ -44,14 +44,30 @@ const handleSearchChange = (e) => {
         id: g.id,
         name: g.name,
         isOpen: g.isOpen,
-        status: g.isOpen ? 'open' : 'closed'
+        status: g.status
         })));
         
-        // Ensure each result has isOpen property as a boolean
-        const processedResults = results.map(guild => ({
-        ...guild,
-        isOpen: guild.isOpen !== undefined ? Boolean(guild.isOpen) : true
-        }));
+        // More explicit handling of isOpen property
+        const processedResults = results.map(guild => {
+        // Force isOpen to be a boolean based on multiple checks
+        let isOpen = false;
+        
+        // First check direct boolean value
+        if (typeof guild.isOpen === 'boolean') {
+            isOpen = guild.isOpen;
+        }
+        // Then check status text
+        else if (guild.status && guild.status.toLowerCase() === "open") {
+            isOpen = true;
+        }
+        
+        console.log(`Processed guild ${guild.name}: isOpen=${isOpen} (from isOpen=${guild.isOpen}, status=${guild.status})`);
+        
+        return {
+            ...guild,
+            isOpen: isOpen
+        };
+        });
         
         setSearchResults(processedResults);
         setShowSearchResults(true);
@@ -117,6 +133,14 @@ return (
                     </div>
                     </div>
                     <div>
+                    {/* Debug output in development mode */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="text-xs text-gray-500 mb-1">
+                        Debug: isOpen={String(guild.isOpen)}, status={guild.status}
+                        </div>
+                    )}
+                    
+                    {/* More defensive check for guild open status */}
                     {guild.isOpen === true ? (
                         <button
                         onClick={() => onJoinGuild(guild.id)}

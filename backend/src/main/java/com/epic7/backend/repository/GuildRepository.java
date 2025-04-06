@@ -21,4 +21,7 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
      */
     @Query("SELECT g FROM Guild g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Guild> searchByNameContaining(@Param("query") String query);
+
+    @Query(value = "SELECT g FROM Guild g ORDER BY g.creationDate DESC")
+    List<Guild> findAllByOrderByCreationDateDesc(int limit);
 }
