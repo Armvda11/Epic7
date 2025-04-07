@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * Entité représentant un héros disponible dans le jeu.
@@ -62,6 +63,9 @@ public class Hero {
     @Builder.Default
     private List<Skill> skills = new ArrayList<>();
 
+    @ManyToMany(mappedBy = "featuredHeroes")
+    @JsonIgnore // Empêche la sérialisation de la relation inverse
+    private List<Banner> banners;
 
     /**
      * Code unique généré automatiquement à partir du nom

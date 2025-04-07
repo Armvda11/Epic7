@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Optional;
 
 /**
@@ -40,14 +41,13 @@ public class SummonService {
     }
 
     /**
-     * Récupère la bannière active actuelle.
-     * @return La bannière active actuelle, ou une valeur vide si aucune bannière n'est active.
+     * Récupère la bannières actives actuelles.
+     * @return Les bannières actives actuelles, ou une valeur vide si aucune bannière n'est active.
      */
     @Transactional(readOnly = true)
-    public Optional<Banner> getActiveBanner() {
+    public ArrayList<Banner> getActiveBanner() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime end = now.plusDays(1);
-        return bannerRepository.findFirstByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, end);
+        return bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now);
     }
 
     /**
@@ -57,10 +57,10 @@ public class SummonService {
      */
     private double getProbabilityByRarity(Rarity rarity) {
         return switch (rarity) {
-            case NORMAL -> 0.5;
-            case RARE -> 0.3;
-            case EPIC -> 0.15;
-            case LEGENDARY -> 0.05;
+            case NORMAL -> 0.68;
+            case RARE -> 0.20;
+            case EPIC -> 0.10;
+            case LEGENDARY -> 0.02;
             default -> 0.0;
         };
     }
@@ -68,16 +68,11 @@ public class SummonService {
     /**
      * Effectue une invocation de héros pour un utilisateur donné.
      * @param user L'utilisateur effectuant l'invocation.
+     * @param banner La bannière d'invocation.
      * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide.
      */
     @Transactional
-    public Optional<PlayerHero> performSummon(User user) {
-        // Obtenir la bannière active
-        Optional<Banner> activeBanner = getActiveBanner();
-        if (activeBanner.isEmpty()) {
-            return Optional.empty();
-        }
-        Banner banner = activeBanner.get();
+    public Optional<PlayerHero> performSummon(User user,Banner banner) {
         // Vérifier si l'utilisateur possède tous les héros de la bannière
         if (userOwnsAllHeroesInBanner(user, banner)) {
             return Optional.empty();
@@ -127,5 +122,14 @@ public class SummonService {
         }
 
         return true; // Si tous les héros sont possédés, retourner true
+    }
+    /**
+     * Récupère un héros spécifique par son ID.
+     * @param heroId L'ID d'une bannière à récupérer.
+     * @return Un objet Banner si trouvé, sinon une valeur vide.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Banner> getBannerById(Long bannerId) {
+        return bannerRepository.findById(bannerId);
     }
 }

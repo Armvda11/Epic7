@@ -38,7 +38,10 @@ public class UserSeeder {
             User u3 = createUser("corentin@example.com", "Kaldah", "test", 9999999, 9999999);
             setupStats(u3, 80, 850, "Bronze", 350, 40);
             
-            userRepo.saveAll(List.of(u0, u1, u2, u3));
+            User u4 = createUser("yannis@example.com", "Han", "test2", 10000, 10000);
+            setupStats(u3, 80, 850, "Bronze", 350, 40);
+
+            userRepo.saveAll(List.of(u0, u1, u2, u3,u4));
             System.out.println("✅ Utilisateurs créés.");
         } else {
             System.out.println("✅ Les utilisateurs existent déjà.");
