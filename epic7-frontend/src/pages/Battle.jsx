@@ -1,6 +1,3 @@
-// Nouveau layout visuel pour combat Epic Seven-style
-// Tu peux déplacer les composants si besoin dans un dossier `components/battle`
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../api/axiosInstance';
