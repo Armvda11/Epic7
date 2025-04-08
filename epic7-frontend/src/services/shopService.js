@@ -10,3 +10,14 @@ export const getShopItems = async () => {
     throw error;
   }
 };
+
+
+export const buyItem = async (itemId) => {
+  try {
+    const response = await API.post(`/shop/buy/${itemId}`); // Pas besoin d'envoyer le token si l'utilisateur est déjà authentifié côté serveur
+    return response.data; // Retourne la réponse du backend (message de succès ou erreur)
+  } catch (error) {
+    console.error("Erreur lors de l'achat :", error);
+    throw error;
+  }
+};

@@ -1,5 +1,8 @@
 package com.epic7.backend.controller;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,7 +47,16 @@ public class ShopController {
             String result = shopService.purchaseItem(user, itemId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("❌ " + e.getMessage());
+            e.printStackTrace();
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+
+            String fullStackTrace = sw.toString();
+
+
+            return ResponseEntity.badRequest().body("❌ " + e.getMessage() + "\n\n" + fullStackTrace);
         }
     }
 }

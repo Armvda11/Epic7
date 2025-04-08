@@ -11,7 +11,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import { MailboxProvider } from "./context/MailboxContext";
 import FriendsPage from "./pages/FriendsPage";
 import Shop from "./pages/Shop";
-import Battle from "./pages/battle";
+import Battle from "./pages/Battle";
 
 import UserProfile from './pages/UserProfile';
 

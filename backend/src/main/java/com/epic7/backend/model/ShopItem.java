@@ -22,7 +22,7 @@ import com.epic7.backend.model.enums.ShopItemType;
  * Chaque objet a un nom, une description, un type (HERO, EQUIPMENT, GOLD, DIAMOND),
  * un prix en diamants et en or, une date de début et de fin de disponibilité,
  * un nombre maximum d'achats par utilisateur et un ID cible (pour les héros, équipements, etc.).
- * @author hermas
+ * @author hermas 10% - Wilkens 90%
  */
 @Entity
 @Getter

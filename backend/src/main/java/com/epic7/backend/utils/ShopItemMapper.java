@@ -19,19 +19,17 @@ public class ShopItemMapper {
      */
     public ShopItemDTO toDto(ShopItem item) {
         return new ShopItemDTO(
+                item.getId(),
                 item.getName(),
                 item.getDescription(),
-                item.getPriceInGold(),
                 item.getPriceInDiamonds(),
+                item.getPriceInGold(),
                 item.getStartAt(),
                 //item.getEndAt(),
                 LocalDateTime.now().plusDays(1),
-                item.getMaxPurchasePerUser()
+                item.getMaxPurchasePerUser(),
+                item.getType()
         );
-    }
-
-    private  String formatName(String name) {
-        return name.toLowerCase().replaceAll("\\s+", "-");
     }
 
     public List<ShopItemDTO> toDtoList(List<ShopItem> items) {

@@ -18,10 +18,10 @@ public class ShopSeeder {
 
     public void seedShopItems() {
         if(shopItemRepo.count() == 0) {
-            ShopItem item1 = createShopItem("Hwayoung", "Heros de je ne sais quoi", ShopItemType.HERO, 10, 1000, 5);
-            ShopItem item2 = createShopItem("Mavuika", "Heros de je m'en balec", ShopItemType.HERO, 10, 5000, 5);
-            ShopItem item3 = createShopItem("Épée de feu", "Epee pour niquer ta race", ShopItemType.EQUIPMENT, 5, 300, 5);
-            ShopItem item4 = createShopItem("Or", "De l'or pour les riches", ShopItemType.GOLD, 10, 1,10);
+            ShopItem item1 = createShopItem("Hwayoung", "Heros de je ne sais quoi", ShopItemType.HERO, 10, 10, 5);
+            ShopItem item2 = createShopItem("Mavuika", "Heros de je m'en balec", ShopItemType.HERO, 10, 5, 5);
+            ShopItem item3 = createShopItem("Épée de feu", "Epee pour niquer ta race", ShopItemType.EQUIPMENT, 5, 15, 5);
+            ShopItem item4 = createShopItem("Or", "De l'or pour les riches", ShopItemType.GOLD, 10, 7,10);
             shopItemRepo.saveAll(List.of(item1, item2, item3,item4));
             System.out.println("✅ Items de la boutique créés.");
         }

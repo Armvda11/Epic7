@@ -2,10 +2,55 @@ import { useState, useEffect } from "react";
 import { getShopItems } from "../services/shopService";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
+import { buyItem } from "../services/shopService";
+import { toast } from "react-toastify";
 
 // Fonction pour formater le nom de l'image
 const formatImageName = (name) => {
   return name.toLowerCase().replace(/\s+/g, "-");
+};
+
+// Fonction pour acheter un article
+
+const handleBuy = async (item) => {
+  console.log("Achat de l'article :", item);
+  try {
+    const result = await buyItem(item.id);
+    toast.success(`✅ ${result}`, { autoClose: 3000 });
+
+    // 🔁 Recharge les articles à jour depuis le backend
+    await fetchData();
+  } catch (err) {
+    console.error("Erreur de l'achat:", err);  // Log de l'erreur complète
+
+    if (err.response) {
+      // Si la réponse est présente
+      if (err.response?.status === 401) {
+        toast.error("Session expirée. Veuillez vous reconnecter.");
+        navigate("/login");
+      } else {
+        const message = err.response?.data || "❌ Une erreur est survenue lors de l'achat.";
+        toast.error(message, { autoClose: 3000 });
+      }
+    } else {
+      // Si aucune réponse, l'erreur pourrait être un problème réseau ou autre
+      toast.error("❌ Erreur inconnue. Veuillez réessayer plus tard.", { autoClose: 3000 });
+    }
+  }
+};
+
+
+// Fonction pour récupérer les items depuis le backend
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    const data = await getShopItems();
+    setItems(data);
+  } catch (err) {
+    setError(t("shopLoadError", language) || "Impossible de récupérer les articles.");
+  } finally {
+    setLoading(false);
+  }
 };
 
 // Fonction pour calculer le temps restant
@@ -110,7 +155,7 @@ export default function ShopPage() {
           onChange={(e) => setFilter(e.target.value)}
         >
           <option value="Tous">{t("all", language)}</option>
-          <option value="HEROS">{t("heroes", language) || "Héros"}</option>
+          <option value="HERO">{t("heroes", language) || "Héros"}</option>
           <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
           <option value="GOLD">{t("gold", language) || "Or"}</option>
         </select>
@@ -138,7 +183,15 @@ export default function ShopPage() {
                 </p>
               )}
 
-              <button className="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+              <button
+                onClick={() => handleBuy(item)}
+                disabled={item.maxPerUser === 0}
+                className={`mt-2 px-4 py-2 rounded text-white ${
+                  item.maxPerUser === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-700"
+                }`}
+              >
                 🛒 {t("buy", language) || "Acheter"}
               </button>
             </div>
