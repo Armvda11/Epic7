@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.epic7.backend.model.ShopItem;
+import com.epic7.backend.model.enums.ShopItemType;
+
 @Data
 public class SimpleBattleState {
 
@@ -15,6 +18,8 @@ public class SimpleBattleState {
     private List<String> logs;
     
     private int roundCount = 1;
+    private ShopItemType rewardType;
+    private int rewardAmount;
 
     /**
      * Cooldowns par héros : Map<PlayerHeroId, Map<SkillId, cooldownRestant>>

@@ -8,6 +8,7 @@ import MenuTile from "../components/MenuTile";
 import ProfileCard from "../components/ProfileCard";
 import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
+import { heroImg, heroImgUnknown } from "../components/heroUtils";
 
 import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,FaStar } from "react-icons/fa";
 
@@ -31,6 +32,9 @@ const Dashboard = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchTimeoutRef = useRef(null);
   const searchInputRef = useRef(null);
+
+
+
 
   //  Chargement des infos utilisateur
   useEffect(() => {
@@ -121,7 +125,7 @@ const Dashboard = () => {
     { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
     { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
     { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
-    { label: t("guilds", language), icon: <FaUsers size={28} /> },
+    { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> },
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
@@ -174,12 +178,12 @@ const Dashboard = () => {
                   >
                     <div className="flex items-center gap-3">
                       <img
-                        src={player.avatar || "/epic7-Hero/sprite-hero/unknown.png"}
+                        src={player.avatar || heroImgUnknown}
                         alt={player.username}
                         className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 object-cover"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                          e.target.src = heroImgUnknown;
                         }}
                       />
                       <div>
@@ -237,12 +241,12 @@ const Dashboard = () => {
                       className="p-3 hover:bg-purple-50 dark:hover:bg-[#3a3660] cursor-pointer flex items-center gap-3"
                     >
                       <img
-                        src={player.avatar || "/epic7-Hero/sprite-hero/unknown.png"}
+                        src={heroImg("schniel") || heroImgUnknown}  
                         alt=""
                         className="w-8 h-8 rounded-full"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                          e.target.src = heroImgUnknown;
                         }}
                       />
                       <span>{player.username}</span>
@@ -283,10 +287,10 @@ const Dashboard = () => {
             className="w-full max-w-xs p-4 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
           >
             <article className="flex items-center gap-4">
-              <img src="/epic7-Hero/sprite-hero/mavuika.png" alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
+              <img src = {heroImg("mavuika")} alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                  e.target.src = heroImgUnknown;
                 }}
               />
               <div>

@@ -10,12 +10,15 @@ module.exports = {
       // pour accentuer encore plus l'effet glow sur les barres de vie faibles
 boxShadow: {
   healthGlow: '0 0 10px rgba(255, 0, 0, 0.6)',
+  glow: '0 0 8px 3px rgba(59,130,246,0.8)',
 },
       animation: {
         backgroundZoom: 'backgroundZoom 12s infinite alternate ease-in-out',
         glowEffect: 'glowEffect 1.5s infinite alternate ease-in-out',
         shake: "shake 0.4s ease-in-out",
         fall: 'fall 4s linear forwards',
+        'hero-idle': 'idleBounce 2.4s ease-in-out infinite',
+        glow: 'glowPulse 2s infinite ease-in-out',
       },
       keyframes: {
         shake: {
@@ -35,6 +38,14 @@ boxShadow: {
         fall: {
           '0%': { transform: 'translateY(-100px) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateY(100vh) rotate(360deg)', opacity: '0' },
+        },
+        idleBounce: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+        glowPulse: {
+          '0%, 100%': { boxShadow: '0 0 8px 3px rgba(59,130,246,0.8)' },
+          '50%': { boxShadow: '0 0 12px 5px rgba(59,130,246,1)' },
         },
       },
       colors: {

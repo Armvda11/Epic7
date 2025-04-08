@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useSettings } from "../../context/SettingsContext";
+import { heroImg, heroImgAvif, heroImgUnknown } from "../heroUtils";
 
 const rarityColors = {
   COMMON: "bg-gray-600",
@@ -30,7 +31,6 @@ const HeroProfileCard = ({ heroInstance, onSelect }) => {
     code,
   } = hero;
 
-  const imgCode = code?.toLowerCase() || name.toLowerCase().replace(/\s+/g, "-");
   const rarityClass = rarityColors[rarity] || "bg-gray-700";
 
   return (
@@ -53,15 +53,15 @@ const HeroProfileCard = ({ heroInstance, onSelect }) => {
       {/* Image du héros - Fixed at top */}
       <figure className="overflow-hidden rounded-lg shadow-inner flex-shrink-0">
         <picture>
-          <source srcSet={`/epic7-Hero/avif/${imgCode}.avif`} type="image/avif" />
-          <source srcSet={`/epic7-Hero/webp/${imgCode}.webp`} type="image/webp" />
+          <source srcSet={heroImgAvif(name)} type="image/avif" />
+          <source srcSet={heroImg(name)} type="image/webp" />
           <img
-            src={`/epic7-Hero/sprite-hero/${imgCode}.png`}
+            src={heroImg(name)}
             alt={`Portrait de ${name}`}
             className="w-full h-44 object-contain rounded-lg group-hover:scale-105 transition-transform duration-300 ease-in-out"
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+              e.target.src =heroImgUnknown;
             }}
           />
         </picture>

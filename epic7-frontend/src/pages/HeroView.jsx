@@ -5,6 +5,7 @@ import EquipmentSlot from "../components/equipment/EquipmentSlot";
 import EquipmentDetailsPanel from "../components/equipment/EquipmentDetailsPanel";
 import { useSettings } from '../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import { heroImg } from "../components/heroUtils";
 
 // Cette page affiche les détails d'un héros spécifique, y compris son équipement
 // et permet à l'utilisateur d'équiper ou de déséquiper des objets.
@@ -87,7 +88,7 @@ const HeroView = () => {
       <section className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8">
         {/* Centre : Slots + Sprite */}
         <div className="relative w-80 h-96 flex items-center justify-center">
-          <img  src={`/epic7-Hero/sprite-hero/${heroName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}  alt={heroName}  className="w-60 h-auto drop-shadow-xl"/>
+          <img  src={heroImg(heroName)}  alt={heroName}  className="w-60 h-auto drop-shadow-xl"/>
 
           {/* Slots */}
           <div className="absolute top-4 left-4">

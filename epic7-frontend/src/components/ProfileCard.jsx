@@ -2,6 +2,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSettings } from "../context/SettingsContext";
+import { heroImg, heroImgUnknown } from "./heroUtils";
 
 // Ce composant représente une carte de profil utilisateur.
 const ProfileCard = ({ user, onClose }) => {
@@ -36,12 +37,12 @@ const ProfileCard = ({ user, onClose }) => {
           {/* Avatar + Infos */}
           <div className="flex flex-col items-center text-center">
             <img
-              src="/epic7-Hero/sprite-hero/mavuika.png"
+              src={ heroImg("mavuika")}
               alt="avatar"
               className="w-24 h-24 rounded-full mb-4 object-cover shadow-lg bg-gray-300 dark:bg-gray-600"
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.src = "/epic7-Hero/sprite-hero/unknown.png";
+                e.target.src = heroImgUnknown;
               }}
             />
 

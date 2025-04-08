@@ -1,5 +1,6 @@
 package com.epic7.backend.service.battle.simple;
 
+import com.epic7.backend.dto.simple.RewardDTO;
 import com.epic7.backend.dto.simple.SimpleBattleStateDTO;
 import com.epic7.backend.dto.simple.SimpleSkillActionRequest;
 import com.epic7.backend.dto.simple.SkillActionResultDTO;
@@ -9,10 +10,17 @@ import com.epic7.backend.model.PlayerEquipment;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.Skill;
 import com.epic7.backend.model.User;
+import com.epic7.backend.model.enums.EquipmentType;
+import com.epic7.backend.model.enums.Rarity;
+import com.epic7.backend.model.enums.ShopItemType;
 import com.epic7.backend.repository.PlayerHeroRepository;
+
+import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.dto.*;
 
 import com.epic7.backend.model.skill_kit.TargetGroup;
 import com.epic7.backend.model.skill_kit.TriggerCondition;
+import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.PlayerEquipmentRepository;
 import com.epic7.backend.service.HeroService;
@@ -40,6 +48,8 @@ public class SimpleBattleService {
     private final SkillService skillService;
     private final PlayerEquipmentRepository playerEquipmentRepository;
     private final PlayerHeroRepository playerHeroRepository;
+    private final UserRepository userRepository;
+    private final EquipmentRepository equipmentRepository;
 
     /**
      * Initialise un combat simple avec un boss spécifique.
@@ -52,11 +62,10 @@ public class SimpleBattleService {
      * @return L'état du combat initialisé.
      */
     public SimpleBattleState initBattle(User user, Long bossHeroId, List<Long> selectedHeroIds) {
-        // Vérifie qu'on ne dépasse pas 4 héros
         if (selectedHeroIds.size() > 4) {
             throw new IllegalArgumentException("Tu ne peux sélectionner que 4 héros maximum.");
         }
-
+    
         List<PlayerHero> playerHeroes = new ArrayList<>();
         for (Long id : selectedHeroIds) {
             PlayerHero ph = (PlayerHero) playerHeroService.findByIdAndUser(id, user);
@@ -64,37 +73,30 @@ public class SimpleBattleService {
                 playerHeroes.add(ph);
             }
         }
-
+    
         if (playerHeroes.size() != selectedHeroIds.size()) {
             throw new IllegalArgumentException("Un ou plusieurs héros sélectionnés ne vous appartiennent pas.");
         }
-
-        if (playerHeroes.size() != selectedHeroIds.size()) {
-            throw new IllegalArgumentException("Un ou plusieurs héros sélectionnés ne vous appartiennent pas.");
-        }
-
-        // Récupération et préparation du boss
+    
         Hero baseBossHero = heroRepository.findById(bossHeroId)
                 .orElseThrow(() -> new IllegalArgumentException("Boss introuvable: " + bossHeroId));
-
+    
         Hero bossHero = heroService.copyForBoss(baseBossHero);
         bossHero.setBaseAttack(bossHero.getBaseAttack() + 30);
         bossHero.setBaseDefense(bossHero.getBaseDefense() + 200);
-
-        // Création des participants (héros + boss)
+    
         List<SimpleBattleParticipant> participants = new ArrayList<>();
-
+    
         for (PlayerHero ph : playerHeroes) {
             Hero h = ph.getHero();
-
-            // Récupération des équipements
+    
             List<PlayerEquipment> equippedItems = playerEquipmentRepository.findByPlayerHeroId(ph.getId());
-
+    
             int totalAttack = h.getBaseAttack();
             int totalDefense = h.getBaseDefense();
             int totalSpeed = h.getBaseSpeed();
             int totalHp = h.getHealth();
-
+    
             for (PlayerEquipment pe : equippedItems) {
                 Equipment eq = pe.getEquipment();
                 totalAttack += eq.getAttackBonus();
@@ -102,30 +104,29 @@ public class SimpleBattleService {
                 totalSpeed += eq.getSpeedBonus();
                 totalHp += eq.getHealthBonus();
             }
-
+    
             participants.add(new SimpleBattleParticipant(
                     ph.getId(), h.getName(), totalHp, totalHp,
                     totalAttack, totalDefense, totalSpeed, true));
         }
-
+    
         participants.add(new SimpleBattleParticipant(
                 -1L, bossHero.getName(), bossHero.getHealth(), bossHero.getHealth(),
                 bossHero.getBaseAttack(), bossHero.getBaseDefense(), bossHero.getBaseSpeed(), false));
-
-        // Tri par vitesse (ordre de jeu)
+    
         participants.sort(Comparator.comparingInt(SimpleBattleParticipant::getSpeed).reversed());
-        System.out.println("💥 Heroes sélectionnés : " + selectedHeroIds);
-        System.out.println("✅ PlayerHeroes valides : " + playerHeroes.stream().map(ph -> ph.getId()).toList());
-
-        // Initialisation de l'état de combat
+    
         SimpleBattleState state = new SimpleBattleState();
         state.setParticipants(participants);
         state.setCurrentTurnIndex(0);
         state.setFinished(false);
         state.setLogs(new ArrayList<>(List.of("Combat commencé contre " + bossHero.getName() + " !")));
+    
 
+    
         return processUntilNextPlayer(state);
     }
+    
 
     /**
      * Traite le combat jusqu'au prochain joueur.
@@ -405,4 +406,64 @@ public class SimpleBattleService {
                 skill.getAction().name());
     }
 
+
+    public RewardDTO giveVictoryReward(User user, SimpleBattleState state) {
+        ShopItemType type = state.getRewardType();
+        int amount = state.getRewardAmount();
+    
+        switch (type) {
+            case GOLD -> {
+                user.setGold(user.getGold() + amount);
+                userRepository.save(user);
+                return new RewardDTO(type, amount, "💰 Vous avez gagné " + amount + " or !");
+            }
+            case DIAMOND -> {
+                user.setDiamonds(user.getDiamonds() + amount);
+                userRepository.save(user);
+                return new RewardDTO(type, amount, "💎 Vous avez gagné " + amount + " diamants !");
+            }
+            case HERO -> {
+                Optional<Hero> optionalHero = heroRepository.findRandomHero();
+                
+                if (optionalHero.isPresent()) {
+                    Hero randomHero = optionalHero.get();
+                    PlayerHero ph = new PlayerHero(user, randomHero);
+                    playerHeroRepository.save(ph);
+                    return new RewardDTO(type, 1, "🎉 Vous avez obtenu le héros : " + randomHero.getName());
+                } else {
+                    // Gérer le cas où aucun héros n'est trouvé
+                    return new RewardDTO(type, 0, "❌ Aucun héros disponible pour le moment.");
+                }
+            }
+            case EQUIPMENT -> {
+                Equipment eq = new Equipment();
+                eq.setName("Équipement " + new Random().nextInt(1000));
+                eq.setType(EquipmentType.ARMOR);
+                eq.setAttackBonus(new Random().nextInt(50));
+                eq.setDefenseBonus(new Random().nextInt(50));
+                eq.setSpeedBonus(new Random().nextInt(50));
+                eq.setHealthBonus(new Random().nextInt(50));
+                eq.setRarity("bon");
+                
+                // Sauvegarder l'équipement d'abord pour obtenir son ID
+                Equipment savedEquipment = equipmentRepository.save(eq);
+                
+                // Créer et configurer le PlayerEquipment
+                PlayerEquipment playerEquipment = new PlayerEquipment();
+                playerEquipment.setUser(user);
+                playerEquipment.setEquipment(savedEquipment);
+                // Si un PlayerHero doit être associé, il faudrait ajouter :
+                // playerEquipment.setPlayerHero(somePlayerHero);
+                
+                // Sauvegarder l'attribution de l'équipement au joueur
+                playerEquipmentRepository.save(playerEquipment);
+                
+                return new RewardDTO(type, 1, "🛡️ Équipement obtenu : " + savedEquipment.getName() + " !");
+            }
+            default -> throw new IllegalStateException("Type de récompense inconnu");
+        }
+    }
+
+
+    
 }

@@ -14,9 +14,7 @@ import Shop from "./pages/Shop";
 import Battle from "./pages/battle";
 import SummonPage from "./pages/SummonPage";
 import UserProfile from './pages/UserProfile';
-
-
-
+import GuildsPage from "./pages/GuildsPage";
 
 function App() {
   return (
@@ -28,7 +26,8 @@ function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/my-heroes" element={<MyHeroes />} />
         <Route path="/inventory" element={<Inventory />} />
-        <Route path ="/battle" element={<Battle />} />
+        <Route path="/battle" element={<Battle />} />
+        <Route path="/guilds" element={<GuildsPage />} />
         <Route path="/summons" element={<SummonPage />} />
         
         <Route path="/hero" element={<PrivateRoute />}>

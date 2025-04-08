@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import SkillCard from "../components/hero/SkillCard";
+import { heroImg, heroImgUnknown } from '../components/heroUtils';
 
 
 /**
@@ -159,12 +160,12 @@ useEffect(() => {
 
                 <div className="w-full max-w-[300px] aspect-[4/5] overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-[#1a1a2e] rounded-xl mb-4">
                   <img
-                    src={`/epic7-Hero/sprite-hero/${selectedHero.name.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}.png`}
+                    src={heroImg(selectedHero.name || selectedHero.hero?.name)}
                     alt={selectedHero.name}
                     className="max-w-full max-h-full object-contain"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = '/epic7-Hero/sprite-hero/unknown.png';
+                      e.target.src = heroImgUnknown;
                     }}
                   />
                 </div>
