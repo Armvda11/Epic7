@@ -150,5 +150,8 @@ public class PlayerHeroService {
                 .orElseThrow(() -> new IllegalArgumentException("PlayerHero not found or not owned by user"));
     }
     
+    public boolean existsByUserAndHero(User user, Hero hero) {
+        return playerHeroRepository.existsByUserAndHero(user, hero);
+    }
 
 }
