@@ -1,7 +1,7 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.SummonResultDTO;
 import com.epic7.backend.model.Banner;
-import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
@@ -10,7 +10,8 @@ import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -28,43 +29,93 @@ public class SummonController {
     }
 
     /**
-     * Invoque un héros spécifique via son code.
+     * Invoque un héros d'une bannière spécifique.
+     * @param request La requête HTTP contenant le token JWT.
+     * @param id_banner La bannière à invoquer.
+     * @return Un objet JSON contenant le résultat de l'invocation.
      */
-    @PostMapping("/code/{heroCode}")
-    public ResponseEntity<String> summonByCode(@PathVariable String heroCode, HttpServletRequest request) {
+    @PostMapping("/random")
+    public ResponseEntity<?> summon(HttpServletRequest request, @RequestBody Map<String, Long> id_banner) {
         String token = jwtUtil.extractTokenFromHeader(request);
         String email = jwtUtil.extractEmail(token);
         User user = authService.getUserByEmail(email);
 
-        Optional<Hero> heroOpt = summonService.getHeroById(heroCode);
-        if (heroOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("❌ Héros introuvable");
+        Long bannerId = id_banner.get("bannerId");
+        Optional<Banner> bannerOpt = summonService.getBannerById(bannerId);
+        if (bannerOpt.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Bannière non trouvée."
+            ));
         }
 
-        Optional<PlayerHero> result = summonService.performSummon(user, heroOpt.get());
+        if (summonService.userOwnsAllHeroesInBanner(user, bannerOpt.get())) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Tu possèdes déjà tous les héros de la bannière !"
+            ));
+        }
 
-        return result.isPresent()
-                ? ResponseEntity.ok("✅ Héros invoqué !")
-                : ResponseEntity.ok("❌ Invocation échouée");
+        if (user.getDiamonds() < SummonService.SUMMON_COST) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Pas assez de diamants !"
+            ));
+        }
+
+        Optional<PlayerHero> result = summonService.performSummon(user, bannerOpt.get());
+
+        if (result.isPresent()) {
+            PlayerHero hero = result.get();
+            return ResponseEntity.ok(new SummonResultDTO(
+                hero.getHero().getName(),
+                hero.getHero().getRarity().toString(),
+                hero.getHero().getElement().toString()
+            ));
+        } else {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ L'invocation a échoué, retente ta chance."
+            ));
+        }
     }
 
     /**
-     * Récupère la bannière d'invocation actuelle avec les héros mis en avant.
+     * Récupère les héros d'une bannière spécifique.
      */
-    @GetMapping("/banner")
-    public ResponseEntity<?> getCurrentBanner(HttpServletRequest request) {
+    @GetMapping("/{bannerId}/heroes")
+    public ResponseEntity<?> getBannerHeroes(@PathVariable Long bannerId) {
+        Optional<Banner> bannerOpt = summonService.getBannerById(bannerId);
+        if (bannerOpt.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Bannière non trouvée."
+            ));
+        }
+
+        return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes());
+    }
+
+    /**
+     * Récupère toutes les bannières actives.
+     */
+    @GetMapping("/active-banners")
+    public ResponseEntity<?> getActiveBanners(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
         String email = jwtUtil.extractEmail(token);
         User user = authService.getUserByEmail(email);
 
         System.out.println("✅ Utilisateur authentifié : " + user.getUsername());
 
-        Optional<Banner> bannerOpt = summonService.getActiveBanner();
-        if (bannerOpt.isEmpty()) {
+        ArrayList<Banner> activeBanners = summonService.getActiveBanner();
+        if (activeBanners.isEmpty()) {
             System.out.println("⚠️ Aucune bannière active trouvée.");
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Aucune bannière active."
+            ));
         }
 
-        return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes());
+        return ResponseEntity.ok(activeBanners);
     }
 }

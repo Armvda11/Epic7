@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Optional;
 
 /**
@@ -21,9 +22,8 @@ import java.util.Optional;
 @Service
 public class SummonService {
 
-    private static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
+    public static final int SUMMON_COST = 50; // Coût d'une invocation en diamants
 
-    private final HeroRepository heroRepository; 
     private final PlayerHeroRepository playerHeroRepository; 
     private final BannerRepository bannerRepository;
 
@@ -36,20 +36,18 @@ public class SummonService {
     public SummonService(HeroRepository heroRepository,
             PlayerHeroRepository playerHeroRepository,
             BannerRepository bannerRepository) {
-        this.heroRepository = heroRepository;
         this.playerHeroRepository = playerHeroRepository;
         this.bannerRepository = bannerRepository;
     }
 
     /**
-     * Récupère la bannière active actuelle.
-     * @return La bannière active actuelle, ou une valeur vide si aucune bannière n'est active.
+     * Récupère la bannières actives actuelles.
+     * @return Les bannières actives actuelles, ou une valeur vide si aucune bannière n'est active.
      */
     @Transactional(readOnly = true)
-    public Optional<Banner> getActiveBanner() {
+    public ArrayList<Banner> getActiveBanner() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime end = now.plusDays(1);
-        return bannerRepository.findFirstByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, end);
+        return bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now);
     }
 
     /**
@@ -59,10 +57,10 @@ public class SummonService {
      */
     private double getProbabilityByRarity(Rarity rarity) {
         return switch (rarity) {
-            case NORMAL -> 0.5;
-            case RARE -> 0.3;
-            case EPIC -> 0.15;
-            case LEGENDARY -> 0.05;
+            case NORMAL -> 0.68;
+            case RARE -> 0.20;
+            case EPIC -> 0.10;
+            case LEGENDARY -> 0.02;
             default -> 0.0;
         };
     }
@@ -70,48 +68,68 @@ public class SummonService {
     /**
      * Effectue une invocation de héros pour un utilisateur donné.
      * @param user L'utilisateur effectuant l'invocation.
-     * @param hero Le héros à invoquer.
+     * @param banner La bannière d'invocation.
      * @return Un objet PlayerHero si l'invocation a réussi, sinon une valeur vide.
      */
     @Transactional
-    public Optional<PlayerHero> performSummon(User user, Hero hero) {
-
-        // Obtenir toutes les bannières actives et vérifier si le héros est disponible
-        // dans l'une d'elles
-        Optional<Banner> activeBanner = getActiveBanner();
-        if (activeBanner.isEmpty() || !activeBanner.get().getFeaturedHeroes().contains(hero)) {
-            return Optional.empty(); // Héros non disponible
+    public Optional<PlayerHero> performSummon(User user,Banner banner) {
+        // Vérifier si l'utilisateur possède tous les héros de la bannière
+        if (userOwnsAllHeroesInBanner(user, banner)) {
+            return Optional.empty();
         }
-
-        // Vérifier si l'utilisateur a suffisamment de diamants pour invoquer
-        // (50 diamants par invocation)
+        // Vérifier si l'utilisateur a suffisamment de diamants
         if (user.getDiamonds() < SUMMON_COST) {
             return Optional.empty();
         }
-
-        // Calculer la probabilité d'invocation en fonction de la rareté du héros
-        // et effectuer l'invocation
-        double probability = getProbabilityByRarity(hero.getRarity());
-        double draw = Math.random();
-
+        // Lui faire payer
         user.setDiamonds(user.getDiamonds() - SUMMON_COST);
+        // Parcourir les héros de la bannière active
+        for (Hero hero : banner.getFeaturedHeroes()) {
+            // Vérifier si l'utilisateur possède déjà ce héros
+            boolean alreadyOwned = playerHeroRepository.existsByUserAndHero(user, hero);
+            if (alreadyOwned) {
+                continue; // Passer au héros suivant
+            }
 
-        if (draw < probability) {
-            PlayerHero playerHero = new PlayerHero(user, hero);
-            playerHeroRepository.save(playerHero);
-            return Optional.of(playerHero);
+            // Calculer la probabilité d'invocation
+            double probability = getProbabilityByRarity(hero.getRarity());
+            double draw = Math.random();
+
+            if (draw < probability) {
+                // Ajouter le héros à l'utilisateur
+                PlayerHero playerHero = new PlayerHero(user, hero);
+                user.getOwnedHeroes().add(playerHero);
+                return Optional.of(playerHero);
+            }
         }
-
         return Optional.empty();
     }
-
     /**
-     * Récupère un héros par son code.
-     * @param code Le code du héros.
-     * @return Un objet Hero si trouvé, sinon une valeur vide.
+     * Vérifie si l'utilisateur possède tous les héros de la bannière.
+     * @param user   L'utilisateur à vérifier.
+     * @param banner La bannière à vérifier.
+     * @return true si l'utilisateur possède tous les héros de la bannière, false sinon.
      */
     @Transactional(readOnly = true)
-    public Optional<Hero> getHeroById(String code) {
-        return heroRepository.findByCode(code);
+    public boolean userOwnsAllHeroesInBanner(User user, Banner banner) {
+
+        // Vérifier si l'utilisateur possède chaque héros de la bannière
+        for (Hero hero : banner.getFeaturedHeroes()) {
+            boolean ownsHero = playerHeroRepository.existsByUserAndHero(user, hero);
+            if (!ownsHero) {
+                return false; // Si un héros n'est pas possédé, retourner false
+            }
+        }
+
+        return true; // Si tous les héros sont possédés, retourner true
+    }
+    /**
+     * Récupère un héros spécifique par son ID.
+     * @param heroId L'ID d'une bannière à récupérer.
+     * @return Un objet Banner si trouvé, sinon une valeur vide.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Banner> getBannerById(Long bannerId) {
+        return bannerRepository.findById(bannerId);
     }
 }
