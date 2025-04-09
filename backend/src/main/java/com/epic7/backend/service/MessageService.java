@@ -151,6 +151,7 @@ public class MessageService {
 
         // Créer le message
         Message message = new Message();
+        messageRepository.save(message);
         message.setSender(sender);
         message.setRecipient(optionalRecipient.get());
         message.setSubject(subject);
@@ -158,7 +159,7 @@ public class MessageService {
         message.setCreatedAt(Instant.now());
         message.setValidUntil(validUntil != null ? validUntil : Instant.now().plus(30, ChronoUnit.DAYS));
         message.setRead(false);
-        message.setTargetShopItemsId(targetShopItemsId);
+        message.setTargetShopItemsId(targetShopItemsId != null ? targetShopItemsId : List.of());
         message.setContainItems(true);
 
         // Enregistrer le message dans la base de données

@@ -2,11 +2,30 @@ import { useState, useEffect } from "react";
 import { getShopItems } from "../services/shopService";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
+import { buyItem } from "../services/shopService";
+import { toast } from "react-toastify";
 
 // Fonction pour formater le nom de l'image
 const formatImageName = (name) => {
   return name.toLowerCase().replace(/\s+/g, "-");
 };
+
+//Fonction pour recuperer le chemin en fonction du type d'item
+const getItemPath = (type) => {
+  switch (type) {
+    case "HERO":
+      return "epic7-Hero/webp";
+    case "EQUIPMENT":
+      return "equipment";
+    case "GOLD":
+      return "gold";
+    case "DIAMOND":
+      return "diamond";
+    default:
+      return "";
+  }
+};
+
 
 // Fonction pour calculer le temps restant
 const getTimeLeft = (endAt) => {
@@ -32,6 +51,42 @@ export default function ShopPage() {
   const [timeLefts, setTimeLefts] = useState({});
   const navigate = useNavigate();
   const { language, t } = useSettings();
+
+  
+
+   const fetchData = async () => {
+    try {
+      setLoading(true);
+      const data = await getShopItems();
+      setItems(data);
+    } catch (err) {
+      setError(t("shopLoadError", language) || "Impossible de récupérer les articles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBuy = async (item) => {
+    console.log("Achat de l'article :", item);
+    try {
+      const result = await buyItem(item.id);
+      toast.success(`✅ ${result}`, { autoClose: 3000 });
+      await fetchData();
+    } catch (err) {
+      console.error("Erreur de l'achat:", err);
+      if (err.response) {
+        if (err.response?.status === 401) {
+          toast.error("Session expirée. Veuillez vous reconnecter.");
+          navigate("/login");
+        } else {
+          const message = err.response?.data || "❌ Une erreur est survenue lors de l'achat.";
+          toast.error(message, { autoClose: 3000 });
+        }
+      } else {
+        toast.error("❌ Erreur inconnue. Veuillez réessayer plus tard.", { autoClose: 3000 });
+      }
+    }
+  };
 
   // Fonction pour récupérer les items depuis le backend
   useEffect(() => {
@@ -110,7 +165,7 @@ export default function ShopPage() {
           onChange={(e) => setFilter(e.target.value)}
         >
           <option value="Tous">{t("all", language)}</option>
-          <option value="HEROS">{t("heroes", language) || "Héros"}</option>
+          <option value="HERO">{t("heroes", language) || "Héros"}</option>
           <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
           <option value="GOLD">{t("gold", language) || "Or"}</option>
         </select>
@@ -122,7 +177,7 @@ export default function ShopPage() {
           <div key={index} className="p-4 shadow-lg rounded-xl border bg-white dark:bg-[#2f2b50] bg-opacity-80 dark:bg-opacity-100 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700">
             <div className="flex flex-col items-center">
               <img
-                src={`/Shop/${formatImageName(item.name)}.webp`}
+                src={`/${getItemPath(item.type)}/${formatImageName(item.name)}.webp`}
                 alt={item.name}
                 className="w-24 h-24 mb-2"
               />
@@ -138,7 +193,15 @@ export default function ShopPage() {
                 </p>
               )}
 
-              <button className="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+              <button
+                onClick={() => handleBuy(item)}
+                disabled={item.maxPerUser === 0}
+                className={`mt-2 px-4 py-2 rounded text-white ${
+                  item.maxPerUser === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-700"
+                }`}
+              >
                 🛒 {t("buy", language) || "Acheter"}
               </button>
             </div>

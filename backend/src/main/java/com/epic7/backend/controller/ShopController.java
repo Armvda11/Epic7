@@ -44,6 +44,7 @@ public class ShopController {
             String result = shopService.purchaseItem(user, itemId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body("❌ " + e.getMessage());
         }
     }
