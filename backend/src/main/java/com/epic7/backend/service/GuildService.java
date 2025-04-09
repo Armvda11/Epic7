@@ -42,6 +42,7 @@ public class GuildService {
     private final UserRepository userRepository;
     private final GuildBanRepository guildBanRepository;
     private final MessageService messageService;
+    private final ChatService chatService;
 
     /**
      * Crée une nouvelle guilde.
@@ -66,6 +67,7 @@ public class GuildService {
         Guild guild = new Guild();
         guild.setName(name);
         guild.setDescription(description);
+        guild.setChatAdminRole(GuildRole.LEADER);
         guild = guildRepository.save(guild);
 
         // Créer l'adhésion de l'utilisateur à la guilde
@@ -75,8 +77,15 @@ public class GuildService {
         membership.setRole(GuildRole.LEADER); // L'utilisateur devient le leader de la guilde
         membership.setJoinDate(Instant.now());
 
+        // On ajoute la guilde à l'utilisateur
+        user.setGuildMembership(membership);
+
+        // On crée un chat lié à la guilde
+        // chatService.createGuildChatRoom(guild.getId());
+
         // Enregistrer l'adhésion
         guildMembershipRepository.save(membership);
+        userRepository.save(user);
         return guild;
     }
 

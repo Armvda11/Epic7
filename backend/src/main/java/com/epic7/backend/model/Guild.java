@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.epic7.backend.model.enums.GuildRank;
+import com.epic7.backend.model.enums.GuildRole;
 
 /**
  * Représente une guilde dans le jeu.
@@ -87,6 +88,24 @@ public class Guild {
     )
     @Column(name = "requesting_user_id")
     private List<Long> pendingAdhesionRequestUsers = new ArrayList<>(); // Liste des utilisateurs qui ont demandé à rejoindre la guilde
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chat_admin_role")
+    private GuildRole chatAdminRole = GuildRole.LEADER; // Rôle de l'administrateur de la guilde dans le chat
+    /*
+     * Méthode pour obtenir le leader de la guilde.
+     * Parcourt la liste des membres et retourne l'ID du membre avec le rôle de leader.
+     * @return L'ID du leader de la guilde ou null si aucun leader n'est trouvé.
+     * @author corentin
+     */
+    public Long getLeader() {
+        for (GuildMembership member : members) {
+            if (member.getRole() == GuildRole.LEADER) {
+                return member.getUser().getId();
+            }
+        }
+        return null; // Si aucun leader n'est trouvé, retourner null
+    }
 
     public void addGold(int amount) {
         this.gold += amount;

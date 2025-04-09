@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FaCrown, FaUser, FaUserShield, FaUserSlash, FaBan, FaTimes } from "react-icons/fa";
 import { useSettings } from "../../context/SettingsContext";
+import Notification from "../common/Notification";
 
 const GuildMemberList = ({ 
 members, 
@@ -16,6 +17,7 @@ const [showMemberActions, setShowMemberActions] = useState(false);
 const [showBanModal, setShowBanModal] = useState(false);
 const [banReason, setBanReason] = useState("");
 const [isBanning, setIsBanning] = useState(false);
+const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
 const isLeader = userRole === "leader";
 const isOfficer = userRole === "officer" || userRole === "conseiller" || isLeader;
@@ -30,6 +32,11 @@ const handleBanSubmit = async () => {
         setShowBanModal(false);
         setShowMemberActions(false);
         setBanReason("");
+        setNotification({
+        show: true,
+        message: `${actionMember.username} ${t("hasBeenBanned", language)}`,
+        type: 'success'
+        });
     }
     } finally {
     setIsBanning(false);
@@ -230,6 +237,16 @@ return (
             </p>
         </div>
         </div>
+    )}
+
+    {/* Notification Component */}
+    {notification.show && (
+    <Notification 
+        message={notification.message} 
+        type={notification.type} 
+        duration={3000}
+        onClose={() => setNotification({ ...notification, show: false })}
+    />
     )}
     </div>
 );

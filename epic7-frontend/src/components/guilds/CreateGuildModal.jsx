@@ -1,31 +1,77 @@
 import { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { useSettings } from "../../context/SettingsContext";
+import axios from "../../api/axiosInstance";
 
 const CreateGuildModal = ({ isOpen, onClose, onCreateGuild }) => {
 const { language, t } = useSettings();
 const [newGuildName, setNewGuildName] = useState("");
 const [newGuildDescription, setNewGuildDescription] = useState("");
 const [isCreating, setIsCreating] = useState(false);
+const [error, setError] = useState("");
 
 if (!isOpen) return null;
 
 const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     
     if (!newGuildName.trim()) {
-    return; // Handle error: name required
+    setError(t("guildNameRequired", language));
+    return;
+    }
+    
+    if (isCreating) {
+    console.log("Already creating guild, ignoring duplicate submission");
+    return; // Prevent duplicate submissions
     }
     
     try {
     setIsCreating(true);
-    await onCreateGuild(newGuildName, newGuildDescription);
     
-    // Reset form
-    setNewGuildName("");
-    setNewGuildDescription("");
+    console.log("Creating guild with name:", newGuildName.trim());
+    console.log("Description:", newGuildDescription.trim());
+    
+    // Create a URLSearchParams object to match the controller's expected format
+    const params = new URLSearchParams();
+    params.append('name', newGuildName.trim());
+    if (newGuildDescription.trim()) {
+        params.append('description', newGuildDescription.trim());
+    }
+    
+    // Make direct API call to ensure proper parameter format
+    const response = await axios.post('/guilds/create', params, {
+        headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+        }
+    });
+    
+    console.log("Guild creation API response:", response.data);
+    
+    if (response.data && response.data.success) {
+        // Success handling
+        console.log("Guild created successfully with data:", response.data.data);
+        
+        // Reset form and close modal first
+        setNewGuildName("");
+        setNewGuildDescription("");
+        onClose();
+        
+        // Then, call the parent callback after modal is closed
+        if (onCreateGuild) {
+        onCreateGuild(response.data.data);
+        }
+        
+    } else {
+        // Show error from response
+        setError(response.data?.message || t("guildCreationFailed", language));
+    }
     } catch (error) {
-    console.error("Error in create guild form:", error);
+    console.error("Error creating guild:", error);
+    const errorMessage = error.response?.data?.message || 
+                        error.message || 
+                        t("guildCreationFailed", language);
+    setError(errorMessage);
     } finally {
     setIsCreating(false);
     }
@@ -42,6 +88,12 @@ return (
         <FaTimes />
         </button>
         <h3 className="text-2xl font-bold mb-6">{t("createGuild", language)}</h3>
+        
+        {error && (
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
+            {error}
+        </div>
+        )}
         
         <form onSubmit={handleSubmit}>
         <div className="mb-4">
