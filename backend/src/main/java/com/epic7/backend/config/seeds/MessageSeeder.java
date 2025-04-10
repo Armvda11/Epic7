@@ -48,7 +48,7 @@ public class MessageSeeder {
                     // Test d'envoi de plusieurs shopping item
                     try {
                         // Vérifiez d'abord si les items existent
-                        List<Long> itemIds = List.of(1L, 2L, 3L, 4L); // Ajout de l'ID 4 qui est également créé dans ShopSeeder
+                        List<Long> itemIds = List.of(1L, 2L); // Ajout de l'ID 4 qui est également créé dans ShopSeeder
                         messageService.sendShopItemsMessage(user, itemIds, Instant.now().plus(7, ChronoUnit.DAYS), sender);
                     } catch (Exception e) {
                         System.out.println("❌ Erreur lors de l'envoi des articles de boutique: " + e.getMessage());

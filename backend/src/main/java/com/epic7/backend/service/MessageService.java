@@ -287,30 +287,24 @@ public class MessageService {
                         .orElseThrow(() -> new IllegalArgumentException("Héros introuvable avec ID: " + item.getTargetItemId()));
                     
                     // Enregistrer le héros possédé par l'utilisateur
-                    PlayerHero playerHero = new PlayerHero();
                     User player = message.getRecipient();
-                    playerHero.setUser(player);
-                    playerHero.setHero(hero);
 
                     // Ajouter le héros à la liste des héros possédés par l'utilisateur
-                    player.getOwnedHeroes().add(playerHero);
+                    player.addHeros(hero, item.getQuantityPerPurchase());
                 }
                 case EQUIPMENT -> {
                     if (item.getTargetItemId() == null) {
                         throw new IllegalArgumentException("ID d'équipement manquant pour l'objet: " + itemId);
                     }
                     
-                    Equipment eq = equipmentRepo.findById(item.getTargetItemId())
+                    Equipment equipment = equipmentRepo.findById(item.getTargetItemId())
                         .orElseThrow(() -> new IllegalArgumentException("Équipement introuvable avec ID: " + item.getTargetItemId()));
                     
                     // Enregistrer l'équipement possédé par l'utilisateur
-                    PlayerEquipment playerEquipment = new PlayerEquipment();
                     User player = message.getRecipient();
-                    playerEquipment.setUser(player);
-                    playerEquipment.setEquipment(eq);
                     
                     // Ajouter l'équipement à la liste des équipements possédés par l'utilisateur
-                    player.getEquipments().add(playerEquipment);
+                    player.addEquipment(equipment, item.getQuantityPerPurchase());;
                 }
                 case GOLD -> {
                     // Ajouter l'or à l'utilisateur

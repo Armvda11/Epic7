@@ -19,6 +19,8 @@ public class PlayerHeroViewDTO {
     private String element;
     private String rarity;
     private int level;
+    private int experience;
+    private int awakeningLevel;
     private boolean locked;
 
     // Stats totales (base + bonus équipements)

@@ -128,6 +128,8 @@ public class PlayerHeroService {
                 base.getElement().name(),
                 base.getRarity().name(),
                 hero.getLevel(),
+                hero.getExperience(),
+                hero.getAwakeningLevel(),
                 hero.isLocked(),
                 atk,
                 def,

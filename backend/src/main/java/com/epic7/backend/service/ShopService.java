@@ -72,13 +72,11 @@ public class ShopService {
             return "L'ID de l'article ne peut pas être nul";
         }
 
-        
         ShopItem item = shopItemRepo.findById(itemId)
                 .orElse(null);
                 
         if (item == null) {
             return "Article introuvable";
-            
         }
 
         switch (item.getType()) {
@@ -90,44 +88,27 @@ public class ShopService {
                 }
             }
 
-            case EQUIPMENT ->{
+            case EQUIPMENT -> {
                 Equipment equipment = equipmentRepo.findEquipmentWithItemById(item.getId())
                         .orElse(null);
                 if (equipment == null) {
                     return "Équipement non disponible a l'achat pour le moment.";
                 }
-
             }
 
             default -> {
-                messageService.sendShopItemsMessage(user, List.of(item.getId()), item.getEndAt(), null);
                 // Ne rien faire pour les autres types
             }
         }
 
-        
-        PlayerHero playerHerotemp = heroPlayerRepo.findPlayerHeroWithItemById(item.getId(), user.getId()).orElse(null);
-        if(playerHerotemp!= null){
-            // Vérifier si le héros appartient à l'utilisateur
-            return "Vous possédez déjà ce héros.";
-        }
-
-        PlayerEquipment playerEquipmenttemp = equipmentPlayerRepo.findPlayerEquipmentWithItemById(item.getId(), user.getId()).orElse(null);
-        if(playerEquipmenttemp != null){
-            // Vérifier si l'équipement appartient à l'utilisateur
-            return "Vous possédez déjà cet équipement.";
-        }
-
-
         // Vérifier limitation
         if (item.getMaxPurchasePerUser() != null) {
             int count = purchaseRepo.countByUserAndShopItem(user, item);
-            if (count >= item.getMaxPurchasePerUser()) {
+            if (count + item.getQuantityPerPurchase() >= item.getMaxPurchasePerUser()) {
                 //throw new IllegalStateException("Limite d'achat atteinte.");
                 return "Limite d'achat atteinte.";
             }
         }
-        
 
         // Vérifier le coût
         if (item.getPriceInGold() > user.getGold() || item.getPriceInDiamonds() > user.getDiamonds()) {
@@ -145,47 +126,38 @@ public class ShopService {
             case HERO -> {
                 Hero hero = heroRepo.findHeroWithItemById(item.getId())
                         .orElseThrow(() -> new IllegalArgumentException("Héros introuvable"));
-                // Enregistrer le héros possédé par l'utilisateur
-                PlayerHero playerHero = new PlayerHero();
-                playerHero.setUser(user);
-                playerHero.setHero(hero);
-                // playerHeroRepo.save(playerHero); géré par le cascade de hibernate
 
                 // Ajouter le héros à la liste des héros possédés par l'utilisateur
-                user.getOwnedHeroes().add(playerHero);
+                // ou mettre à jour son niveau d'éveil
+                user.addHeros(hero, item.getQuantityPerPurchase());
 
                 // Envoi d'un message au joueur pour l'informer de l'achat
-                messageService.sendMessage("Shop", user, "Achat d'un héros", "Vous avez acheté le héros : " + hero.getName(), null);
+                messageService.sendMessage("Shop", user, "Achat d'un héros", "Vous avez acheté le héros : " + hero.getName() + " (x " + item.getQuantityPerPurchase().toString() + ")", null);
             }
             case EQUIPMENT -> {
-                Equipment eq = equipmentRepo.findEquipmentWithItemById(item.getId())
+                Equipment equipment = equipmentRepo.findEquipmentWithItemById(item.getId())
                         .orElseThrow(() -> new IllegalArgumentException("Équipement introuvable"));
-                // Enregistrer l'équipement possédé par l'utilisateur
 
-                PlayerEquipment playerEquipment = new PlayerEquipment();
-                playerEquipment.setUser(user);
-                playerEquipment.setEquipment(eq);
-                // playerEquipRepo.save(playerEquipment); // Inutile car géré par le cascade de hibernate
-                // Ajouter l'équipement à la liste des équipements possédés par l'utilisateur
-                user.getEquipments().add(playerEquipment);
+                // Ajouter le ou les équipements à la liste des équipements possédés par l'utilisateur
+                user.addEquipment(equipment, item.getQuantityPerPurchase());
 
                 // Envoi d'un message au joueur pour l'informer de l'achat
                 messageService.sendMessage("Shop", user, "Achat d'équipement",
-                        "Vous avez acheté l'équipement : " + eq.getName(), null);
+                        "Vous avez acheté l'équipement : " + equipment.getName() + " (x " + item.getQuantityPerPurchase().toString() + ")", null);
             }
             case GOLD -> {
                 // Envoi d'un message au joueur pour l'informer de l'achat
-                /* messageService.sendMessage(system, user, "Achat d'or",
-                        "Vous avez acheté de l'or : " + item.getPriceInGold()); */
+                messageService.sendMessage("Shop", user, "Achat d'or",
+                        "Vous avez acheté de l'or : " + item.getQuantityPerPurchase(), null);
                 // Ajouter l'or à la liste des équipements possédés par l'utilisateur
-                user.setGold(user.getGold() + item.getPriceInGold());
+                user.setGold(user.getGold() + item.getQuantityPerPurchase());
             }
             case DIAMOND -> {
                 // Envoi d'un message au joueur pour l'informer de l'achat
-                /* messageService.sendMessage(system, user, "Achat de diamants",
-                        "Vous avez acheté des diamants : " + item.getPriceInDiamonds()); */
+                messageService.sendMessage("Shop", user, "Achat de diamants",
+                        "Vous avez acheté des diamants : " + item.getQuantityPerPurchase(), null);
                 // Ajouter les diamants à la liste des équipements possédés par l'utilisateur
-                user.setDiamonds(user.getDiamonds() + item.getPriceInDiamonds());
+                user.setDiamonds(user.getDiamonds() + item.getQuantityPerPurchase());
             }
             
             default -> {

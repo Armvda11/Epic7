@@ -11,6 +11,8 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.epic7.backend.service.PlayerHeroService;
+
 
 
 /**
@@ -170,5 +172,45 @@ public class User {
         return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                 .withZone(ZoneId.systemDefault())
                 .format(instant);
+    }
+
+    public void addEquipment(Equipment equipment, int quantity) {
+        if (equipments == null) {
+            equipments = new ArrayList<>();
+        }
+        for (int i = 0; i < quantity; i++) {
+            PlayerEquipment playerEquipment = new PlayerEquipment();
+            playerEquipment.setEquipment(equipment);
+            playerEquipment.setUser(this);
+
+            equipments.add(playerEquipment);
+        }
+    }
+
+    public void addHeros(Hero hero, int quantity) {
+        if (ownedHeroes == null) {
+            ownedHeroes = new ArrayList<>();
+        }
+
+        // Vérifier si le héros existe déjà dans la liste
+        // et mettre à jour son niveau d'éveil
+        // sinon, créer un nouveau PlayerHero
+        PlayerHero existingHero = ownedHeroes.stream()
+                .filter(playerHero -> playerHero.getHero().getId().equals(hero.getId()))
+                .findFirst()
+                .orElse(null);
+        // Si le héros existe déjà, on met à jour son niveau d'éveil
+        if (existingHero != null) {
+            existingHero.setAwakeningLevel(existingHero.getAwakeningLevel() + quantity);
+        // Sinon, on crée un nouveau PlayerHero
+        } else {
+            PlayerHero playerHero = new PlayerHero();
+            playerHero.setHero(hero);
+            playerHero.setUser(this);
+            // On initialise le niveau d'éveil à 0
+            playerHero.setAwakeningLevel(quantity - 1);
+
+            ownedHeroes.add(playerHero);
+        }
     }
 }

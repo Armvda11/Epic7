@@ -26,13 +26,12 @@ public class Equipment {
 
     @Column(nullable = false)
     private String name; // Nom de l'équipement (ex. "Épée du feu", "Bottes d'acier", etc.)
- 
+
     @Enumerated(EnumType.STRING)
     private EquipmentType type; // Type de l'équipement (ex. arme, armure, collier, etc.)
 
     @Column(nullable = false)
     private String rarity; //rareté des l'équipemeent (ex : normal, rare, légendaire)
-
     
     @Column(name = "attack_bonus")
     private int attackBonus ; // bonus d'attaque de l'équipement
@@ -45,7 +44,6 @@ public class Equipment {
 
     @Column(name = "health_bonus")
     private int healthBonus; // bonus de vie de l'équipement
-
     
     @Column(name ="level")
     private int level; // niveau de l'équipement
