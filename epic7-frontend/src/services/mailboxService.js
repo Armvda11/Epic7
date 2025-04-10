@@ -57,3 +57,15 @@ catch (error) {
     throw error;
 }
 }
+
+// Récupérer les objets d'un message
+export const retrieveItemsFromMessage = async (messageId) => {
+try {
+    const response = await API.post(`/mailbox/retrieve-items/${messageId}`);
+    return response.data;
+}
+catch (error) {
+    console.error("Erreur lors de la récupération des objets du message :", error);
+    throw error;
+}
+}

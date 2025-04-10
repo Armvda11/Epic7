@@ -14,6 +14,9 @@ public interface PlayerEquipmentRepository extends JpaRepository<PlayerEquipment
     List<PlayerEquipment> findByUser(User user);
     List<PlayerEquipment> findByUserId(Long userId);
     List<PlayerEquipment> findByPlayerHeroId(Long id);
+    
+    boolean existsByPlayerHeroAndEquipment(PlayerHero playerHero, com.epic7.backend.model.Equipment equipment);
+    
 
 
 

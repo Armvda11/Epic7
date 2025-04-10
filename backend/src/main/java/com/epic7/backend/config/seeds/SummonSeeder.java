@@ -7,7 +7,8 @@ import com.epic7.backend.repository.HeroRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Component
@@ -25,17 +26,17 @@ public class SummonSeeder {
 
                 Banner banner1 = new Banner();
                 banner1.setName("Summon Banner 1");
-                banner1.setCreatedAt(LocalDateTime.now().minusDays(1));
-                banner1.setStartsAt(LocalDateTime.now()); //Start date
-                banner1.setEndsAt(LocalDateTime.now().plusMinutes(5)); //End date
+                banner1.setCreatedAt(Instant.now().minus(1, ChronoUnit.DAYS)); // Date de création
+                banner1.setStartsAt(Instant.now()); //Start date
+                banner1.setEndsAt(Instant.now().plus(5, ChronoUnit.MINUTES)); //End date
                 banner1.setFeaturedHeroes(List.of(allHeroes.get(0)));
 
                 bannerRepository.save(banner1);
                 Banner banner2 = new Banner();
                 banner2.setName("Summon Banner 2");
-                banner2.setCreatedAt(LocalDateTime.now().minusDays(1)); 
-                banner2.setStartsAt(LocalDateTime.now()); //Start date
-                banner2.setEndsAt(LocalDateTime.now().plusDays(1)); //End date
+                banner2.setCreatedAt(Instant.now().minus(1, ChronoUnit.DAYS)); 
+                banner2.setStartsAt(Instant.now()); //Start date
+                banner2.setEndsAt(Instant.now().plus(1, ChronoUnit.DAYS)); //End date
                 banner2.setFeaturedHeroes(List.of(allHeroes.get(1), allHeroes.get(2)));
                 bannerRepository.save(banner2);
             }

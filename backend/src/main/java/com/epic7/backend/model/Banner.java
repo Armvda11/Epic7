@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -28,12 +28,12 @@ public class Banner {
     private String name; // Nom de la bannière (ex. "Bannière de Noël", "Bannière de la Saint-Valentin", etc.)
 
     @CreationTimestamp
-    private LocalDateTime createdAt; // Date de création de la bannière
+    private Instant createdAt; // Date de création de la bannière
 
     @Column(name = "starts_at")
-    private LocalDateTime startsAt; // Date de début de la bannière
+    private Instant startsAt; // Date de début de la bannière
     @Column(name = "ends_at")
-    private LocalDateTime endsAt; // Date de fin de la bannière
+    private Instant endsAt; // Date de fin de la bannière
 
     // Liste des héros en vedette dans la bannière
     // Utilisation de @ManyToMany pour représenter la relation entre les bannières et les héros
@@ -53,7 +53,7 @@ public class Banner {
      * @return true si la bannière est active, false sinon
      */
     public boolean isActive() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         return (startsAt == null || startsAt.isBefore(now)) &&
                (endsAt == null || endsAt.isAfter(now));
     }

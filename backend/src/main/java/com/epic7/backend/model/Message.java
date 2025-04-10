@@ -22,7 +22,7 @@ import java.time.Instant;
 public class Message {
 
     public Message(User sender, User recipient, String subject, String message, Instant createdAt, Instant validUntil, List<Long> targetShopItemsId) {
-        this.sender = sender;
+        this.sender = sender.getUsername(); // Utiliser le username au lieu de l'objet User
         this.recipient = recipient;
         this.subject = subject;
         this.message = message;
@@ -38,9 +38,8 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "sender_id", nullable = false)
-    private User sender; // Expéditeur du message
+    @Column(name = "sender_id", nullable = false)
+    private String sender; // Expéditeur du message
 
     @ManyToOne
     @JoinColumn(name = "recipient_id", nullable = false)
@@ -69,5 +68,17 @@ public class Message {
     
     @Column(name = "contain_items", nullable = false)
     private boolean containItems; // Indique si le message contient des objets
+
+    /**
+     * Méthode utilitaire pour vérifier si l'expéditeur est un utilisateur système
+     * @return true si l'expéditeur est un utilisateur système, false sinon
+     */
+    @Transient // Cette méthode n'est pas mappée à la base de données
+    public boolean isFromSystem() {
+        return sender != null && 
+            (sender.equals("System") || 
+            sender.equals("Shop") || 
+            sender.equals("Epic7Team"));
+    }
 
 }
