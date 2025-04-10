@@ -26,9 +26,9 @@ public interface PlayerEquipmentRepository extends JpaRepository<PlayerEquipment
         FROM PlayerEquipment pe 
         JOIN pe.equipment e 
         JOIN ShopItem si ON si.name = e.name 
-        WHERE si.id = :id
+        WHERE si.id = :id AND pe.user.id = :userId
     """)
-    Optional<PlayerEquipment> findPlayerEquipmentWithItemById(@Param("id") Long id);
+    Optional<PlayerEquipment> findPlayerEquipmentWithItemById(@Param("id") Long id, @Param("userId") Long userId);
 
     
 }
