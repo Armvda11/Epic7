@@ -465,7 +465,11 @@ public class MessageService {
         }
         
         // Récupérer l'utilisateur correspondant à l'expéditeur
-        User sender = userRepository.findByUsernameLikeIgnoreCase(message.getSender()).get(0);
-        return sender != null ? sender.getId() : null;
+        List<User> users = userRepository.findByUsernameLikeIgnoreCase(message.getSender());
+        if (users.isEmpty()) {
+            return null; // Aucun utilisateur trouvé
+        }
+        User sender = users.get(0);
+        return sender.getId();
     }
 }
