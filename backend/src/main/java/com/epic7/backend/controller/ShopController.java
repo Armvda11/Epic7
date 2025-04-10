@@ -12,20 +12,20 @@ import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ShopService;
 import com.epic7.backend.utils.JwtUtil;
-import com.epic7.backend.utils.ShopItemMapper;
+
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/shop")
-@RequiredArgsConstructor
+
 public class ShopController {
 
-    private final ShopService shopService;
-    private final JwtUtil jwtUtil;
-    private final AuthService authService;
-    private final ShopItemMapper toDTOshopService;
+    private final ShopService shopService= null;
+    private final JwtUtil jwtUtil = null;
+    private final AuthService authService = null;
+
 
     private User getUser(HttpServletRequest request) {
         String token = jwtUtil.extractTokenFromHeader(request);
@@ -34,7 +34,7 @@ public class ShopController {
 
     @GetMapping("/items")
     public ResponseEntity<?> getAvailableItems(HttpServletRequest request) {
-        return ResponseEntity.ok(toDTOshopService.toDtoList(shopService.getAvailableItems()));
+        return ResponseEntity.ok(shopService.toDtoList(shopService.getAvailableItems()));
     }
 
     @PostMapping("/buy/{itemId}")

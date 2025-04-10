@@ -1,7 +1,8 @@
 package com.epic7.backend.dto.simple;
 
-import com.epic7.backend.service.battle.simple.SimpleBattleParticipant;
-import com.epic7.backend.service.battle.simple.SimpleBattleState;
+import com.epic7.backend.service.battle.model.BattleParticipant;
+import com.epic7.backend.service.battle.state.BattleState;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -35,7 +36,7 @@ public class SimpleBattleStateDTO {
      * Constructeur pour initialiser le DTO à partir d'un état de bataille simple.
      * @param state L'état de la bataille simple à partir duquel initialiser le DTO.
      */
-    public SimpleBattleStateDTO(SimpleBattleState state) {
+    public SimpleBattleStateDTO(BattleState state) {
 
         this.participants = state.getParticipants().stream()
                 .map(ParticipantDTO::new)
@@ -65,7 +66,7 @@ public class SimpleBattleStateDTO {
         private int speed;
         private boolean isPlayer;
 
-        public ParticipantDTO(SimpleBattleParticipant p) {
+        public ParticipantDTO(BattleParticipant p) {
             this.id = p.getId();
             this.name = p.getName();
             this.maxHp = p.getMaxHp();

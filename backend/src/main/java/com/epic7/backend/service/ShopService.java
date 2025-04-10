@@ -3,12 +3,14 @@ package com.epic7.backend.service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.el.stream.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.epic7.backend.dto.ShopItemDTO;
 import com.epic7.backend.model.Equipment;
 import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerEquipment;
@@ -204,5 +206,24 @@ public class ShopService {
         purchaseRepo.save(ShopPurchase.builder().user(user).shopItem(item).quantity(1).totalDiamondsPrice(item.getPriceInDiamonds()).totalGoldPrice(item.getPriceInGold())
         .totalPrice(item.getPriceInDiamonds()+item.getPriceInGold()).build());
         return "Achat réussi !";
+    }
+
+
+     public ShopItemDTO toDto(ShopItem item) {
+        return new ShopItemDTO(
+                item.getId(),
+                item.getName(),
+                item.getDescription(),
+                item.getPriceInDiamonds(),
+                item.getPriceInGold(),
+                item.getStartAt(),
+                item.getEndAt(),
+                item.getMaxPurchasePerUser(),
+                item.getType()
+        );
+    }
+
+    public List<ShopItemDTO> toDtoList(List<ShopItem> items) {
+        return items.stream().map(this::toDto).collect(Collectors.toList());
     }
 }
