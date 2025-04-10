@@ -22,9 +22,15 @@ import lombok.RequiredArgsConstructor;
 
 public class ShopController {
 
-    private final ShopService shopService= null;
-    private final JwtUtil jwtUtil = null;
-    private final AuthService authService = null;
+    private final ShopService shopService;
+    private final JwtUtil jwtUtil;
+    private final AuthService authService;
+
+    public ShopController(ShopService shopService, JwtUtil jwtUtil, AuthService authService) {
+        this.shopService = shopService;
+        this.jwtUtil = jwtUtil;
+        this.authService = authService;
+    }
 
 
     private User getUser(HttpServletRequest request) {
