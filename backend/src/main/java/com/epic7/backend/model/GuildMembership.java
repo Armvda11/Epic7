@@ -31,7 +31,7 @@ public class GuildMembership {
     private User user; // L'utilisateur membre de la guilde
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "guild_id")  
+    @JoinColumn(name = "guild_id")
     private Guild guild; // La guilde à laquelle l'utilisateur appartient
 
     @Column(nullable = false)

@@ -56,6 +56,57 @@ git clone https://github.com/Armvda11/Epic7.git
 cd Epic7/backend
 ```
 
+### **2️⃣ Configurer PostgreSQL**
+#### ✅ **Sur Mac**
+```sh
+brew install postgresql@14
+brew services start postgresql
+```
+
+#### ✅ **Sur Linux (Debian/Ubuntu)**
+```sh
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+### 3. Lancer les services Docker pour la DataBase en temps réel
+
+```bash
+docker-compose up -d
+```
+
+#### ✅ **Sur Windows**
+- Télécharger PostgreSQL depuis : [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)
+- Lancer **pgAdmin** pour configurer la base de données.
+
+### **3️⃣ Créer la base de données et l'utilisateur**
+Dans le terminal PostgreSQL (`psql`), exécuter :
+```sql
+CREATE DATABASE epic7;
+CREATE USER epic7_user WITH ENCRYPTED PASSWORD 'password';
+ALTER ROLE epic7_user SET client_encoding TO 'utf8';
+ALTER ROLE epic7_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE epic7_user SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE epic7 TO epic7_user;
+
+\c epic7  -- Se connecter à la base epic7
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO epic7_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO epic7_user;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO epic7_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO epic7_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO epic7_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO epic7_user;
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO epic7_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO epic7_user;
+ALTER SCHEMA public OWNER TO epic7_user;
+GRANT USAGE, CREATE ON SCHEMA public TO epic7_user;
+
+
+
 ### 2. Créer le fichier `.env`
 ```env
 POSTGRES_DB=epic7

@@ -4,13 +4,23 @@ import API from "../api/axiosInstance.jsx";
 export const fetchUserGuild = async () => {
   try {
     const response = await API.get('/guilds/user');
-    return response.data;
+    console.log("User guild response:", response);
+    
+    // Check if response has data property and extract actual guild data
+    if (response.data && response.data.data) {
+      return response.data.data;
+    } else if (response.data && !response.data.data) {
+      // If response has no data property but is the guild object itself
+      return response.data;
+    }
+    return null;
   } catch (error) {
     if (error.response && error.response.status === 404) {
       // L'utilisateur n'appartient à aucune guilde
       return null;
     }
-    throw error;
+    console.error("Error fetching user guild:", error);
+    return null;
   }
 };
 
@@ -118,23 +128,50 @@ export const kickGuildMember = async (memberId) => {
 
 // Récupérer tous les membres d'une guilde
 export const fetchGuildMembers = async (guildId) => {
+  if (!guildId || guildId === "undefined" || guildId === undefined) {
+    console.warn("Attempted to fetch guild members with invalid guildId:", guildId);
+    return [];
+  }
+  
   try {
+    console.log(`Fetching members for guild ${guildId}`);
     const response = await API.get(`/guilds/${guildId}/members`);
-    return response.data;
+    console.log("Guild members response:", response);
+    
+    // Better handling of different response structures
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      console.log("Returning members from response.data.data");
+      return response.data.data;
+    } else if (response.data && Array.isArray(response.data)) {
+      console.log("Returning members from response.data");
+      return response.data;
+    } else if (response.data && response.data.success && response.data.data) {
+      console.log("Returning members from response.data.data (non-array)");
+      // Try to handle non-array response
+      return Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+    }
+    
+    console.warn("No valid member data found in response");
+    return [];
   } catch (error) {
-    console.error('Error fetching guild members:', error);
-    throw error;
+    console.error(`Error fetching guild members for guild ${guildId}:`, error);
+    return [];
   }
 };
 
 // Récupérer tous les membres d'une guilde avec informations détaillées
 export const fetchDetailedGuildMembers = async (guildId) => {
+  if (!guildId || guildId === "undefined" || guildId === undefined) {
+    console.warn("Attempted to fetch detailed guild members with invalid guildId:", guildId);
+    return [];
+  }
+  
   try {
     const response = await API.get(`/guilds/${guildId}/members/detailed`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching detailed guild members:', error);
-    throw error;
+    console.error(`Error fetching detailed guild members for guild ${guildId}:`, error);
+    return [];
   }
 };
 
@@ -151,13 +188,32 @@ export const changeGuildMemberRole = async (memberId, role) => {
   }
 };
 
-// Créer une nouvelle guilde
+// Créer une nouvelle guilde - this is now a wrapper function to maintain API compatibility
+// but the actual API call is made directly in the CreateGuildModal component
 export const createGuild = async (name, description) => {
   try {
-    // Fix: params should be URL parameters for this endpoint
-    const response = await API.post('/guilds/create', null, {
-      params: { name, description }
+    console.warn("createGuild function in guildService.js is deprecated. Use direct axios call instead.");
+    
+    if (!name) {
+      return { 
+        success: false, 
+        code: "INVALID_INPUT", 
+        message: "Guild name is required"
+      };
+    }
+    
+    // Create URL parameters
+    const params = new URLSearchParams();
+    params.append('name', name);
+    if (description) params.append('description', description);
+    
+    // Send as form data
+    const response = await API.post('/guilds/create', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
     });
+    
     return response.data;
   } catch (error) {
     console.error('Error creating guild:', error);
@@ -389,24 +445,66 @@ export const banGuildMember = async (memberId, reason = "") => {
 // Récupérer les guildes les plus récentes
 export const fetchRecentGuilds = async (limit = 10) => {
   try {
+    console.log(`Fetching recent guilds with limit=${limit}`);
     const response = await API.get(`/guilds/recent?limit=${limit}`);
+    console.log("Recent guilds API response:", response);
     
-    // Add isOpen property for consistency with other guild data
-    if (response.data && Array.isArray(response.data)) {
-      response.data = response.data.map(guild => {
-        if (guild.isOpen === undefined && guild.status) {
-          return {
-            ...guild,
-            isOpen: guild.status.toLowerCase() === "open"
-          };
+    // Handle different response structures
+    let guildsData;
+    
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      // Response format: { success: true, data: [...] }
+      guildsData = response.data.data;
+      console.log("Using guilds from response.data.data array");
+    } else if (response.data && Array.isArray(response.data)) {
+      // Response format: [...] (direct array)
+      guildsData = response.data;
+      console.log("Using guilds from response.data array");
+    } else if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+      // Response might be a single guild or a wrapper object
+      if (response.data.success && response.data.data) {
+        guildsData = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+        console.log("Using guilds from success wrapper object");
+      } else {
+        // If it looks like a single guild object with expected properties
+        if (response.data.id && response.data.name) {
+          guildsData = [response.data];
+          console.log("Found a single guild object, converting to array");
+        } else {
+          guildsData = [];
+          console.warn("Response data format not recognized:", response.data);
         }
-        return guild;
-      });
+      }
+    } else {
+      guildsData = [];
+      console.warn("No valid guilds data found in response");
     }
     
-    return response.data;
+    // Process and normalize the guild data
+    const processedGuilds = guildsData.map(guild => {
+      // Ensure each guild has the required properties
+      return {
+        ...guild,
+        id: guild.id || 0,
+        name: guild.name || "Unknown Guild",
+        description: guild.description || "",
+        memberCount: guild.memberCount || 0,
+        maxMembers: guild.maxMembers || 20,
+        level: guild.level || 1,
+        // Force isOpen to be a boolean based on multiple checks
+        isOpen: typeof guild.isOpen === 'boolean' ? guild.isOpen : 
+                guild.status ? guild.status.toLowerCase() === "open" : true
+      };
+    });
+    
+    console.log(`Processed ${processedGuilds.length} guilds:`, 
+      processedGuilds.map(g => ({ id: g.id, name: g.name, isOpen: g.isOpen })));
+    
+    return processedGuilds;
   } catch (error) {
     console.error('Error fetching recent guilds:', error);
-    throw error;
+    console.error('Error details:', error.response?.data || error.message);
+    // Return empty array instead of throwing, to avoid breaking the UI
+    return [];
   }
 };

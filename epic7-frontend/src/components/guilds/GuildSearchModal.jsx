@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FaSearch, FaTimes, FaUserPlus, FaLockOpen, FaLock } from "react-icons/fa";
 import { searchGuilds } from "../../services/guildService";
 import { useSettings } from "../../context/SettingsContext";
+import Notification from "../common/Notification";
 
 const GuildSearchModal = ({ 
 isOpen, 
@@ -16,6 +17,16 @@ const [searchResults, setSearchResults] = useState([]);
 const [isSearching, setIsSearching] = useState(false);
 const [showSearchResults, setShowSearchResults] = useState(false);
 const searchTimeoutRef = useRef(null);
+const [notification, setNotification] = useState({ show: false, message: '', type: 'error' });
+
+// Reset search when modal opens
+useEffect(() => {
+  if (isOpen) {
+    setSearchTerm("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+  }
+}, [isOpen]);
 
 const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -23,59 +34,86 @@ const handleSearchChange = (e) => {
     
     // Clear previous timeout
     if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
+      clearTimeout(searchTimeoutRef.current);
     }
     
     if (value.length < 2) {
-    setSearchResults([]);
-    return;
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
     }
     
     setIsSearching(true);
     
     // Set new timeout (debounce)
     searchTimeoutRef.current = setTimeout(async () => {
-    try {
+      try {
         console.log(`Searching guilds with query: "${value}"`);
-        const results = await searchGuilds(value);
+        const response = await searchGuilds(value);
+        
+        // Check if response has expected structure
+        let results = [];
+        if (Array.isArray(response)) {
+          results = response;
+        } else if (response && response.data && Array.isArray(response.data)) {
+          results = response.data;
+        } else if (response && response.success && response.data && Array.isArray(response.data)) {
+          results = response.data;
+        }
         
         // Log guild results with their open status
-        console.log("Guild search results:", results.map(g => ({
-        id: g.id,
-        name: g.name,
-        isOpen: g.isOpen,
-        status: g.status
-        })));
+        console.log("Guild search results:", results);
+        
+        if (results.length === 0) {
+          console.log("No guilds found in search results");
+          setSearchResults([]);
+          setShowSearchResults(true);
+          setIsSearching(false);
+          return;
+        }
         
         // More explicit handling of isOpen property
         const processedResults = results.map(guild => {
-        // Force isOpen to be a boolean based on multiple checks
-        let isOpen = false;
-        
-        // First check direct boolean value
-        if (typeof guild.isOpen === 'boolean') {
+          // Force isOpen to be a boolean based on multiple checks
+          let isOpen = false;
+          
+          // First check direct boolean value
+          if (typeof guild.isOpen === 'boolean') {
             isOpen = guild.isOpen;
-        }
-        // Then check status text
-        else if (guild.status && guild.status.toLowerCase() === "open") {
+          }
+          // Check if isOpen is a string "true"
+          else if (guild.isOpen === "true") {
             isOpen = true;
-        }
-        
-        console.log(`Processed guild ${guild.name}: isOpen=${isOpen} (from isOpen=${guild.isOpen}, status=${guild.status})`);
-        
-        return {
+          }
+          // Then check status text
+          else if (guild.status && guild.status.toLowerCase() === "open") {
+            isOpen = true;
+          }
+          
+          console.log(`Processed guild ${guild.name}: isOpen=${isOpen} (from isOpen=${guild.isOpen}, status=${guild.status})`);
+          
+          return {
             ...guild,
-            isOpen: isOpen
-        };
+            isOpen: isOpen,
+            memberCount: guild.memberCount || 0,
+            maxMembers: guild.maxMembers || 20,
+            level: guild.level || 1
+          };
         });
         
         setSearchResults(processedResults);
         setShowSearchResults(true);
-    } catch (error) {
+      } catch (error) {
         console.error("Error searching guilds:", error);
-    } finally {
+        setNotification({
+          show: true,
+          message: t("errorSearchingGuilds", language) || "Error searching guilds. Please try again.",
+          type: 'error'
+        });
+        setSearchResults([]);
+      } finally {
         setIsSearching(false);
-    }
+      }
     }, 1000);
 };
 
@@ -133,13 +171,6 @@ return (
                     </div>
                     </div>
                     <div>
-                    {/* Debug output in development mode */}
-                    {process.env.NODE_ENV === 'development' && (
-                        <div className="text-xs text-gray-500 mb-1">
-                        Debug: isOpen={String(guild.isOpen)}, status={guild.status}
-                        </div>
-                    )}
-                    
                     {/* More defensive check for guild open status */}
                     {guild.isOpen === true ? (
                         <button
@@ -195,6 +226,16 @@ return (
             </div>
         )}
         </div>
+        
+        {/* Notification Component */}
+        {notification.show && (
+          <Notification 
+              message={notification.message} 
+              type={notification.type} 
+              duration={3000}
+              onClose={() => setNotification({ ...notification, show: false })}
+          />
+        )}
     </div>
     </div>
 );
