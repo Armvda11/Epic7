@@ -20,6 +20,7 @@ public interface PlayerEquipmentRepository extends JpaRepository<PlayerEquipment
 
     Optional<PlayerEquipment> findByEquipmentId(Long equipmentId);
 
+
     @Query("""
         SELECT pe 
         FROM PlayerEquipment pe 

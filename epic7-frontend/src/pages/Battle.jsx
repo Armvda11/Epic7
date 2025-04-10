@@ -116,50 +116,26 @@ export default function Battle() {
   };
 
   // Gère l'action automatique du boss
-  const handleBossAction = async (bossId) => {
+  const handleBossAction = async () => {
     try {
-      // Envoie une requête pour que le boss effectue son action
-      const res = await API.post('/combat/action/boss', { bossId });
-      const { damageDealt, targetId, type, battleState: newState } = res.data;
-      
-      // Met à jour l'état du combat avec les résultats
-      setBattleState(newState);
-      setCooldowns(newState.cooldowns || {});
-      setBossAttacking(false);
-
-      // Prépare le tour du prochain héros
-      const newCurrentHero = newState.participants[newState.currentTurnIndex];
-      if (newCurrentHero.player) {
-        const skillsRes = await API.get(`/player-hero/${newCurrentHero.id}/skills`);
-        setCurrentHeroSkills(skillsRes.data);
-      } else {
-        setCurrentHeroSkills([]);
-      }
-
-      // Affiche l'animation de dégâts si nécessaire
-      if (damageDealt && targetId) {
-        const targetElement = targetRefs.current[targetId];
-        if (targetElement) {
-          // Calcule la position pour l'animation de dégâts
-          const rect = targetElement.getBoundingClientRect();
-          const x = rect.left + rect.width / 2;
-          const y = rect.top;
-          const floatingId = Date.now();
-          
-          // Ajoute l'animation de dégâts
-          setFloatingDamages(prev => [...prev, { id: floatingId, x, y, value: damageDealt, type }]);
-          
-          // Retire l'animation après un délai
-          setTimeout(() => {
-            setFloatingDamages(prev => prev.filter(d => d.id !== floatingId));
-          }, 1500);
-        }
-      }
+      // Étape 1 : prépare l'attaque
+      setBossAttacking(true);
+  
+      // Étape 2 : 1 seconde plus tard, on "anime" l'attaque du boss (ex: shake)
+      setTimeout(() => {
+        // Étape 3 : encore 1s après, on récupère les dégâts infligés
+        setTimeout(async () => {
+          await fetchBattleState(); // ici le boss a attaqué côté backend
+          setBossAttacking(false); // on cache "le boss attaque..."
+        }, 1000); // délai entre attaque visuelle et dégâts
+      }, 1000); // délai entre "prépare à attaquer" et action visuelle
     } catch (error) {
       console.error("Erreur lors de l'action du boss :", error);
       setBossAttacking(false);
     }
   };
+  
+  
 
   // Utilise une compétence sur une cible
   const useSkill = async (targetId) => {

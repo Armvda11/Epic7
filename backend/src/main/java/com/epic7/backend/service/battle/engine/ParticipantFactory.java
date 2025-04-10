@@ -1,0 +1,65 @@
+package com.epic7.backend.service.battle.engine;
+
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.Hero;
+import com.epic7.backend.model.PlayerEquipment;
+import com.epic7.backend.model.PlayerHero;
+import com.epic7.backend.repository.PlayerEquipmentRepository;
+import com.epic7.backend.service.battle.model.BattleParticipant;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ParticipantFactory {
+
+    private final PlayerEquipmentRepository playerEquipmentRepository;
+
+    /**
+     * Crée un participant à partir d’un PlayerHero (avec équipements).
+     */
+    public BattleParticipant fromPlayerHero(PlayerHero playerHero) {
+        Hero hero = playerHero.getHero();
+        List<PlayerEquipment> equipmentList = playerEquipmentRepository.findByPlayerHeroId(playerHero.getId());
+
+        int totalAttack = hero.getBaseAttack();
+        int totalDefense = hero.getBaseDefense();
+        int totalSpeed = hero.getBaseSpeed();
+        int totalHp = hero.getHealth();
+
+        for (PlayerEquipment pe : equipmentList) {
+            Equipment eq = pe.getEquipment();
+            totalAttack += eq.getAttackBonus();
+            totalDefense += eq.getDefenseBonus();
+            totalSpeed += eq.getSpeedBonus();
+            totalHp += eq.getHealthBonus();
+        }
+
+        return new BattleParticipant(
+                playerHero.getId(),
+                hero.getName(),
+                totalHp, totalHp,
+                totalAttack,
+                totalDefense,
+                totalSpeed,
+                true // joueur
+        );
+    }
+
+    /**
+     * Crée un participant à partir d’un boss (Hero brut).
+     */
+    public BattleParticipant fromBoss(Hero boss) {
+        return new BattleParticipant(
+                -1L,
+                boss.getName(),
+                boss.getHealth(), boss.getHealth(),
+                boss.getBaseAttack(),
+                boss.getBaseDefense(),
+                boss.getBaseSpeed(),
+                false // boss = ennemi
+        );
+    }
+}

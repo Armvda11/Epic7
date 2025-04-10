@@ -1,4 +1,4 @@
-package com.epic7.backend.service.battle.simple;
+package com.epic7.backend.service.battle.state;
 
 import lombok.Data;
 
@@ -6,13 +6,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.epic7.backend.model.ShopItem;
+
 import com.epic7.backend.model.enums.ShopItemType;
+import com.epic7.backend.service.battle.model.BattleParticipant;
 
 @Data
-public class SimpleBattleState {
+public class BattleState {
 
-    private List<SimpleBattleParticipant> participants;
+    private List<BattleParticipant> participants;
     private int currentTurnIndex;
     private boolean finished;
     private List<String> logs;
