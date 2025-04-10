@@ -19,7 +19,9 @@ import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,Fa
 // Elle utilise le service utilisateur pour récupérer les informations de l'utilisateur
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { language, t, theme } = useSettings(); // Add theme from settings
+  const settings = useSettings();
+console.log("settings:", settings); // bizarre vérification
+  const { language, t, theme } = settings || {};   // Add theme from settings
   const [user, setUser] = useState(null);  // inormations de l'utilisateur
   const [showProfile, setShowProfile] = useState(false); // État pour afficher la carte de profil
   const [showSettings, setShowSettings] = useState(false); // État pour afficher le panneau de paramètres

@@ -63,7 +63,7 @@ public class SimpleCombatController {
     public ResponseEntity<SimpleBattleStateDTO> getCombatState() {
         if (currentBattleState == null) return ResponseEntity.badRequest().build();
     
-        // 👉 Le boss joue automatiquement s’il doit jouer
+        // Le boss joue automatiquement s’il doit jouer
         currentBattleState = battleEngine.processUntilNextPlayer(currentBattleState);
     
         return ResponseEntity.ok(battleService.toDTO(currentBattleState));
