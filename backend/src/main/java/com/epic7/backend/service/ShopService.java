@@ -148,7 +148,7 @@ public class ShopService {
             case GOLD -> {
                 // Envoi d'un message au joueur pour l'informer de l'achat
                 messageService.sendMessage("Shop", user, "Achat d'or",
-                        "Vous avez acheté de l'or : " + item.getPriceInGold(), null);
+                        "Vous avez acheté de l'or : " + item.getQuantityPerPurchase(), null);
                 // Ajouter l'or à la liste des équipements possédés par l'utilisateur
                 user.setGold(user.getGold() + item.getQuantityPerPurchase());
             }
