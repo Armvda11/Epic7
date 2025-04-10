@@ -155,7 +155,7 @@ public class ShopService {
             case DIAMOND -> {
                 // Envoi d'un message au joueur pour l'informer de l'achat
                 messageService.sendMessage("Shop", user, "Achat de diamants",
-                        "Vous avez acheté des diamants : " + item.getPriceInDiamonds(), null);
+                        "Vous avez acheté des diamants : " + item.getQuantityPerPurchase(), null);
                 // Ajouter les diamants à la liste des équipements possédés par l'utilisateur
                 user.setDiamonds(user.getDiamonds() + item.getQuantityPerPurchase());
             }
