@@ -74,9 +74,9 @@ public class MessageController {
         Message message = messageService.getMessageById(id, user);
         MessageDTO messageDTO = new MessageDTO(
                 message.getId(),
-                message.getSender(),
                 messageService.getSenderId(message),
                 message.getRecipient().getUsername(),
+                message.getSender(),
                 message.getSubject(),
                 message.getMessage(),
                 message.getCreatedAt().toString(),

@@ -10,8 +10,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @AllArgsConstructor
 public class MessageDTO {
     private Long id;
-    private String senderName; // Nom de l'expéditeur
     private Long senderId; // ID de l'expéditeur
+    private String senderName; // Nom de l'expéditeur
     private String recipientName; // Nom du destinataire
     private String subject; // Sujet du message
     private String message; // Contenu du message
