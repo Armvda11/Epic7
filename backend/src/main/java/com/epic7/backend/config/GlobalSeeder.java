@@ -28,12 +28,12 @@ public class GlobalSeeder {
         System.out.println("✅ Héros joueurs ajoutés.");
         playerSeeder.seedPlayerEquipment();
         System.out.println("✅ Équipements joueurs ajoutés.");
-        messageSeeder.seedMessages();
-        System.out.println("✅ Messages créés.");
         shopSeeder.seedShopItems();
         System.out.println("✅ Articles de la boutique créés.");
         summonSeeder.seedSummons();
         System.out.println("✅ Invocations prêtes.");
+        messageSeeder.seedMessages();
+        System.out.println("✅ Messages créés.");
         
         System.out.println("✅ Base de données initialisée.");
     }

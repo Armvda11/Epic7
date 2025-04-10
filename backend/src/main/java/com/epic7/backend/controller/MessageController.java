@@ -53,7 +53,7 @@ public class MessageController {
         List<MessageInfoDTO> messageInfoDTOs = messages.stream()
                 .map(message -> new MessageInfoDTO(
                         message.getId(),
-                        message.getSender().getUsername(),
+                        message.getSender(),
                         message.getSubject(),
                         message.getCreatedAt().toString(),
                         message.getValidUntil().toString(),
@@ -74,13 +74,14 @@ public class MessageController {
         Message message = messageService.getMessageById(id, user);
         MessageDTO messageDTO = new MessageDTO(
                 message.getId(),
-                message.getSender().getUsername(),
-                message.getSender().getId(),
+                messageService.getSenderId(message),
                 message.getRecipient().getUsername(),
+                message.getSender(),
                 message.getSubject(),
                 message.getMessage(),
                 message.getCreatedAt().toString(),
                 message.getValidUntil().toString(),
+                message.getTargetShopItemsId(),
                 message.isRead(),
                 message.isContainItems(),
                 message.isFriendRequest()
@@ -130,5 +131,30 @@ public class MessageController {
     public ResponseEntity<?> markAsRead(HttpServletRequest request, @PathVariable Long id) {
         User user = getCurrentUser(request);
         return ResponseEntity.ok(messageService.markMessageAsRead(id, user.getId()));
+    }
+
+    /**
+     * Récupère les objets d'un message.
+     *
+     * @param request La requête HTTP contenant le token JWT.
+     * @param id L'ID du message dont on veut récupérer les objets.
+     * @return Une réponse indiquant le succès ou l'échec de l'opération.
+     */
+    @PostMapping("/retrieve-items/{id}")
+    public ResponseEntity<?> retrieveItems(HttpServletRequest request, @PathVariable Long id) {
+        User user = getCurrentUser(request);
+        try {
+            if (id == null) {
+                return ResponseEntity.badRequest().body("ID de message manquant");
+            }
+            
+            messageService.retrieveItemsFromMessage(id, user.getId());
+            return ResponseEntity.ok(true);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Erreur interne: " + e.getMessage());
+        }
     }
 }

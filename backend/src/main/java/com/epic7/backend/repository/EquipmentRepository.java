@@ -1,7 +1,6 @@
 package com.epic7.backend.repository;
 
 import com.epic7.backend.model.Equipment;
-import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.enums.EquipmentType;
 import java.util.List;
 import java.util.Optional;

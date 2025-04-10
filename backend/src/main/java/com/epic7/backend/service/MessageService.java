@@ -46,23 +46,12 @@ public class MessageService {
      * @return Le message envoyé.
      */
     @Transactional
-    public Message sendMessage(User sender, User recipient, String subject, String messageContent, Instant validUntil) {
-        // Vérifier si les utilisateurs existent
-        Optional<User> optionalSender = userRepository.findById(sender.getId());
-        Optional<User> optionalRecipient = userRepository.findById(recipient.getId());
-        
-        if (optionalSender.isEmpty()) {
-            throw new IllegalArgumentException("L'expéditeur n'existe pas.");
-        }
-        
-        if (optionalRecipient.isEmpty()) {
-            throw new IllegalArgumentException("Le destinataire n'existe pas.");
-        }
+    public Message sendMessage(String userName, User recipient, String subject, String messageContent, Instant validUntil) {
 
         // Créer le message
         Message message = new Message();
-        message.setSender(optionalSender.get());
-        message.setRecipient(optionalRecipient.get());
+        message.setSender(userName); // Utilisation du username au lieu de l'objet User
+        message.setRecipient(recipient);
         message.setSubject(subject);
         message.setMessage(messageContent);
         message.setCreatedAt(Instant.now());
@@ -74,8 +63,26 @@ public class MessageService {
     }
 
     @Transactional
+    public Message sendUserMessage(User sender, User recipient, String subject, String messageContent, Instant validUntil) {
+        // Vérifier si les utilisateurs existent
+        Optional<User> optionalSender = userRepository.findById(sender.getId());
+        Optional<User> optionalRecipient = userRepository.findById(recipient.getId());
+        
+        if (optionalSender.isEmpty()) {
+            throw new IllegalArgumentException("L'expéditeur n'existe pas.");
+        }
+        
+        if (optionalRecipient.isEmpty()) {
+            throw new IllegalArgumentException("Le destinataire n'existe pas.");
+        }
+        Message message = sendMessage(optionalSender.get().getUsername(), optionalRecipient.get(), subject, messageContent, validUntil);
+        // Enregistrer le message dans la base de données
+        return messageRepository.save(message);
+    }
+
+    @Transactional
     public Message sendMessage(User sender, User recipient, String subject, String messageContent) {
-        return sendMessage(sender, recipient, subject, messageContent, null);
+        return sendUserMessage(sender, recipient, subject, messageContent, null);
     }
 
     @Transactional
@@ -115,7 +122,7 @@ public class MessageService {
         // Envoyer le message à chaque utilisateur
         for (User recipient : recipients) {
             Message message = new Message();
-            message.setSender(optionalSender.get());
+            message.setSender(optionalSender.get().getUsername()); // Utilisation du username
             message.setRecipient(recipient);
             message.setSubject(subject);
             message.setMessage(messageContent);
@@ -125,45 +132,6 @@ public class MessageService {
             
             messageRepository.save(message);
         }
-    }
-
-    /**
-     * Envoie un message à un utilisateur avec des objets cibles.
-     * Uniquement utilisé par le système du shop ou par l'admin
-     *
-     * @param sender           L'utilisateur qui envoie le message.
-     * @param recipient        L'utilisateur à qui le message est envoyé.
-     * @param subject          Le sujet du message.
-     * @param messageContent   Le contenu du message.
-     * @param targetShopItemsId La liste des ID des objets cibles.
-     * @param validUntil       La date de validité du message.
-     */
-    @Transactional
-    public void sendItemsMessage(User sender, User recipient, String subject, String messageContent, 
-                                List<Long> targetShopItemsId, Instant validUntil) {
-
-        // Vérifier si l'utilisateur existe
-        Optional<User> optionalRecipient = userRepository.findById(recipient.getId());
-        
-        if (optionalRecipient.isEmpty()) {
-            throw new IllegalArgumentException("Le destinataire n'existe pas.");
-        }
-
-        // Créer le message
-        Message message = new Message();
-
-        message.setSender(sender);
-        message.setRecipient(optionalRecipient.get());
-        message.setSubject(subject);
-        message.setMessage(messageContent);
-        message.setCreatedAt(Instant.now());
-        message.setValidUntil(validUntil != null ? validUntil : Instant.now().plus(30, ChronoUnit.DAYS));
-        message.setRead(false);
-        message.setTargetShopItemsId(targetShopItemsId != null ? targetShopItemsId : List.of());
-        message.setContainItems(true);
-
-        // Enregistrer le message dans la base de données
-        messageRepository.save(message);
     }
 
     @Transactional
@@ -177,7 +145,7 @@ public class MessageService {
 
         // Créer le message
         Message message = new Message();
-        message.setSender(sender);
+        message.setSender(sender.getUsername()); // Utilisation du username
         message.setRecipient(optionalRecipient.get());
         message.setSubject("Demande d'ami");
         message.setMessage("Vous avez reçu une demande d'ami de " + sender.getUsername());
@@ -231,7 +199,7 @@ public class MessageService {
      */
     @Transactional(readOnly = true)
     public List<Message> getSentMessages(User user) {
-        return messageRepository.findBySenderId(user.getId());
+        return messageRepository.findBySender(user.getUsername());
     }
 
     /**
@@ -285,63 +253,87 @@ public class MessageService {
     }
 
     @Transactional
-    public void retrieveItemsFromMessage(Long messageId) {
+    public void retrieveItemsFromMessage(Long messageId, Long userId) {
         
+        // vérifier si le message existe
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message introuvable"));
+        // vérifier si le message appartient à l'utilisateur
+        if (!message.getRecipient().getId().equals(userId)) {
+            throw new IllegalArgumentException("Le message ne vous appartient pas");
+        }
+        
         // Vérifier si le message contient des objets cibles
         if (message.getTargetShopItemsId() == null || message.getTargetShopItemsId().isEmpty()) {
             throw new IllegalArgumentException("Aucun objet cible dans le message");
         }
         
         for (Long itemId : message.getTargetShopItemsId()) {
-            ShopItem item = shopItemRepo.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Objet introuvable"));
+            if (itemId == null) {
+                continue; // Skip null IDs to prevent exceptions
+            }
+            
+            try {
+                ShopItem item = shopItemRepo.findById(itemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Objet introuvable avec ID: " + itemId));
 
-            switch (item.getType()) {
-            case HERO -> {
-                Hero hero = heroRepo.findById(item.getTargetId())
-                    .orElseThrow(() -> new IllegalArgumentException("Héros introuvable"));
-                
+                switch (item.getType()) {
+                case HERO -> {
+                    if (item.getTargetItemId() == null) {
+                        throw new IllegalArgumentException("ID de héros manquant pour l'objet: " + itemId);
+                    }
+                    
+                    Hero hero = heroRepo.findById(item.getTargetItemId())
+                        .orElseThrow(() -> new IllegalArgumentException("Héros introuvable avec ID: " + item.getTargetItemId()));
+                    
                     // Enregistrer le héros possédé par l'utilisateur
-                PlayerHero playerHero = new PlayerHero();
-                User player = message.getRecipient();
-                playerHero.setUser(player);
-                playerHero.setHero(hero);
+                    PlayerHero playerHero = new PlayerHero();
+                    User player = message.getRecipient();
+                    playerHero.setUser(player);
+                    playerHero.setHero(hero);
 
-                // Ajouter le héros à la liste des héros possédés par l'utilisateur
-                player.getOwnedHeroes().add(playerHero);
-
+                    // Ajouter le héros à la liste des héros possédés par l'utilisateur
+                    player.getOwnedHeroes().add(playerHero);
+                }
+                case EQUIPMENT -> {
+                    if (item.getTargetItemId() == null) {
+                        throw new IllegalArgumentException("ID d'équipement manquant pour l'objet: " + itemId);
+                    }
+                    
+                    Equipment eq = equipmentRepo.findById(item.getTargetItemId())
+                        .orElseThrow(() -> new IllegalArgumentException("Équipement introuvable avec ID: " + item.getTargetItemId()));
+                    
+                    // Enregistrer l'équipement possédé par l'utilisateur
+                    PlayerEquipment playerEquipment = new PlayerEquipment();
+                    User player = message.getRecipient();
+                    playerEquipment.setUser(player);
+                    playerEquipment.setEquipment(eq);
+                    
+                    // Ajouter l'équipement à la liste des équipements possédés par l'utilisateur
+                    player.getEquipments().add(playerEquipment);
+                }
+                case GOLD -> {
+                    // Ajouter l'or à l'utilisateur
+                    message.getRecipient().setGold(message.getRecipient().getGold() + item.getPriceInGold());
+                }
+                case DIAMOND -> {
+                    // Ajouter les diamants à l'utilisateur
+                    message.getRecipient().setDiamonds(message.getRecipient().getDiamonds() + item.getPriceInDiamonds());
+                }
+                default -> throw new IllegalArgumentException("Type d'objet inconnu: " + item.getType());
+                }
+            } catch (IllegalArgumentException e) {
+                // Log the error but continue processing other items
+                System.err.println("Erreur lors du traitement de l'objet " + itemId + ": " + e.getMessage());
             }
-            case EQUIPMENT -> {
-                Equipment eq = equipmentRepo.findById(item.getTargetId())
-                    .orElseThrow(() -> new IllegalArgumentException("Équipement introuvable"));
-                // Enregistrer l'équipement possédé par l'utilisateur
-
-                PlayerEquipment playerEquipment = new PlayerEquipment();
-                User player = message.getRecipient();
-                playerEquipment.setUser(player);
-                playerEquipment.setEquipment(eq);
-                // Ajouter l'équipement à la liste des équipements possédés par l'utilisateur
-                player.getEquipments().add(playerEquipment);
-                
-            }
-            case GOLD -> {
-                // Ajouter l'or à la liste des équipements possédés par l'utilisateur
-                message.getRecipient().setGold(message.getRecipient().getGold() + item.getPriceInGold());
-            }
-            case DIAMOND -> {
-                // Ajouter les diamants à la liste des équipements possédés par l'utilisateur
-                message.getRecipient().setDiamonds(message.getRecipient().getDiamonds() + item.getPriceInDiamonds());
-            }
-            default -> throw new IllegalArgumentException("Type d'objet inconnu");
-            }
-        };
-        // Supprimer les objets cibles du message
-        message.setTargetShopItemsId(null);
+        }
+        
+        // Update the message
+        message.setContainItems(false);
+        message.setTargetShopItemsId(List.of());
         message.setRead(true);
 
-        // On modifie le message pour dire que l'objet a été récupéré
+        // Modify the message to indicate that the items have been retrieved
         message.setMessage(message.getMessage() + "\n\n" +
                 "Vous avez récupéré tous les objets cibles de ce message.\n" +
                 "Vous pouvez les retrouver dans votre inventaire.");
@@ -388,4 +380,96 @@ public class MessageService {
     }
 
 
+    @Transactional
+    public boolean sendShopItemsMessage(User recipient, List<Long> targetShopItemsId, Instant validUntil, User giftSender) {
+        // Vérifier si l'utilisateur existe
+        Optional<User> optionalRecipient = userRepository.findById(recipient.getId());
+        
+        if (optionalRecipient.isEmpty()) {
+            throw new IllegalArgumentException("Le destinataire n'existe pas.");
+        }
+
+        User actualRecipient = optionalRecipient.get();
+        String senderName;
+        String subject;
+        String messageContent;
+
+        // Déterminer l'expéditeur du message
+        if (giftSender == null) {
+            // Utiliser un nom d'utilisateur système simple
+            senderName = "System";
+
+            subject = "BuyedItemSubject";
+            messageContent = "Vous avez reçu votre achat !\n" +
+                    "Vous pouvez le récupérer dans votre inventaire.";
+        }
+        else {
+            // Id de l'admin
+            if (giftSender.getId() == 1L) {
+                // Utiliser un nom d'utilisateur pour l'équipe
+                senderName = "Epic7Team";
+    
+                subject = "GiftItemSubject";
+                messageContent = "Vous avez reçu un cadeau de la part de l'équipe Epic7 !\n" +
+                        "Vous pouvez le récupérer ici.";
+            }
+            else {
+                // Vérifier si l'expéditeur existe (utilisateur normal)
+                Optional<User> optionalGiftSender = userRepository.findById(giftSender.getId());
+                if (optionalGiftSender.isEmpty()) {
+                    throw new IllegalArgumentException("L'expéditeur n'existe pas.");
+                }
+                senderName = optionalGiftSender.get().getUsername();
+                
+                subject = "GiftItemSubject";
+                messageContent = "Vous avez reçu un cadeau de la part de " + senderName + " !\n" +
+                        "Vous pouvez le récupérer ici.";
+            }
+        }
+
+        // Vérifier si la liste des objets cibles est vide
+        if (targetShopItemsId == null || targetShopItemsId.isEmpty()) {
+            throw new IllegalArgumentException("La liste des objets cibles est vide.");
+        }
+
+        // Vérifier si les objets cibles existent
+        for (Long itemId : targetShopItemsId) {
+            Optional<ShopItem> optionalItem = shopItemRepo.findById(itemId);
+            if (optionalItem.isEmpty()) {
+                throw new IllegalArgumentException("L'objet cible avec l'ID " + itemId + " n'existe pas.");
+            }
+        }
+
+        // Créer le message - Complètement configurer le message avant de le sauvegarder
+        Message message = new Message();
+        message.setSender(senderName); // Utiliser le nom au lieu de l'objet User
+        message.setRecipient(actualRecipient);
+        message.setSubject(subject);
+        message.setMessage(messageContent);
+        message.setCreatedAt(Instant.now());
+        message.setValidUntil(validUntil != null ? validUntil : Instant.now().plus(30, ChronoUnit.DAYS));
+        message.setRead(false);
+        message.setTargetShopItemsId(targetShopItemsId != null ? targetShopItemsId : List.of());
+        message.setContainItems(true);
+
+        // Enregistrer le message dans la base de données
+        messageRepository.save(message);
+
+        return true;
+    }
+
+    public Long getSenderId(Message message) {
+        // Vérifier si l'expéditeur est un utilisateur système
+        if (message.isFromSystem()) {
+            return 1L; // On renvoie l'Id de l'admin
+        }
+        
+        // Récupérer l'utilisateur correspondant à l'expéditeur
+        List<User> users = userRepository.findByUsernameLikeIgnoreCase(message.getSender());
+        if (users.isEmpty()) {
+            return null; // Aucun utilisateur trouvé
+        }
+        User sender = users.get(0);
+        return sender.getId();
+    }
 }

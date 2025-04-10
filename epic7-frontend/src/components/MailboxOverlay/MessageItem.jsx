@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useMailboxContext } from "../../context/MailboxContext";
 import { acceptFriendRequest, declineFriendRequest } from "../../services/userService";
 import { useSettings } from "../../context/SettingsContext";
+import { retrieveItemsFromMessage } from "../../services/mailboxService";
 
 const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) => {
     const { getMessageDetails, markMessageAsRead } = useMailboxContext();
@@ -13,6 +14,8 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
     const [actionStatus, setActionStatus] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(false);
+    const [retrieveLoading, setRetrieveLoading] = useState(false);
+    const [retrieveStatus, setRetrieveStatus] = useState(null);
     
     useEffect(() => {
         if (showFullMessage && message.id && !detailedMessage) {
@@ -222,6 +225,48 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
         setDeleteConfirm(false);
     };
     
+    const handleRetrieveItems = async () => {
+        if (!message.id) {
+            setError(t("missingMessageId", language) || "Impossible de récupérer les objets: identifiant du message manquant");
+            return;
+        }
+        
+        setRetrieveLoading(true);
+        try {
+            const result = await retrieveItemsFromMessage(message.id, { handleErrorLocally: true });
+            if (result) {
+                setRetrieveStatus({
+                    success: true,
+                    message: t("itemsRetrievedSuccess", language) || "Objets récupérés avec succès!"
+                });
+                
+                // Mark message as not containing items anymore
+                if (detailedMessage) {
+                    setDetailedMessage({
+                        ...detailedMessage,
+                        containItems: false,
+                        shopItemIds: [] // Clear the items
+                    });
+                }
+                
+                // Wait 1.5 seconds then refresh the message details
+                setTimeout(() => {
+                    onSelect(message.id); // Re-trigger selection to refresh the message
+                }, 1500);
+            } else {
+                throw new Error(t("operationFailed", language) || "Échec de l'opération");
+            }
+        } catch (err) {
+            console.error("Erreur lors de la récupération des objets:", err);
+            setRetrieveStatus({
+                success: false,
+                message: t("cannotRetrieveItems", language) || "Impossible de récupérer les objets"
+            });
+        } finally {
+            setRetrieveLoading(false);
+        }
+    };
+    
     // Pour l'affichage en mode liste
     if (!showFullMessage) {
         // Log the message for debugging
@@ -345,6 +390,29 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                         {(detailedMessage?.containItems || message.containItems) && (
                             <div className="p-2 bg-cyan-100 dark:bg-cyan-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-cyan-400">
                                 <p>{t("messageContainsItems", language) || "Ce message contient des objets."}</p>
+                                {detailedMessage?.shopItemIds && detailedMessage.shopItemIds.length > 0 && (
+                                    <div className="mt-2">
+                                        <p className="font-semibold">{t("itemIds", language) || "IDs des objets"}:</p>
+                                        <ul className="list-disc ml-5">
+                                            {detailedMessage.shopItemIds.map((itemId, index) => (
+                                                <li key={index} className="text-cyan-700 dark:text-cyan-400">
+                                                    {itemId}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                <div className="mt-3">
+                                    <button 
+                                        onClick={handleRetrieveItems}
+                                        disabled={retrieveLoading}
+                                        className={`py-2 px-4 bg-cyan-600 text-white font-bold rounded-md border-none ${retrieveLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-cyan-700'}`}
+                                    >
+                                        {retrieveLoading 
+                                            ? t("retrievingItems", language) || 'Récupération en cours...' 
+                                            : t("retrieveItems", language) || 'Récupérer les objets'}
+                                    </button>
+                                </div>
                             </div>
                         )}
                         
@@ -373,6 +441,18 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                         {actionStatus?.success && (
                             <div className="p-2 bg-green-100 dark:bg-green-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-700 dark:text-green-400">
                                 {actionStatus.message}
+                            </div>
+                        )}
+                        
+                        {retrieveStatus?.success && (
+                            <div className="p-2 bg-green-100 dark:bg-green-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-green-600 text-green-700 dark:text-green-400">
+                                {retrieveStatus.message}
+                            </div>
+                        )}
+                        
+                        {retrieveStatus?.success === false && (
+                            <div className="p-2 bg-red-100 dark:bg-red-900 bg-opacity-20 dark:bg-opacity-10 rounded-md border-l-4 border-l-red-600 text-red-700 dark:text-red-400">
+                                {retrieveStatus.message}
                             </div>
                         )}
                     </div>

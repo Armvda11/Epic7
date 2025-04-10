@@ -1,6 +1,6 @@
 package com.epic7.backend.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.epic7.backend.model.enums.ShopItemType;
 
@@ -25,8 +25,8 @@ public class ShopItemDTO {
     private String description;
     private int priceInDiamonds;
     private int priceInGold;
-    private LocalDateTime startAt;
-    private LocalDateTime endAt;
+    private Instant startAt;
+    private Instant endAt;
     private int maxPurchasePerUser;
     private ShopItemType type; // HERO, EQUIPMENT, GOLD, DIAMOND
     //private String rarity; // 3⭐, 4⭐, 5⭐

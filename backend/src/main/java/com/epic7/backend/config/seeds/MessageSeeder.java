@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import com.epic7.backend.service.MessageService;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -33,7 +34,7 @@ public class MessageSeeder {
 
                 for (User user : users) {
                     Message message = new Message();
-                    message.setSender(sender);
+                    message.setSender(sender.getUsername());
                     message.setRecipient(user);
                     message.setSubject("Bienvenue dans le jeu !");
                     message.setMessage("Salut " + user.getUsername() + ", bienvenue sur Epic7 !");
@@ -44,9 +45,14 @@ public class MessageSeeder {
                     // Test de FriendRequest
                     messageService.sendFriendRequest(sender, user.getId());
 
-                    // Test d'envoie de plusieurs shopping item
-                    List<Long> itemIds = List.of(1L, 2L, 3L); // Remplacez par les IDs d'articles valides
-                    messageService.sendItemsMessage(sender, user, "Cadeau de bienvenue reçu !" , "Voici un cadeau de bienvenue pour toi !", itemIds, Instant.now());
+                    // Test d'envoi de plusieurs shopping item
+                    try {
+                        // Vérifiez d'abord si les items existent
+                        List<Long> itemIds = List.of(1L, 2L, 3L, 4L); // Ajout de l'ID 4 qui est également créé dans ShopSeeder
+                        messageService.sendShopItemsMessage(user, itemIds, Instant.now().plus(7, ChronoUnit.DAYS), sender);
+                    } catch (Exception e) {
+                        System.out.println("❌ Erreur lors de l'envoi des articles de boutique: " + e.getMessage());
+                    }
                 }
 
                 System.out.println("✅ Messages de bienvenue envoyés.");
