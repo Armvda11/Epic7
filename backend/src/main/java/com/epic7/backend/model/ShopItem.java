@@ -47,6 +47,8 @@ public class ShopItem {
 
     private int priceInGold;
 
+    private Integer quantityPerPurchase = 1; // Quantité d'objets par achat
+
     private boolean limitedTime; // Indique si l'objet est en vente limitée dans le temps
 
     private Instant startAt; // Date de début de disponibilité de l'objet

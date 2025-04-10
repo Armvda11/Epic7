@@ -43,6 +43,9 @@
         private int experience = 0;
 
         @Column(nullable = false)
+        private int awakeningLevel = 0;
+
+        @Column(nullable = false)
         private boolean isLocked = false;
 
         /**

@@ -16,28 +16,28 @@ import java.util.List;
 @RequiredArgsConstructor
 public class HeroSeeder {
 
-    private final HeroRepository heroRepo;
-    private final SkillRepository skillRepo;
+private final HeroRepository heroRepo;
+private final SkillRepository skillRepo;
 
-    @PostConstruct
-    public void seedHeroesAndSkills() {
+@PostConstruct
+public void seedHeroesAndSkills() {
         if (heroRepo.count() == 0) {
-            Hero hwayoung = createHero("Hwayoung", Element.DARK, Rarity.LEGENDARY, 1208, 616, 102, 6488);
-            Hero mlPiera = createHero("Ml Piera", Element.DARK, Rarity.EPIC, 885, 613, 115, 6149);
-            Hero mavuika = createHero("Mavuika", Element.ICE, Rarity.EPIC, 100, 100, 100, 1000);
-            Hero krau = createHero("Krau", Element.LIGHT, Rarity.NORMAL, 100, 100, 100, 1000);
+        Hero hwayoung = createHero("Hwayoung", Element.DARK, Rarity.LEGENDARY, 1208, 616, 102, 6488);
+        Hero mlPiera = createHero("Ml Piera", Element.DARK, Rarity.EPIC, 885, 613, 115, 6149);
+        Hero mavuika = createHero("Mavuika", Element.ICE, Rarity.EPIC, 100, 100, 100, 1000);
+        Hero krau = createHero("Krau", Element.LIGHT, Rarity.NORMAL, 100, 100, 100, 1000);
 
-            heroRepo.saveAll(List.of(hwayoung, mlPiera, mavuika, krau));
-            System.out.println("✅ Héros créés.");
+        heroRepo.saveAll(List.of(hwayoung, mlPiera, mavuika, krau));
+        System.out.println("✅ Héros créés.");
         }
 
         if (skillRepo.count() == 0) {
-            heroRepo.findByName("Hwayoung").ifPresent(this::seedSkillsForHwayoung);
-            heroRepo.findByName("Ml Piera").ifPresent(this::seedSkillsForMlPiera);
+        heroRepo.findByName("Hwayoung").ifPresent(this::seedSkillsForHwayoung);
+        heroRepo.findByName("Ml Piera").ifPresent(this::seedSkillsForMlPiera);
         }
-    }
+}
 
-    private Hero createHero(String name, Element el, Rarity rarity, int atk, int def, int spd, int hp) {
+private Hero createHero(String name, Element el, Rarity rarity, int atk, int def, int spd, int hp) {
         return Hero.builder()
                 .name(name)
                 .element(el)
@@ -47,9 +47,9 @@ public class HeroSeeder {
                 .baseSpeed(spd)
                 .health(hp)
                 .build();
-    }
+}
 
-    private void seedSkillsForHwayoung(Hero hwayoung) {
+private void seedSkillsForHwayoung(Hero hwayoung) {
         skillRepo.saveAll(List.of(
                 Skill.builder()
                         .name("Infernal Strike")
@@ -93,9 +93,9 @@ public class HeroSeeder {
                         .hero(hwayoung)
                         .build()));
         System.out.println("✅ Compétences de Hwayoung créées.");
-    }
+}
 
-    private void seedSkillsForMlPiera(Hero mlPiera) {
+private void seedSkillsForMlPiera(Hero mlPiera) {
         skillRepo.saveAll(List.of(
                 Skill.builder()
                         .name("Bash")
@@ -139,5 +139,5 @@ public class HeroSeeder {
 
         ));
         System.out.println("✅ Compétences de Ml Piera créées.");
-    }
+}
 }
