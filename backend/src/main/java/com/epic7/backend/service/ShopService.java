@@ -113,7 +113,7 @@ public class ShopService {
             return "Vous possédez déjà ce héros.";
         }
 
-        PlayerEquipment playerEquipmenttemp = equipmentPlayerRepo.findPlayerEquipmentWithItemById(item.getId()).orElse(null);
+        PlayerEquipment playerEquipmenttemp = equipmentPlayerRepo.findPlayerEquipmentWithItemById(item.getId(), user.getId()).orElse(null);
         if(playerEquipmenttemp != null){
             // Vérifier si l'équipement appartient à l'utilisateur
             return "Vous possédez déjà cet équipement.";
