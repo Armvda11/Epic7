@@ -1,6 +1,6 @@
 package com.epic7.backend.controller;
 
-import com.epic7.backend.dto.ErrorDTO;
+
 import com.epic7.backend.dto.GuildBanDTO;
 import com.epic7.backend.dto.GuildDTO;
 import com.epic7.backend.dto.GuildInfoDTO;

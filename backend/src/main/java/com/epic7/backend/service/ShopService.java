@@ -1,6 +1,6 @@
 package com.epic7.backend.service;
 
-import java.util.ArrayList; // Utile pour avoir un panier
+
 import java.util.List;
 import java.util.stream.Collectors;
 
