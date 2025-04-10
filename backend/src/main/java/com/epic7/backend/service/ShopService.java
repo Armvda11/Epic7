@@ -1,12 +1,8 @@
 package com.epic7.backend.service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.ArrayList; // Utile pour avoir un panier
 import java.util.List;
 
-import org.apache.el.stream.Optional;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.epic7.backend.model.Equipment;
@@ -102,6 +98,7 @@ public class ShopService {
             }
 
             default -> {
+                messageService.sendShopItemsMessage(user, List.of(item.getId()), item.getEndAt(), null);
                 // Ne rien faire pour les autres types
             }
         }
@@ -141,11 +138,6 @@ public class ShopService {
         user.setGold(user.getGold() - item.getPriceInGold());
         user.setDiamonds(user.getDiamonds() - item.getPriceInDiamonds());
 
-        // On prépare l'envoie des ressources
-        // On crée un utilisateur système pour l'expéditeur
-        User system = new User();
-        system.setUsername("System");
-
         // Ajouter l'objet selon le type
         switch (item.getType()) {
             case HERO -> {
@@ -160,10 +152,8 @@ public class ShopService {
                 // Ajouter le héros à la liste des héros possédés par l'utilisateur
                 user.getOwnedHeroes().add(playerHero);
 
-               
-
                 // Envoi d'un message au joueur pour l'informer de l'achat
-                //messageService.sendItemsMessage(system, user, "Achat d'un héros", "Vous avez acheté le héros : " + hero.getName(),null, null);
+                messageService.sendMessage("Shop", user, "Achat d'un héros", "Vous avez acheté le héros : " + hero.getName(), null);
             }
             case EQUIPMENT -> {
                 Equipment eq = equipmentRepo.findEquipmentWithItemById(item.getId())
@@ -178,8 +168,8 @@ public class ShopService {
                 user.getEquipments().add(playerEquipment);
 
                 // Envoi d'un message au joueur pour l'informer de l'achat
-                /* messageService.sendMessage(user, system, "Achat d'équipement",
-                        "Vous avez acheté l'équipement : " + eq.getName()); */
+                messageService.sendMessage("Shop", user, "Achat d'équipement",
+                        "Vous avez acheté l'équipement : " + eq.getName(), null);
             }
             case GOLD -> {
                 // Envoi d'un message au joueur pour l'informer de l'achat
@@ -196,11 +186,13 @@ public class ShopService {
                 user.setDiamonds(user.getDiamonds() + item.getPriceInDiamonds());
             }
             
-            default -> throw new IllegalArgumentException("Type d'article non pris en charge");
+            default -> {
+                throw new IllegalArgumentException("Type d'article non pris en charge");
+            }
         }
 
         // Enregistrer l'achat dans la base de données
-        //userRepository.save(user); // Enregistrer l'utilisateur avec les mises à jour
+        userRepository.save(user); // Enregistrer l'utilisateur avec les mises à jour
         purchaseRepo.save(ShopPurchase.builder().user(user).shopItem(item).quantity(1).totalDiamondsPrice(item.getPriceInDiamonds()).totalGoldPrice(item.getPriceInGold())
         .totalPrice(item.getPriceInDiamonds()+item.getPriceInGold()).build());
         return "Achat réussi !";

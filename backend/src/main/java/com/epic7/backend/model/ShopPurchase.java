@@ -2,7 +2,7 @@ package com.epic7.backend.model;
 
 
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -51,6 +51,6 @@ public class ShopPurchase {
     private int totalDiamondsPrice; // Prix total de l'achat (en diamants)
 
     @CreationTimestamp
-    private LocalDateTime purchasedAt; // Date de l'achat
+    private Instant purchasedAt; // Date de l'achat
     // Constructeur, getters et setters générés par Lombok
 }

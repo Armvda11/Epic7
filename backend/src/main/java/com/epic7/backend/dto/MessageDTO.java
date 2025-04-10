@@ -1,6 +1,9 @@
 package com.epic7.backend.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
@@ -14,7 +17,8 @@ public class MessageDTO {
     private String message; // Contenu du message
     private String createdAt; // Date de création du message
     private String validUntil; // Date de validité du message
-    
+    private List<Long> shopItemIds;
+
     @JsonProperty("isRead")
     private boolean isRead; // Statut de lecture du message
     

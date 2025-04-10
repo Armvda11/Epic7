@@ -16,4 +16,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // Méthode de recherche par nom d'utilisateur (insensible à la casse)
     List<User> findByUsernameLikeIgnoreCase(String pattern);
+
 }

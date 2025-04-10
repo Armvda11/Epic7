@@ -1,6 +1,6 @@
 package com.epic7.backend.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -49,14 +49,14 @@ public class ShopItem {
 
     private boolean limitedTime; // Indique si l'objet est en vente limitée dans le temps
 
-    private LocalDateTime startAt; // Date de début de disponibilité de l'objet
+    private Instant startAt; // Date de début de disponibilité de l'objet
 
-    private LocalDateTime endAt; // Date de fin de disponibilité de l'objet
+    private Instant endAt; // Date de fin de disponibilité de l'objet
 
     private Integer maxPurchasePerUser; // Nombre maximum d'achats par utilisateur
 
-    private Long targetId; // ID du héros, équipement ou autre
+    private Long targetItemId; // ID du héros, équipement ou autre
 
     @CreationTimestamp
-    private LocalDateTime createdAt; // Date de création de l'objet
+    private Instant createdAt; // Date de création de l'objet
 }

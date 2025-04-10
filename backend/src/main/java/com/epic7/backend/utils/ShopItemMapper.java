@@ -4,10 +4,8 @@ import com.epic7.backend.dto.ShopItemDTO;
 import com.epic7.backend.model.ShopItem;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.time.LocalDateTime;
 
 @Component
 public class ShopItemMapper {
