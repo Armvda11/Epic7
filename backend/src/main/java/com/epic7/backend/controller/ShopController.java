@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.epic7.backend.dto.ShopItemDTO;
+
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ShopService;
@@ -19,18 +19,13 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/shop")
-
+@RequiredArgsConstructor
 public class ShopController {
 
     private final ShopService shopService;
     private final JwtUtil jwtUtil;
     private final AuthService authService;
 
-    public ShopController(ShopService shopService, JwtUtil jwtUtil, AuthService authService) {
-        this.shopService = shopService;
-        this.jwtUtil = jwtUtil;
-        this.authService = authService;
-    }
 
 
     private User getUser(HttpServletRequest request) {
