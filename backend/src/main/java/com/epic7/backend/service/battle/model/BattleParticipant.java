@@ -1,4 +1,4 @@
-package com.epic7.backend.service.battle.simple;
+package com.epic7.backend.service.battle.model;
 
 import lombok.AllArgsConstructor;
 import lombok.*;
@@ -11,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 @Getter
 @Setter
-public class SimpleBattleParticipant {
+public class BattleParticipant {
     private Long id;           // ID du PlayerHero ou du Hero (pour le boss)
     private String name;       // Nom du héros
     private int maxHp;         // Points de vie max
