@@ -151,7 +151,7 @@ public class MessageService {
 
         // Créer le message
         Message message = new Message();
-        messageRepository.save(message);
+
         message.setSender(sender);
         message.setRecipient(optionalRecipient.get());
         message.setSubject(subject);
