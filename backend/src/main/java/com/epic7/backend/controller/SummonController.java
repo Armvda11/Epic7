@@ -2,6 +2,7 @@ package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.SummonResultDTO;
 import com.epic7.backend.model.Banner;
+import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
@@ -49,28 +50,29 @@ public class SummonController {
             ));
         }
 
-        if (summonService.userOwnsAllHeroesInBanner(user, bannerOpt.get())) {
-            return ResponseEntity.ok().body(Map.of(
-                "error", true,
-                "message", "❌ Tu possèdes déjà tous les héros de la bannière !"
-            ));
-        }
-
-        if (user.getDiamonds() < SummonService.SUMMON_COST) {
+        if (user.getDiamonds() < bannerOpt.get().getCout()) {
             return ResponseEntity.ok().body(Map.of(
                 "error", true,
                 "message", "❌ Pas assez de diamants !"
             ));
         }
 
-        Optional<PlayerHero> result = summonService.performSummon(user, bannerOpt.get());
+        Optional<Hero> result = summonService.performSummon(user, bannerOpt.get());
 
         if (result.isPresent()) {
-            PlayerHero hero = result.get();
+            Hero hero = result.get();
+            PlayerHero playerHero = user.getOwnedHeroes().stream()
+                .filter(h -> h.getHero().getId().equals(hero.getId()))
+                .findFirst()
+                .orElse(null);
+
+            int awakeningLevel = playerHero != null ? playerHero.getAwakeningLevel() : 0;
+
             return ResponseEntity.ok(new SummonResultDTO(
-                hero.getHero().getName(),
-                hero.getHero().getRarity().toString(),
-                hero.getHero().getElement().toString()
+                hero.getName(),
+                hero.getRarity().toString(),
+                hero.getElement().toString(),
+                awakeningLevel // Inclure le niveau d'éveil
             ));
         } else {
             return ResponseEntity.ok().body(Map.of(
@@ -119,5 +121,17 @@ public class SummonController {
         System.out.println("✅ Bannières actives trouvées : " + activeBanners.size());
 
         return ResponseEntity.ok(activeBanners);
+    }
+
+    /**
+     * Récupère tous les héros possédés par l'utilisateur.
+     */
+    @GetMapping("/owned-heroes")
+    public ResponseEntity<?> getOwnedHeroes(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        String email = jwtUtil.extractEmail(token);
+        User user = authService.getUserByEmail(email);
+
+        return ResponseEntity.ok(user.getOwnedHeroes());
     }
 }

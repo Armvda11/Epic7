@@ -19,3 +19,13 @@ export const getBannerHeroes = async (bannerId) => {
     throw error;
   }
 };
+
+export const getOwnedHeroes = async () => {
+  try {
+    const response = await API.get("/summons/owned-heroes");
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des héros possédés :", error);
+    throw error;
+  }
+};

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { performSummon, getBannerHeroes } from "../services/summonService";
+import { performSummon, getBannerHeroes, getOwnedHeroes } from "../services/summonService";
 import API from "../api/axiosInstance";
 
 export default function SummonPage() {
@@ -10,6 +10,7 @@ export default function SummonPage() {
   const [selectedBanner, setSelectedBanner] = useState(null); // Bannière sélectionnée
   const [bannerHeroes, setBannerHeroes] = useState([]); // Héros de la bannière sélectionnée
   const [showBannerHeroes, setShowBannerHeroes] = useState(false); // État pour afficher la fenêtre
+  const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +26,19 @@ export default function SummonPage() {
     };
 
     fetchActiveBanners();
+  }, []);
+
+  useEffect(() => {
+    const fetchOwnedHeroes = async () => {
+      try {
+        const heroes = await getOwnedHeroes();
+        setOwnedHeroes(heroes);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des héros possédés :", error);
+      }
+    };
+
+    fetchOwnedHeroes();
   }, []);
 
   const handleBannerClick = async (banner) => {
@@ -66,24 +80,78 @@ export default function SummonPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-purple-900 to-black text-white">
-      <h1 className="text-4xl font-bold mb-6">🔮 Invocation 🔮</h1>
+    <div className="relative h-screen bg-gradient-to-br from-purple-900 to-black text-white p-6">
+      {/* Bouton Retour */}
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="absolute top-4 left-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-bold shadow-lg"
+      >
+        Retour
+      </button>
 
-      {/* Liste des bannières actives */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Bannières actives :</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Contenu principal */}
+      <div className="flex h-full">
+        {/* Section gauche : Titre et contenu principal */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <h1 className="text-4xl font-bold mb-6">🔮 Invocation 🔮</h1>
+
+          {result && (
+            <div className="mt-6 text-center">
+              {result.error ? (
+                <p className="text-xl text-red-500">{result.message}</p>
+              ) : (
+                <>
+                  <h2 className="text-3xl font-bold">Héros invoqué :</h2>
+                  <div className="flex flex-col items-center">
+                    <img
+                      src={`/epic7-Hero/sprite-hero/${result.heroName
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")}.png`}
+                      alt={result.heroName}
+                      className="mt-4 w-40 h-40 object-contain rounded-lg shadow-lg"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
+                      }}
+                    />
+                    <p className="text-xl font-bold mt-4">{result.heroName}</p>
+                    <p className="text-lg">{result.rarity}</p>
+                    <p className="text-lg">{result.element}</p>
+                    <p className="text-lg text-green-500">
+                      Niveau d'éveil : {result.awakeningLevel}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleSummon}
+            disabled={loading}
+            className="mt-6 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg text-xl font-bold shadow-lg"
+          >
+            {loading ? "Invocation en cours..." : "Invoquer un héros"}
+          </button>
+        </div>
+
+        {/* Section droite : Liste des bannières */}
+        <div className="w-1/3 flex flex-col items-center space-y-4">
+          <h2 className="text-2xl font-bold mb-4">Bannières actives :</h2>
           {activeBanners.map((banner) => (
             <div
               key={banner.id}
-              className={`p-4 rounded-lg shadow-lg cursor-pointer ${
-                selectedBanner?.id === banner.id ? "bg-purple-700" : "bg-purple-600"
+              className={`p-4 rounded-lg shadow-lg cursor-pointer w-full ${
+                selectedBanner?.id === banner.id
+                  ? "bg-blue-500 text-white border-4 border-blue-700 shadow-xl"
+                  : "bg-purple-600 text-white"
               }`}
               onClick={() => handleBannerClick(banner)}
             >
               <h3 className="text-xl font-bold">{banner.name}</h3>
               <p className="text-sm">Début : {new Date(banner.startsAt).toLocaleDateString()}</p>
               <p className="text-sm">Fin : {new Date(banner.endsAt).toLocaleDateString()}</p>
+              <p className="text-sm font-bold">💎 Coût : {banner.cout} diamants</p>
             </div>
           ))}
         </div>
@@ -102,66 +170,36 @@ export default function SummonPage() {
             </button>
             <h2 className="text-2xl font-bold mb-4">Héros de la bannière : {selectedBanner.name}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {bannerHeroes.map((hero) => (
-                <div key={hero.id} className="text-center flex flex-col items-center">
-                  <img
-                    src={`/epic7-Hero/sprite-hero/${hero.name.toLowerCase().replace(/\s+/g, "-")}.png`}
-                    alt={hero.name}
-                    className="w-24 h-24 object-contain rounded-lg shadow-lg"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
-                    }}
-                  />
-                  <p className="text-lg font-bold mt-2">{hero.name}</p>
-                  <p className="text-sm">{hero.rarity}</p>
-                </div>
-              ))}
+              {bannerHeroes.map((hero) => {
+                const ownedHero = ownedHeroes.find((h) => h.hero.id === hero.id);
+
+                return (
+                  <div key={hero.id} className="text-center flex flex-col items-center">
+                    <img
+                      src={`/epic7-Hero/sprite-hero/${hero.name.toLowerCase().replace(/\s+/g, "-")}.png`}
+                      alt={hero.name}
+                      className="w-24 h-24 object-contain rounded-lg shadow-lg"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
+                      }}
+                    />
+                    <p className="text-lg font-bold mt-2">{hero.name}</p>
+                    <p className="text-sm">{hero.rarity}</p>
+                    {ownedHero ? (
+                      <p className="text-sm text-green-500">
+                        Possédé (Niveau d'éveil : {ownedHero.awakeningLevel})
+                      </p>
+                    ) : (
+                      <p className="text-sm text-red-500">Non possédé</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
-
-      <button
-        onClick={handleSummon}
-        disabled={loading}
-        className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg text-xl font-bold shadow-lg"
-      >
-        {loading ? "Invocation en cours..." : "Invoquer un héros"}
-      </button>
-
-      {result && (
-        <div className="mt-6 text-center">
-          {result.error ? (
-            <p className="text-xl text-red-500">{result.message}</p>
-          ) : (
-            <>
-              <h2 className="text-3xl font-bold">Héros invoqué :</h2>
-              <div className="flex flex-col items-center">
-                <img
-                  src={`/epic7-Hero/sprite-hero/${result.heroName.toLowerCase().replace(/\s+/g, "-")}.png`}
-                  alt={result.heroName}
-                  className="mt-4 w-40 h-40 object-contain rounded-lg shadow-lg"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
-                  }}
-                />
-                <p className="text-xl font-bold mt-4">{result.heroName}</p>
-                <p className="text-lg">{result.rarity}</p>
-                <p className="text-lg">{result.element}</p>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <button
-        onClick={() => navigate("/dashboard")}
-        className="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg text-xl font-bold shadow-lg"
-      >
-        Retour
-      </button>
     </div>
   );
 }

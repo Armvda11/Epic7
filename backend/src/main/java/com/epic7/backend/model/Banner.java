@@ -26,7 +26,7 @@ public class Banner {
     private Long id; // Identifiant unique de la bannière
 
     private String name; // Nom de la bannière (ex. "Bannière de Noël", "Bannière de la Saint-Valentin", etc.)
-
+    private int cout; // Coût d'invocation de la bannière
     @CreationTimestamp
     private Instant createdAt; // Date de création de la bannière
 

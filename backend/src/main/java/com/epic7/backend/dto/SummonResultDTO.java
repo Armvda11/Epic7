@@ -9,4 +9,5 @@ public class SummonResultDTO {
     private String heroName;
     private String rarity;
     private String element;
+    private int awakeningLevel;
 }

@@ -30,7 +30,7 @@ public class SummonSeeder {
                 banner1.setStartsAt(Instant.now()); //Start date
                 banner1.setEndsAt(Instant.now().plus(5, ChronoUnit.MINUTES)); //End date
                 banner1.setFeaturedHeroes(List.of(allHeroes.get(0)));
-
+                banner1.setCout(50);
                 bannerRepository.save(banner1);
                 Banner banner2 = new Banner();
                 banner2.setName("Summon Banner 2");
@@ -38,6 +38,7 @@ public class SummonSeeder {
                 banner2.setStartsAt(Instant.now()); //Start date
                 banner2.setEndsAt(Instant.now().plus(1, ChronoUnit.DAYS)); //End date
                 banner2.setFeaturedHeroes(List.of(allHeroes.get(1), allHeroes.get(2)));
+                banner2.setCout(100);
                 bannerRepository.save(banner2);
             }
         } else {
