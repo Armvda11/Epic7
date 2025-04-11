@@ -6,7 +6,7 @@ import com.epic7.backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -46,7 +46,11 @@ public class SummonService {
      */
     @Transactional(readOnly = true)
     public ArrayList<Banner> getActiveBanner() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
+        System.out.println("Current time: " + now);
+        System.out.println("Active banners: " + bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now));
+
+        System.out.println("est ce que ca marche ? 🚀");
         return bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now);
     }
 

@@ -116,6 +116,8 @@ public class SummonController {
             ));
         }
 
+        System.out.println("✅ Bannières actives trouvées : " + activeBanners.size());
+
         return ResponseEntity.ok(activeBanners);
     }
 }
