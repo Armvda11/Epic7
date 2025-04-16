@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/combat")
 @RequiredArgsConstructor
-public class SimpleCombatController {
+public class BattleBossController {
 
     private final BossBattleManager battleService;
     private final AuthService authService;

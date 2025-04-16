@@ -1,23 +1,31 @@
-// package com.epic7.backend.service.battle.rta;
-// import org.springframework.boot.autoconfigure.cache.CacheProperties.Redis;
+package com.epic7.backend.service.battle.rta;
 
-// import com.epic7.backend.service.battle.state.BattleState;
+import com.epic7.backend.service.battle.state.BattleState;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
-// public class RedisBattleStorage {
+@Service
+@RequiredArgsConstructor
+public class RedisBattleStorage {
 
-//     private final RedisTemplate<String, Object> redisTemplate;
-    
+    private final RedisTemplate<String, Object> redisTemplate;
 
-//     public void saveBattle(String battleId, BattleState battleResult) {
-//         redisTemplate.opsForValue().set(battleId, battleResult);
-//     }
+    private static final String PREFIX = "battle:";
 
-//     public BattleState getBattle(String battleId) {
-//         return (BattleState) redisTemplate.opsForValue().get(battleId);
-//     }
-//     public void deleteBattle(String battleId) {
-//         redisTemplate.delete(battleId);
-//     }
+    public void saveBattle(String battleId, BattleState battleState) {
+        redisTemplate.opsForValue().set(PREFIX + battleId, battleState);
+    }
 
-    
-// }
+    public BattleState getBattle(String battleId) {
+        Object result = redisTemplate.opsForValue().get(PREFIX + battleId);
+        if (result instanceof BattleState state) {
+            return state;
+        }
+        return null;
+    }
+
+    public void deleteBattle(String battleId) {
+        redisTemplate.delete(PREFIX + battleId);
+    }
+}
