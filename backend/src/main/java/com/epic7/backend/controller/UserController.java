@@ -200,4 +200,11 @@ public class UserController {
             throw e;
         }
     }
+
+    @GetMapping("/diamonds")
+    public ResponseEntity<Integer> getDiamonds(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+        return ResponseEntity.ok(user.getDiamonds());
+    }
 }
