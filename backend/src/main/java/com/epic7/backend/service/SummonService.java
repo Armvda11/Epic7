@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -78,8 +80,12 @@ public class SummonService {
         }
         // Lui faire payer
         user.setDiamonds(user.getDiamonds() -  banner.getCout());
+
+        // Mélanger la liste des héros de la bannière
+        List<Hero> melangeHeros = new ArrayList<>(banner.getFeaturedHeroes());
+        Collections.shuffle(melangeHeros);
         // Parcourir les héros de la bannière active
-        for (Hero hero : banner.getFeaturedHeroes()) {
+        for (Hero hero : melangeHeros) {
 
             // Calculer la probabilité d'invocation
             double probability = getProbabilityByRarity(hero.getRarity());

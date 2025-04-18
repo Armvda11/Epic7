@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { useNavigate } from "react-router-dom";
 import { performSummon, getBannerHeroes, getOwnedHeroes } from "../services/summonService";
 import API from "../api/axiosInstance";
+import '../SummonPage.css';
 
 export default function SummonPage() {
   const [result, setResult] = useState(null);
@@ -11,7 +12,22 @@ export default function SummonPage() {
   const [bannerHeroes, setBannerHeroes] = useState([]); // Héros de la bannière sélectionnée
   const [showBannerHeroes, setShowBannerHeroes] = useState(false); // État pour afficher la fenêtre
   const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
+  const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
   const navigate = useNavigate();
+
+  // Récupérer le nombre de gemmes de l'utilisateur
+  useEffect(() => {
+    const fetchUserDiamonds = async () => {
+      try {
+        const response = await API.get("/user/diamonds");
+        setUserDiamonds(response.data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des gemmes :", error);
+      }
+    };
+  
+    fetchUserDiamonds();
+  }, []);
 
   useEffect(() => {
     // Récupérer les bannières actives au chargement de la page
@@ -68,6 +84,14 @@ export default function SummonPage() {
     try {
       const summonResult = await performSummon(selectedBanner.id); // Passer l'ID de la bannière sélectionnée
       setResult(summonResult); // Affiche le résultat si l'invocation réussit
+
+      // Mettre à jour les gemmes restantes
+      const updatedDiamonds = userDiamonds - selectedBanner.cout >= 0 ? userDiamonds - selectedBanner.cout : userDiamonds;
+      setUserDiamonds(updatedDiamonds);
+
+      // Recharger les héros possédés
+      const heroes = await getOwnedHeroes();
+      setOwnedHeroes(heroes);
     } catch (error) {
       if (error.response && error.response.data && error.response.data.message) {
         setResult({ error: true, message: error.response.data.message });
@@ -88,7 +112,6 @@ export default function SummonPage() {
       >
         Retour
       </button>
-
       {/* Contenu principal */}
       <div className="flex h-full">
         {/* Section gauche : Titre et contenu principal */}
@@ -108,7 +131,9 @@ export default function SummonPage() {
                         .toLowerCase()
                         .replace(/\s+/g, "-")}.png`}
                       alt={result.heroName}
-                      className="mt-4 w-40 h-40 object-contain rounded-lg shadow-lg"
+                      className={`mt-4 w-40 h-40 object-contain rounded-lg shadow-lg ${
+                        !result.error ? "hero-glow" : ""
+                      }`}
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
@@ -120,6 +145,16 @@ export default function SummonPage() {
                     <p className="text-lg text-green-500">
                       Niveau d'éveil : {result.awakeningLevel}
                     </p>
+                    {/* Message conditionnel */}
+                    {result.awakeningLevel === 0 ? (
+                      <p className="text-lg text-blue-500 mt-2">
+                        🎉 Nouveau héros débloqué !
+                      </p>
+                    ) : (
+                      <p className="text-lg text-yellow-500 mt-2">
+                        🔄 Vous possedez déjà ce héros, son niveau d'éveil augmente de 1 !
+                      </p>
+                    )}
                   </div>
                 </>
               )}
@@ -133,25 +168,40 @@ export default function SummonPage() {
           >
             {loading ? "Invocation en cours..." : "Invoquer un héros"}
           </button>
+          {/* Afficher le nombre de gemmes restante */}
+          <div className="bg-gray-800 text-white px-6 py-4 rounded-lg shadow-lg">
+            <p className="text-lg font-bold ml-2">💎 {userDiamonds}</p>
+          </div>
         </div>
 
         {/* Section droite : Liste des bannières */}
         <div className="w-1/3 flex flex-col items-center space-y-4">
           <h2 className="text-2xl font-bold mb-4">Bannières actives :</h2>
           {activeBanners.map((banner) => (
-            <div
-              key={banner.id}
-              className={`p-4 rounded-lg shadow-lg cursor-pointer w-full ${
-                selectedBanner?.id === banner.id
-                  ? "bg-blue-500 text-white border-4 border-blue-700 shadow-xl"
-                  : "bg-purple-600 text-white"
-              }`}
-              onClick={() => handleBannerClick(banner)}
-            >
-              <h3 className="text-xl font-bold">{banner.name}</h3>
-              <p className="text-sm">Début : {new Date(banner.startsAt).toLocaleDateString()}</p>
-              <p className="text-sm">Fin : {new Date(banner.endsAt).toLocaleDateString()}</p>
-              <p className="text-sm font-bold">💎 Coût : {banner.cout} diamants</p>
+            <div key={banner.id} className="flex items-center w-full space-x-4">
+              {/* Conteneur de la bannière */}
+              <div
+                className={`p-4 rounded-lg shadow-lg cursor-pointer flex-1 ${
+                  selectedBanner?.id === banner.id
+                    ? "bg-blue-500 text-white border-4 border-blue-700 shadow-xl"
+                    : "bg-purple-600 text-white"
+                }`}
+                onClick={() => setSelectedBanner(banner)}
+              >
+                <h3 className="text-xl font-bold">{banner.name}</h3>
+                <p className="text-sm">Début : {new Date(banner.startsAt).toLocaleDateString()}</p>
+                <p className="text-sm">Fin : {new Date(banner.endsAt).toLocaleDateString()}</p>
+                <p className="text-sm font-bold">💎 Coût : {banner.cout} diamants</p>
+              </div>
+
+              {/* Bouton pour afficher le contenu */}
+              <button
+                onClick={() => handleBannerClick(banner)}
+                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-lg flex items-center justify-center"
+                style={{ height: "100%" }}
+              >
+                Voir contenu
+              </button>
             </div>
           ))}
         </div>
