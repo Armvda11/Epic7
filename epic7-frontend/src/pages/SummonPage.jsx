@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { useNavigate } from "react-router-dom";
 import { performSummon, getBannerHeroes, getOwnedHeroes } from "../services/summonService";
 import API from "../api/axiosInstance";
@@ -12,8 +12,22 @@ export default function SummonPage() {
   const [bannerHeroes, setBannerHeroes] = useState([]); // Héros de la bannière sélectionnée
   const [showBannerHeroes, setShowBannerHeroes] = useState(false); // État pour afficher la fenêtre
   const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
+  const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
   const navigate = useNavigate();
 
+  // Récupérer le nombre de gemmes de l'utilisateur
+  useEffect(() => {
+    const fetchUserDiamonds = async () => {
+      try {
+        const response = await API.get("/user/diamonds");
+        setUserDiamonds(response.data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des gemmes :", error);
+      }
+    };
+  
+    fetchUserDiamonds();
+  }, []);
 
   useEffect(() => {
     // Récupérer les bannières actives au chargement de la page
@@ -71,6 +85,10 @@ export default function SummonPage() {
       const summonResult = await performSummon(selectedBanner.id); // Passer l'ID de la bannière sélectionnée
       setResult(summonResult); // Affiche le résultat si l'invocation réussit
 
+      // Mettre à jour les gemmes restantes
+      const updatedDiamonds = userDiamonds - selectedBanner.cout >= 0 ? userDiamonds - selectedBanner.cout : userDiamonds;
+      setUserDiamonds(updatedDiamonds);
+
       // Recharger les héros possédés
       const heroes = await getOwnedHeroes();
       setOwnedHeroes(heroes);
@@ -94,7 +112,6 @@ export default function SummonPage() {
       >
         Retour
       </button>
-
       {/* Contenu principal */}
       <div className="flex h-full">
         {/* Section gauche : Titre et contenu principal */}
@@ -151,6 +168,10 @@ export default function SummonPage() {
           >
             {loading ? "Invocation en cours..." : "Invoquer un héros"}
           </button>
+          {/* Afficher le nombre de gemmes restante */}
+          <div className="bg-gray-800 text-white px-6 py-4 rounded-lg shadow-lg">
+            <p className="text-lg font-bold ml-2">💎 {userDiamonds}</p>
+          </div>
         </div>
 
         {/* Section droite : Liste des bannières */}
