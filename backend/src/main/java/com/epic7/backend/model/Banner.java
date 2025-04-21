@@ -46,6 +46,14 @@ public class Banner {
     )
     private List<Hero> featuredHeroes; // Liste des héros en vedette dans la bannière
 
+    @ManyToMany
+    @JoinTable(
+        name = "banner_equipments",
+        joinColumns = @JoinColumn(name = "banner_id"),
+        inverseJoinColumns = @JoinColumn(name = "equipment_id")
+    )
+    private List<Equipment> featuredEquipments; // Liste des équipements en vedette dans la bannière
+
     /**
      * Vérifie si la bannière est active en fonction de la date actuelle.
      * La bannière est considérée comme active si la date actuelle est comprise entre

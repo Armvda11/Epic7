@@ -1,6 +1,6 @@
 import React, { useState, useEffect, use } from "react";
 import { useNavigate } from "react-router-dom";
-import { performSummon, getBannerHeroes, getOwnedHeroes } from "../services/summonService";
+import { performSummon, getBannerHeroes, getOwnedHeroes, getBannerEquipments } from "../services/summonService";
 import API from "../api/axiosInstance";
 import '../SummonPage.css';
 
@@ -10,6 +10,7 @@ export default function SummonPage() {
   const [activeBanners, setActiveBanners] = useState([]); // État pour les bannières actives
   const [selectedBanner, setSelectedBanner] = useState(null); // Bannière sélectionnée
   const [bannerHeroes, setBannerHeroes] = useState([]); // Héros de la bannière sélectionnée
+  const [bannerEquipments, setBannerEquipments] = useState([]); // Équipements de la bannière sélectionnée
   const [showBannerHeroes, setShowBannerHeroes] = useState(false); // État pour afficher la fenêtre
   const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
   const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
@@ -48,6 +49,7 @@ export default function SummonPage() {
     const fetchOwnedHeroes = async () => {
       try {
         const heroes = await getOwnedHeroes();
+        console.log("Héros possédés récupérés :", heroes); // Log de la réponse
         setOwnedHeroes(heroes);
       } catch (error) {
         console.error("Erreur lors de la récupération des héros possédés :", error);
@@ -61,11 +63,14 @@ export default function SummonPage() {
     setSelectedBanner(banner);
     try {
       const heroes = await getBannerHeroes(banner.id); // Récupérer les héros de la bannière
+      const equipments = await getBannerEquipments(banner.id); // Récupérer les équipements de la bannière
       setBannerHeroes(heroes);
+      setBannerEquipments(equipments);
       setShowBannerHeroes(true); // Ouvrir la fenêtre
     } catch (error) {
-      console.error("Erreur lors de la récupération des héros de la bannière :", error);
+      console.error("Erreur lors de la récupération des contenus de la bannière :", error);
       setBannerHeroes([]);
+      setBannerEquipments([]);
     }
   };
 
@@ -124,36 +129,45 @@ export default function SummonPage() {
                 <p className="text-xl text-red-500">{result.message}</p>
               ) : (
                 <>
-                  <h2 className="text-3xl font-bold">Héros invoqué :</h2>
+                  <h2 className="text-3xl font-bold">Résultat de l'invocation :</h2>
                   <div className="flex flex-col items-center">
                     <img
-                      src={`/epic7-Hero/sprite-hero/${result.heroName
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}.png`}
-                      alt={result.heroName}
-                      className={`mt-4 w-40 h-40 object-contain rounded-lg shadow-lg ${
-                        !result.error ? "hero-glow" : ""
+                      src={
+                        result.type === "Hero"
+                          ? `/epic7-Hero/sprite-hero/${result.name.toLowerCase().replace(/\s+/g, "-")}.png`
+                          : `/equipment/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
+                      }
+                      alt={result.name}
+                      className={`mt-4 w-40 h-40 object-contain rounded-lg shadow-lg ${ 
+                        !result.error && result.type === "Hero" ? "hero-glow" : result.type === "Equipment" 
+                        ? "equip-glow" : ""
                       }`}
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
+                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"
                       }}
                     />
-                    <p className="text-xl font-bold mt-4">{result.heroName}</p>
+                    <p className="text-xl font-bold mt-4">{result.name}</p>
                     <p className="text-lg">{result.rarity}</p>
-                    <p className="text-lg">{result.element}</p>
-                    <p className="text-lg text-green-500">
-                      Niveau d'éveil : {result.awakeningLevel}
-                    </p>
-                    {/* Message conditionnel */}
-                    {result.awakeningLevel === 0 ? (
-                      <p className="text-lg text-blue-500 mt-2">
-                        🎉 Nouveau héros débloqué !
-                      </p>
-                    ) : (
-                      <p className="text-lg text-yellow-500 mt-2">
-                        🔄 Vous possedez déjà ce héros, son niveau d'éveil augmente de 1 !
-                      </p>
+                    {result.type === "Hero" && (
+                      <>
+                        <p className="text-lg">{result.element}</p>
+                        <p className="text-lg text-green-500">
+                          Niveau d'éveil : {result.awakeningLevel}
+                        </p>
+                        {result.awakeningLevel === 0 ? (
+                          <p className="text-lg text-blue-500 mt-2">
+                            🎉 Nouveau héros débloqué !
+                          </p>
+                        ) : (
+                          <p className="text-lg text-yellow-500 mt-2">
+                            🔄 Vous possédez déjà ce héros, son niveau d'éveil augmente de 1 !
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {result.type === "Equipment" && (
+                      <p className="text-lg text-red-500 mt-2">🎉 Nouvel équipement obtenu !</p>
                     )}
                   </div>
                 </>
@@ -166,7 +180,7 @@ export default function SummonPage() {
             disabled={loading}
             className="mt-6 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg text-xl font-bold shadow-lg"
           >
-            {loading ? "Invocation en cours..." : "Invoquer un héros"}
+            {loading ? "Invocation en cours..." : "Invoquer un héros ou un équipement"}
           </button>
           {/* Afficher le nombre de gemmes restante */}
           <div className="bg-gray-800 text-white px-6 py-4 rounded-lg shadow-lg">
@@ -189,8 +203,8 @@ export default function SummonPage() {
                 onClick={() => setSelectedBanner(banner)}
               >
                 <h3 className="text-xl font-bold">{banner.name}</h3>
-                <p className="text-sm">Début : {new Date(banner.startsAt).toLocaleDateString()}</p>
-                <p className="text-sm">Fin : {new Date(banner.endsAt).toLocaleDateString()}</p>
+                <p className="text-sm">Début : {new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(banner.startsAt))}</p>
+                <p className="text-sm">Fin :  {new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(banner.endsAt))}</p>
                 <p className="text-sm font-bold">💎 Coût : {banner.cout} diamants</p>
               </div>
 
@@ -246,6 +260,22 @@ export default function SummonPage() {
                   </div>
                 );
               })}
+
+              {bannerEquipments.map((equipment) => (
+                <div key={equipment.id} className="text-center flex flex-col items-center">
+                  <img
+                    src={`/equipment/${equipment.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
+                    alt={equipment.name}
+                    className="w-24 h-24 object-contain rounded-lg shadow-lg"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "/epic7-Hero/sprite-hero/unknown.png"
+                    }}
+                  />
+                  <p className="text-lg font-bold mt-2">{equipment.name}</p>
+                  <p className="text-sm">{equipment.rarity}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

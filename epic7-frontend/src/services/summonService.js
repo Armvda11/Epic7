@@ -20,6 +20,16 @@ export const getBannerHeroes = async (bannerId) => {
   }
 };
 
+export const getBannerEquipments = async (bannerId) => {
+  try {
+    const response = await API.get(`/summons/${bannerId}/equipments`);
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des équipements de la bannière :", error);
+    throw error;
+  }
+};
+
 export const getOwnedHeroes = async () => {
   try {
     const response = await API.get("/summons/owned-heroes");

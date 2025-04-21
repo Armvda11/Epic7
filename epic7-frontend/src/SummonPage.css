@@ -1,4 +1,4 @@
-@keyframes glow {
+@keyframes hero-glow {
     0% {
       box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
     }
@@ -9,8 +9,25 @@
       box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
     }
   }
+
+@keyframes equip-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(0, 255, 128, 0.7); /* Vert clair */
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 255, 128, 1), 0 0 80px rgba(0, 255, 128, 0.8); /* Vert clair intense */
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(0, 255, 128, 0.7); /* Vert clair */
+  }
+}
   
   .hero-glow {
-    animation: glow 1.5s infinite;
+    animation: hero-glow 1.5s infinite;
+    border-radius: 50%; /* Pour un effet arrondi */
+  }
+
+  .equip-glow {
+    animation: equip-glow 1.5s infinite;
     border-radius: 50%; /* Pour un effet arrondi */
   }
