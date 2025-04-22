@@ -66,14 +66,29 @@ public class SummonService {
         };
     }
 
+        /**
+     * Récupère la probabilité d'invocation en fonction de la rareté de l'équipement.
+     * @param element L'équipement.
+     * @return La probabilité d'invocation pour cette rareté.
+     */
+    private double getProbabilityByRarityEquip(Equipment equipment) {
+        return switch (equipment.getRarity()) {
+            case "NORMAL" -> 0.68;
+            case "RARE" -> 0.20;
+            case "EPIC" -> 0.10;
+            case "LEGENDARY" -> 0.02;
+            default -> 0.0;
+        };
+    }
+
     /**
      * Effectue une invocation de héros pour un utilisateur donné.
      * @param user L'utilisateur effectuant l'invocation.
      * @param banner La bannière d'invocation.
-     * @return Un objet Hero si l'invocation a réussi, sinon une valeur vide.
+     * @return Un objet SummonResult si l'invocation a réussi, sinon une valeur vide.
      */
     @Transactional
-    public Optional<Hero> performSummon(User user,Banner banner) {
+    public Optional<SummonResult> performSummon(User user,Banner banner) {
         // Vérifier si l'utilisateur a suffisamment de diamants
         if (user.getDiamonds() < banner.getCout()) {
             return Optional.empty();
@@ -94,9 +109,24 @@ public class SummonService {
             if (draw < probability) {
                 // Ajouter le héros à l'utilisateur
                 user.addHeros(hero, 1);
-                return Optional.of(hero);
+                return Optional.of(new SummonResult(hero, null));
             }
         }
+        // Si aucun héros n'a été invoqué, retourner un équipement
+        List<Equipment> tousEquipments = banner.getFeaturedEquipments();
+        double draw = Math.random();
+        if (!tousEquipments.isEmpty()) {
+            Collections.shuffle(tousEquipments);
+            for (Equipment equipment : tousEquipments) {
+                draw = draw - draw / tousEquipments.size();
+                double probability = getProbabilityByRarityEquip(equipment); // Probabilité d'obtenir l'équipement
+                if (draw < probability) { 
+                    user.addEquipment(equipment, 1);
+                    return Optional.of(new SummonResult(null, equipment));
+                }
+            }
+        }
+        // Si aucun héros ni équipement n'a été invoqué, retourner une valeur vide  
         return Optional.empty();
     }
 

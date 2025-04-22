@@ -2,8 +2,10 @@ package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.SummonResultDTO;
 import com.epic7.backend.model.Banner;
+import com.epic7.backend.model.Equipment;
 import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
+import com.epic7.backend.model.SummonResult;
 import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.SummonService;
@@ -57,10 +59,11 @@ public class SummonController {
             ));
         }
 
-        Optional<Hero> result = summonService.performSummon(user, bannerOpt.get());
+        Optional<SummonResult> result = summonService.performSummon(user, bannerOpt.get());
 
         if (result.isPresent()) {
-            Hero hero = result.get();
+            if (result.get().isHero()){
+            Hero hero = result.get().getHero();
             PlayerHero playerHero = user.getOwnedHeroes().stream()
                 .filter(h -> h.getHero().getId().equals(hero.getId()))
                 .findFirst()
@@ -72,8 +75,19 @@ public class SummonController {
                 hero.getName(),
                 hero.getRarity().toString(),
                 hero.getElement().toString(),
-                awakeningLevel // Inclure le niveau d'éveil
-            ));
+                awakeningLevel, // Inclure le niveau d'éveil
+                "Hero"
+            ));}
+            else { // Sinon c'est un équipement
+                Equipment equipment = result.get().getEquipment();
+                return ResponseEntity.ok(new SummonResultDTO(
+                    equipment.getName(),
+                    equipment.getRarity().toString(),
+                    equipment.getType().toString(),
+                    0, // Pas de niveau d'éveil pour l'équipement
+                    "Equipment"
+                ));
+            }
         } else {
             return ResponseEntity.ok().body(Map.of(
                 "error", true,
@@ -95,7 +109,23 @@ public class SummonController {
             ));
         }
 
-        return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes());
+        return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes().toArray());
+    }
+
+    /**
+     * Récupère les équipements d'une bannière spécifique.
+     */
+    @GetMapping("/{bannerId}/equipments")
+    public ResponseEntity<?> getBannerEquipments(@PathVariable Long bannerId) {
+        Optional<Banner> bannerOpt = summonService.getBannerById(bannerId);
+        if (bannerOpt.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Bannière non trouvée."
+            ));
+        }
+    
+        return ResponseEntity.ok(bannerOpt.get().getFeaturedEquipments().toArray());
     }
 
     /**
@@ -132,6 +162,6 @@ public class SummonController {
         String email = jwtUtil.extractEmail(token);
         User user = authService.getUserByEmail(email);
 
-        return ResponseEntity.ok(user.getOwnedHeroes());
+        return ResponseEntity.ok(user.getOwnedHeroes().toArray());
     }
 }
