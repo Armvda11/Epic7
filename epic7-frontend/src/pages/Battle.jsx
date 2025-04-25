@@ -268,7 +268,7 @@ export default function Battle() {
 
   // Affiche le panneau de sélection des héros si on est en phase de sélection
   if (selectionPhase) {
-    return <HeroSelectionPanel availableHeroes={availableHeroes} selectedHeroes={selectedHeroes} setSelectedHeroes={setSelectedHeroes} onStart={startCombat} />;
+    return <HeroSelectionPanel availableHeroes={availableHeroes} selectedHeroes={selectedHeroes} setSelectedHeroes={setSelectedHeroes} onStart={startCombat}  rtaMode={false} />;
   }
 
   // Affiche un message de chargement si l'état du combat n'est pas encore disponible
