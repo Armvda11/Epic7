@@ -1,5 +1,7 @@
 package com.epic7.backend.service.battle.engine;
 
+import com.epic7.backend.dto.boss.SimpleBattleStateDTO;
+import com.epic7.backend.dto.boss.SkillActionResultDTO;
 import com.epic7.backend.model.Hero;
 import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.Skill;
@@ -8,8 +10,7 @@ import com.epic7.backend.service.PlayerHeroService;
 import com.epic7.backend.service.SkillService;
 import com.epic7.backend.service.battle.model.BattleParticipant;
 import com.epic7.backend.service.battle.state.BattleState;
-import com.epic7.backend.dto.simple.SkillActionResultDTO;
-import com.epic7.backend.dto.simple.SimpleBattleStateDTO;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

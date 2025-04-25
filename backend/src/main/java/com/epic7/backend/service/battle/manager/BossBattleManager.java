@@ -1,9 +1,9 @@
 package com.epic7.backend.service.battle.manager;
 
-import com.epic7.backend.dto.simple.RewardDTO;
-import com.epic7.backend.dto.simple.SimpleBattleStateDTO;
-import com.epic7.backend.dto.simple.SimpleSkillActionRequest;
-import com.epic7.backend.dto.simple.SkillActionResultDTO;
+import com.epic7.backend.dto.boss.RewardDTO;
+import com.epic7.backend.dto.boss.SimpleBattleStateDTO;
+import com.epic7.backend.dto.boss.SimpleSkillActionRequest;
+import com.epic7.backend.dto.boss.SkillActionResultDTO;
 import com.epic7.backend.model.*;
 import com.epic7.backend.model.enums.EquipmentType;
 import com.epic7.backend.model.enums.ShopItemType;

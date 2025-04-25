@@ -16,12 +16,16 @@ public class GlobalSeeder {
     private final ShopSeeder shopSeeder;
     private final SummonSeeder summonSeeder;
 
+
     @PostConstruct
     public void seed() {
         userSeeder.seedUsers();
         System.out.println("✅ Utilisateurs créés.");
         heroSeeder.seedHeroesAndSkills();
         System.out.println("✅ Héros et compétences créés.");
+
+
+
         equipmentSeeder.seedEquipment();
         System.out.println("✅ Équipements créés.");
         playerSeeder.seedPlayerHeroes();
@@ -34,6 +38,7 @@ public class GlobalSeeder {
         System.out.println("✅ Invocations prêtes.");
         messageSeeder.seedMessages();
         System.out.println("✅ Messages créés.");
+
         
         System.out.println("✅ Base de données initialisée.");
     }

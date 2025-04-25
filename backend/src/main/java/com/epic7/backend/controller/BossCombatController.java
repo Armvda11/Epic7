@@ -1,6 +1,6 @@
 package com.epic7.backend.controller;
 
-import com.epic7.backend.dto.simple.*;
+import com.epic7.backend.dto.boss.*;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.enums.ShopItemType;
 import com.epic7.backend.service.AuthService;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/combat")
 @RequiredArgsConstructor
-public class SimpleCombatController {
+public class BossCombatController {
 
     private final BossBattleManager battleService;
     private final AuthService authService;
