@@ -35,7 +35,7 @@ export default function SummonPage() {
     const fetchActiveBanners = async () => {
       try {
         const response = await API.get("/summons/active-banners");
-        console.log("Bannières actives récupérées :", response.data); // Log de la réponse
+        //console.log("Bannières actives récupérées :", response.data); // Log de la réponse
         setActiveBanners(response.data);
       } catch (error) {
         console.error("Erreur lors de la récupération des bannières actives :", error);
@@ -49,10 +49,22 @@ export default function SummonPage() {
     const fetchOwnedHeroes = async () => {
       try {
         const heroes = await getOwnedHeroes();
-        console.log("Héros possédés récupérés :", heroes); // Log de la réponse
-        setOwnedHeroes(heroes);
+      //  console.log("Héros possédés récupérés :", heroes); // Log de la réponse
+        
+        // Vérifier si la réponse est un tableau
+        if (Array.isArray(heroes)) {
+          setOwnedHeroes(heroes);
+        } else if (heroes && heroes.data && Array.isArray(heroes.data)) {
+          // Si la réponse est un objet avec une propriété data qui est un tableau
+          setOwnedHeroes(heroes.data);
+        } else {
+          // Si le format est complètement différent, initialiser un tableau vide
+          console.error("Format de données inattendu pour les héros possédés:", heroes);
+          setOwnedHeroes([]);
+        }
       } catch (error) {
         console.error("Erreur lors de la récupération des héros possédés :", error);
+        setOwnedHeroes([]);
       }
     };
 
@@ -235,7 +247,10 @@ export default function SummonPage() {
             <h2 className="text-2xl font-bold mb-4">Héros de la bannière : {selectedBanner.name}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {bannerHeroes.map((hero) => {
-                const ownedHero = ownedHeroes.find((h) => h.hero.id === hero.id);
+                // Vérifier que ownedHeroes est un tableau avant d'utiliser find
+                const ownedHero = Array.isArray(ownedHeroes) 
+                  ? ownedHeroes.find((h) => h && h.hero && h.hero.id === hero.id)
+                  : null;
 
                 return (
                   <div key={hero.id} className="text-center flex flex-col items-center">

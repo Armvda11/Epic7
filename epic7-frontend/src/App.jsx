@@ -15,6 +15,7 @@ import Battle from "./pages/Battle";
 import SummonPage from "./pages/SummonPage";
 import UserProfile from './pages/UserProfile';
 import GuildsPage from "./pages/GuildsPage";
+import RtaBattlePage from './pages/RtaBattlePage';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
         <Route path="/battle" element={<Battle />} />
         <Route path="/guilds" element={<GuildsPage />} />
         <Route path="/summons" element={<SummonPage />} />
+        <Route path="/rta" element={<RtaBattlePage />} />
         
         <Route path="/hero" element={<PrivateRoute />}>
           <Route path=":heroId" element={<HeroView />} /> 

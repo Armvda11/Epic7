@@ -5,7 +5,7 @@ export const getMyHeroes = async (options = {}, userId = null) => {
   try {
     // Si userId est fourni, récupère les héros de cet utilisateur
     const endpoint = userId ? `/player-hero/user/${userId}` : "/player-hero/my";
-    console.log(`Récupération des héros avec l'endpoint: ${endpoint}`);
+    // console.log(`Récupération des héros avec l'endpoint: ${endpoint}`);
     
     const response = await API.get(endpoint, { ...options });
     return Array.isArray(response.data) ? response.data : [];
@@ -20,7 +20,7 @@ export const getMyHeroes = async (options = {}, userId = null) => {
 export const getUserHeroes = async (userId) => {
   try {
     const response = await API.get(`/player-hero/user`, { params: { userId } });
-    console.log(`Récupération des héros pour l'utilisateur ${userId}`);
+    // console.log(`Récupération des héros pour l'utilisateur ${userId}`);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error("Erreur lors de la récupération des héros :", error);
@@ -30,7 +30,9 @@ export const getUserHeroes = async (userId) => {
 };
 
 // Récupère les détails d'un héros spécifique
-export const fetchHeroSkills = async (heroId) => {
-  const response = await API.get(`/skill/hero/${heroId}`);
-  return response.data;
+// APRÈS
+export const fetchHeroSkills = async (playerHeroId) => {
+  // on appelle l’endpoint PlayerHero → SkillController#getSkillsByPlayerHeroId
+  const { data } = await API.get(`/skill/player-hero/${playerHeroId}/skills`);
+  return data;
 };

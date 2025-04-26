@@ -10,387 +10,276 @@ import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelecti
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
 
+// utilitaire de log
+function logBattleAction(message, data) {
+  console.log(`%c[BATTLE] ${message}`, 'color: #42b883; font-weight: bold;', data);
+}
+
 export default function Battle() {
-  // --- ÉTATS (STATES) ---
-  
-  // États de la phase de sélection des héros
-  const [selectionPhase, setSelectionPhase] = useState(true); // Indique si on est en phase de sélection de héros
-  const [availableHeroes, setAvailableHeroes] = useState([]); // Liste des héros disponibles pour le joueur
-  const [selectedHeroes, setSelectedHeroes] = useState([null, null, null, null]); // Héros sélectionnés par le joueur (max 4)
+  // 🗂 Sélection des héros
+  const [selectionPhase,    setSelectionPhase]     = useState(true);
+  const [availableHeroes,   setAvailableHeroes]   = useState([]);
+  const [selectedHeroes,    setSelectedHeroes]    = useState([null, null, null, null]);
 
-  // États du combat
-  const [battleState, setBattleState] = useState(null); // État général du combat (participants, tours, etc.)
-  const [currentHeroSkills, setCurrentHeroSkills] = useState([]); // Compétences du héros dont c'est le tour
-  const [selectedSkillId, setSelectedSkillId] = useState(null); // ID de la compétence sélectionnée
-  const [selectedSkillType, setSelectedSkillType] = useState(null); // Type de la compétence (DAMAGE, HEAL, etc.)
-  const [cooldowns, setCooldowns] = useState({}); // Périodes de recharge des compétences
-  const [floatingDamages, setFloatingDamages] = useState([]); // Animations de dégâts flottants
-  const [loading, setLoading] = useState(false); // Indicateur de chargement
-  const [bossAttacking, setBossAttacking] = useState(false); // Indique si un boss est en train d'attaquer
+  // 🛡️ État du combat
+  const [battleState,       setBattleState]       = useState(null);
+  const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
+  const [selectedSkillId,   setSelectedSkillId]   = useState(null);
+  const [selectedSkillType, setSelectedSkillType] = useState(null);
+  const [cooldowns,         setCooldowns]         = useState({});
+  const [floatingDamages,   setFloatingDamages]   = useState([]);
+  const [bossAttacking,     setBossAttacking]     = useState(false);
+  const [reward,            setReward]            = useState(null);
 
-  const navigate = useNavigate();
-  const targetRefs = useRef({}); // Références aux éléments DOM des cibles pour positionner les animations de dégâts
+  const navigate   = useNavigate();
+  const targetRefs = useRef({});
 
-  const [reward, setReward] = useState(null); // Récompense à la fin du combat
+  // ─── Chargements initiaux ──────────────────────────────────────────────
+  useEffect(() => {
+    API.get('/player-hero/my')
+      .then(res => setAvailableHeroes(res.data))
+      .catch(err => console.error("Erreur fetchAvailableHeroes:", err));
+  }, []);
 
-
-  // Récupère les héros disponibles au montage du composant
-  useEffect(() => { fetchAvailableHeroes(); }, []);
-
-  // --- FONCTIONS DE RÉCUPÉRATION DE DONNÉES ---
-
-  // Récupère les héros disponibles depuis l'API
-  const fetchAvailableHeroes = async () => {
-    try {
-      const res = await API.get('/player-hero/my');
-      setAvailableHeroes(res.data);
-    } catch (error) {
-      console.error("Erreur lors de la récupération des héros :", error);
-    }
-  };
-
-
-  // -- FONCTIONS POUR LA GESTION DES RECOMPENSES --
-  const fetchReward = async () => {
+  // ─── Gestion des récompenses ───────────────────────────────────────────
+  async function fetchReward() {
     try {
       const res = await API.post('/combat/reward');
       setReward(res.data);
-      // affihcher la quantité de diamant de l'utilisateur
-      const userDiamonds = res.data.diamonds;
-      console.log("Diamants de l'utilisateur :", userDiamonds);
-    } catch (error) {
-      console.error("Erreur lors de la récupération de la récompense :", error);
+    } catch (err) {
+      console.error("Erreur fetchReward:", err);
     }
-  };
-  
+  }
 
-  // --- FONCTIONS DE GESTION DU COMBAT ---
-
-  // Démarre le combat avec les héros sélectionnés
-  const startCombat = async () => {
+  // ─── Boucle de combat ──────────────────────────────────────────────────
+  async function startCombat() {
     try {
-      // Filtre les héros sélectionnés non-null et extrait leurs IDs
       const heroIds = selectedHeroes.filter(Boolean).map(h => h.id);
-      // Envoie la requête pour démarrer le combat avec le boss et les héros sélectionnés
       await API.post('/combat/start', {
-        bossHeroId: 1, // ID du boss (fixé à 1 pour l'instant)
-        selectedPlayerHeroIds: heroIds
+        bossHeroId: 1,
+        selectedPlayerHeroIds: heroIds,
       });
-      // Récupère l'état initial du combat
       await fetchBattleState();
-      // Passe à la phase de combat
       setSelectionPhase(false);
-    } catch (error) {
-      console.error('Erreur au démarrage du combat :', error);
+    } catch (err) {
+      console.error("Erreur startCombat:", err);
     }
-  };
+  }
 
-  // Récupère l'état actuel du combat depuis l'API
-  const fetchBattleState = async () => {
-    const res = await API.get('/combat/state');
-    const state = res.data;
-    setBattleState(state);
-    setCooldowns(state.cooldowns || {});
-    const currentHero = state.participants[state.currentTurnIndex];    
-
-    // Si c'est au tour d'un boss de jouer et que le combat n'est pas terminé
-    if (!currentHero.player && !state.finished) {
-      // Déclenche l'animation d'attaque du boss
-      setBossAttacking(true);
-      // Attend un délai pour que le joueur voie le boss se préparer
-      setTimeout(() => {
-        handleBossAction(currentHero.id);
-      }, 1500);
-    } else {
-      // Si c'est au tour d'un héros joueur, récupère ses compétences
-      if (currentHero.player) {
-        const skillsRes = await API.get(`/player-hero/${currentHero.id}/skills`);
-        setCurrentHeroSkills(skillsRes.data);
-      } else {
-        setCurrentHeroSkills([]);
+  async function fetchBattleState() {
+    try {
+      const { data: state } = await API.get('/combat/state');
+      if (state.logs?.length) {
+        logBattleAction('📜 LOGS DE COMBAT', state.logs.slice(-3));
       }
-      // Réinitialise la sélection de compétence
-      setSelectedSkillId(null);
-      setSelectedSkillType(null);
-    }
-  };
+      setBattleState(state);
+      setCooldowns(state.cooldowns || {});
 
-  // Gère l'action automatique du boss
-  const handleBossAction = async () => {
-    try {
-      // Étape 1 : prépare l'attaque
-      setBossAttacking(true);
-  
-      // Étape 2 : 1 seconde plus tard, on "anime" l'attaque du boss (ex: shake)
-      setTimeout(() => {
-        // Étape 3 : encore 1s après, on récupère les dégâts infligés
-        setTimeout(async () => {
-          await fetchBattleState(); // ici le boss a attaqué côté backend
-          setBossAttacking(false); // on cache "le boss attaque..."
-        }, 1000); // délai entre attaque visuelle et dégâts
-      }, 1000); // délai entre "prépare à attaquer" et action visuelle
-    } catch (error) {
-      console.error("Erreur lors de l'action du boss :", error);
-      setBossAttacking(false);
-    }
-  };
-  
-  
-
-  // Utilise une compétence sur une cible
-  const useSkill = async (targetId) => {
-    const currentHero = battleState.participants[battleState.currentTurnIndex];
-    try {
-      // Envoie une requête pour utiliser la compétence sélectionnée
-      const res = await API.post('/combat/action/skill', {
-        playerHeroId: currentHero.id,
-        skillId: selectedSkillId,
-        targetId,
-      });
-      
-      // Traite les résultats de l'action
-      const { damageDealt, targetId: resultTargetId, type, battleState: newState } = res.data;
-      setBattleState(newState);
-      setCooldowns(newState.cooldowns || {});
-
-      // Détermine qui joue ensuite
-      const newCurrentHero = newState.participants[newState.currentTurnIndex];
-      
-      // Si c'est au tour d'un boss, lance son action après un délai
-      if (!newCurrentHero.player && !newState.finished) {
+      const curr = state.participants[state.currentTurnIndex];
+      if (!curr.player && !state.finished) {
         setBossAttacking(true);
-        setTimeout(() => {
-          handleBossAction(newCurrentHero.id);
-        }, 1500);
+        setTimeout(handleBossAction, 1500);
       } else {
-        // Sinon, prépare le tour du héros
-        if (newCurrentHero.player) {
-          const skillsRes = await API.get(`/player-hero/${newCurrentHero.id}/skills`);
-          setCurrentHeroSkills(skillsRes.data);
+        if (curr.player) {
+          // ← 👉 Notez le bon endpoint `/api/skill/player-hero/...`
+          const { data: skills } = await API.get(`/skill/player-hero/${curr.id}/skills`);
+          console.log(`Compétences chargées pour ${curr.name}:`, skills);
+          setCurrentHeroSkills(skills);
         } else {
           setCurrentHeroSkills([]);
         }
+        setSelectedSkillId(null);
+        setSelectedSkillType(null);
       }
-
-      // Affiche l'animation de dégâts si nécessaire
-      if (damageDealt && resultTargetId) {
-        const targetElement = targetRefs.current[resultTargetId];
-        if (targetElement) {
-          // Calcule la position pour l'animation
-          const rect = targetElement.getBoundingClientRect();
-          const x = rect.left + rect.width / 2;
-          const y = rect.top;
-          const floatingId = Date.now();
-          
-          // Ajoute l'animation
-          setFloatingDamages(prev => [...prev, { id: floatingId, x, y, value: damageDealt, type }]);
-          
-          // Retire l'animation après un délai
-          setTimeout(() => {
-            setFloatingDamages(prev => prev.filter(d => d.id !== floatingId));
-          }, 1500);
-        }
-      }
-
-      if (newState.finished) {
-        // Si le combat est terminé, affiche la récompense
-        fetchReward();
-      }
-      
-    } catch (error) {
-      console.error("Erreur lors de l'utilisation de la compétence :", error);
+    } catch (err) {
+      console.error("Erreur fetchBattleState:", err);
     }
-  };
+  }
 
-  // Gère le clic sur une compétence
-  const handleSkillClick = (skill) => {
-    // Ignore les compétences passives
+  async function handleBossAction() {
+    await new Promise(r => setTimeout(r, 1000));
+    await fetchBattleState();
+    setBossAttacking(false);
+  }
+
+  // ─── Utilisation d'une compétence ─────────────────────────────────────
+  async function useSkill(targetId) {
+    try {
+      // on récupère l'acteur courant
+      const actor = battleState.participants[battleState.currentTurnIndex];
+
+      // on envoie l'action au back
+      const { data: result } = await API.post('/combat/action/skill', {
+        playerHeroId: actor.id,
+        skillId:      selectedSkillId,
+        targetId,
+      });
+
+      // on met à jour tout
+      setBattleState(result.battleState);
+      setCooldowns(result.battleState.cooldowns);
+
+      // dégâts flottants
+      setFloatingDamages(f => [
+        ...f,
+        { id: Date.now(), x:0, y:0, value: result.damageDealt, type: result.type }
+      ]);
+
+      // tour du boss après un délai
+      setTimeout(async () => {
+        setBossAttacking(true);
+        await fetchBattleState();
+        setBossAttacking(false);
+      }, 800);
+    } catch (err) {
+      console.error("Erreur useSkill:", err);
+    }
+  }
+
+  function handleSkillClick(skill) {
     if (skill.category === 'PASSIVE') return;
-    
-    const currentHero = battleState.participants[battleState.currentTurnIndex];
-    // Vérifie si la compétence est en recharge
-    const cooldownLeft = cooldowns?.[currentHero?.id]?.[skill.id] || 0;
-    if (cooldownLeft > 0) return;
-    
-    // Si la compétence est déjà sélectionnée, essaie de l'utiliser sur une cible par défaut
+    const curr = battleState.participants[battleState.currentTurnIndex];
+    const cd   = cooldowns[curr.id]?.[skill.id] || 0;
+    if (cd > 0) {
+      console.log(`🕒 ${skill.name} en cooldown (${cd})`);
+      return;
+    }
+
+    logBattleAction('🔍 COMPÉTENCE SÉLECTIONNÉE', {
+      hero:    curr.name,
+      skill:   skill.name,
+      action:  skill.action,
+      cooldown: skill.cooldown
+    });
+
     if (selectedSkillId === skill.id) {
-      const defaultTarget = battleState.participants.find(p => skill.action === 'HEAL' ? p.player : !p.player);
-      if (defaultTarget) useSkill(defaultTarget.id);
+      const def = battleState.participants.find(p =>
+        skill.action === 'HEAL' ? p.player : !p.player
+      );
+      if (def) useSkill(def.id);
     } else {
-      // Sinon, sélectionne cette compétence
       setSelectedSkillId(skill.id);
       setSelectedSkillType(skill.action);
     }
-  };
+  }
 
-  // Détermine la classe CSS de mise en évidence pour une cible potentielle
-  const getHighlightClass = (participant) => {
-    if (!selectedSkillId || !selectedSkillType) return '';
-    const shouldHighlight =
-      (selectedSkillType === 'DAMAGE' && !participant.player) ||
-      (selectedSkillType === 'HEAL' && participant.player);
-      return shouldHighlight
+  function getHighlightClass(p) {
+    if (!selectedSkillId) return '';
+    const ok = (selectedSkillType === 'DAMAGE' && !p.player)
+            || (selectedSkillType === 'HEAL'   && p.player);
+    return ok
       ? 'animate-pulse ring-4 ring-blue-500 cursor-pointer'
       : 'brightness-75';
-  };
+  }
 
-  // Désélectionne la compétence si on clique en dehors de la barre de compétences ou d'une cible
+  // désélection au clic extérieur
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      const skillBar = document.getElementById("skill-bar");
-      const isClickOnSkillBar = skillBar && skillBar.contains(event.target);
-      const isClickOnTarget = event.target.closest(".battle-target");
-  
-      if (!isClickOnSkillBar && !isClickOnTarget) {
+    const onDoc = e => {
+      const bar = document.getElementById('skill-bar');
+      if (!bar?.contains(e.target) && !e.target.closest('.battle-target')) {
         setSelectedSkillId(null);
         setSelectedSkillType(null);
       }
     };
-  
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
-  
-  // Détermine l'index du prochain participant qui jouera
-  const getNextTurnIndex = () => {
-    const total = battleState.participants.length;
-    for (let i = 1; i < total; i++) {
-      const idx = (battleState.currentTurnIndex + i) % total;
-      // Vérifie que le participant est toujours en vie
-      if (battleState.participants[idx].currentHp > 0) return idx;
+
+  function getNextTurnIndex() {
+    const arr = battleState.participants;
+    for (let i = 1; i < arr.length; i++) {
+      const idx = (battleState.currentTurnIndex + i) % arr.length;
+      if (arr[idx].currentHp > 0) return idx;
     }
     return null;
-  };
-
-  // --- RENDU CONDITIONNEL ---
-
-  // Affiche le panneau de sélection des héros si on est en phase de sélection
-  if (selectionPhase) {
-    return <HeroSelectionPanel availableHeroes={availableHeroes} selectedHeroes={selectedHeroes} setSelectedHeroes={setSelectedHeroes} onStart={startCombat} />;
   }
 
-  // Affiche un message de chargement si l'état du combat n'est pas encore disponible
-  if (!battleState) return <div className="text-center text-white mt-12 text-xl animate-pulse">Chargement du combat...</div>;
+  // ─── Rendu ─────────────────────────────────────────────────────────────
+  if (selectionPhase) {
+    return (
+      <HeroSelectionPanel
+        availableHeroes={availableHeroes}
+        selectedHeroes={selectedHeroes}
+        setSelectedHeroes={setSelectedHeroes}
+        onStart={startCombat}
+        rtaMode={false}
+      />
+    );
+  }
+  if (!battleState) {
+    return <div className="text-center text-white animate-pulse mt-12">Chargement du combat...</div>;
+  }
 
-  // --- PRÉPARATION DES DONNÉES POUR LE RENDU ---
-  
-  const currentHero = battleState.participants[battleState.currentTurnIndex];
-  const isPlayerTurn = currentHero?.player;
-  const nextHeroId = battleState.participants[getNextTurnIndex()]?.id;
+  const current      = battleState.participants[battleState.currentTurnIndex];
+  const isPlayerTurn = current.player;
+  const nextIdx      = getNextTurnIndex();
+  const players      = battleState.participants.filter(p => p.player && p.currentHp > 0);
+  const enemies      = battleState.participants.filter(p => !p.player && p.currentHp > 0);
 
-  // Sépare les participants en joueurs et ennemis (seulement ceux encore en vie)
-  const players = battleState.participants.filter(p => p.player && p.currentHp > 0);
-  const enemies = battleState.participants.filter(p => !p.player && p.currentHp > 0);
-
-  // --- RENDU PRINCIPAL ---
-  
   return (
-    <div className="relative h-screen w-screen bg-[url('/arena.webp')] bg-cover bg-center text-white overflow-hidden">
-      {/* Affiche le portrait du héros dont c'est le tour */}
-      <HeroPortraitOverlay hero={currentHero} />
+    <div className="relative h-screen w-screen bg-[url('/arena.webp')] bg-cover text-white overflow-hidden">
+      <HeroPortraitOverlay hero={current} />
 
-      {/* Affiche une notification quand le boss attaque */}
       {bossAttacking && (
         <div className="absolute inset-0 z-40 flex items-center justify-center">
           <div className="bg-red-500/30 p-4 rounded-lg text-2xl font-bold animate-pulse">
-            {currentHero.name} se prépare à attaquer...
+            {current.name} se prépare à attaquer...
           </div>
         </div>
       )}
 
-      {/* Barre d'ordre de tour pour les alliés (à gauche) */}
-      <div className="absolute top-20 left-0 z-40 pl-4">
-        <TurnOrderBar
-          participants={players}
-          currentId={currentHero.id}
-          nextId={battleState.participants[getNextTurnIndex()]?.id}
-        />
+      {/* ordre de tour */}
+      <div className="absolute top-20 left-0 pl-4 z-40">
+        <TurnOrderBar participants={players} currentId={current.id} nextId={battleState.participants[nextIdx]?.id}/>
+      </div>
+      <div className="absolute top-20 right-0 pr-4 z-40">
+        <TurnOrderBar participants={enemies} currentId={current.id} nextId={battleState.participants[nextIdx]?.id}/>
       </div>
 
-      {/* Barre d'ordre de tour pour les ennemis (à droite) */}
-      <div className="absolute top-20 right-0 z-40 pr-4">
-        <TurnOrderBar
-          participants={enemies}
-          currentId={currentHero.id}
-          nextId={battleState.participants[getNextTurnIndex()]?.id}
-        />
-      </div>
-
-      {/* Zone principale avec les héros et ennemis */}
+      {/* zone avatars */}
       <div className="absolute inset-0 flex items-center justify-between px-20">
-        {/* Zone des héros alliés (à gauche) */}
+        {/* alliés */}
         <div className="flex flex-col gap-12 items-start">
-          {/* Première ligne d'alliés (positions 0-1) */}
-          <div className="flex gap-8">
-            {players.slice(0, 2).map(hero => (
-              <div key={hero.id} ref={el => targetRefs.current[hero.id] = el} className="battle-target"> 
-                <BattleHeroCard 
-                  hero={hero} 
-                  isCurrent={hero.id === currentHero.id} 
-                  isNext={hero.id === nextHeroId} 
-                  highlight={getHighlightClass(hero)} 
-                  onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)} 
-                />
-              </div>
-            ))}
-          </div>
-          {/* Seconde ligne d'alliés (positions 2-3) */}
-          <div className="flex gap-8">
-            {players.slice(2).map(hero => (
-              <div key={hero.id} ref={el => targetRefs.current[hero.id] = el} className="battle-target">
-                <BattleHeroCard 
-                  hero={hero} 
-                  isCurrent={hero.id === currentHero.id} 
-                  isNext={hero.id === nextHeroId} 
-                  highlight={getHighlightClass(hero)} 
-                  onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(hero.id)} 
-                />
-              </div>
-            ))}
-          </div>
+          {[players.slice(0,2), players.slice(2)].map((row,i) => (
+            <div key={i} className="flex gap-8">
+              {row.map(h => (
+                <div key={h.id} ref={el => targetRefs.current[h.id] = el} className="battle-target">
+                  <BattleHeroCard
+                    hero={h}
+                    isCurrent={h.id === current.id}
+                    isNext={h.id === battleState.participants[nextIdx]?.id}
+                    highlight={getHighlightClass(h)}
+                    onClick={() => selectedSkillId && selectedSkillType==='HEAL' && useSkill(h.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
-
-        {/* Zone des ennemis (à droite) */}
+        {/* ennemis */}
         <div className="flex flex-col gap-12 items-end">
-          {/* Première ligne d'ennemis (positions 0-1) */}
-          <div className="flex gap-8">
-            {enemies.slice(0, 2).map(boss => (
-              <div key={boss.id} ref={el => targetRefs.current[boss.id] = el} className="battle-target">
-                <BattleHeroCard 
-                  hero={boss} 
-                  isCurrent={boss.id === currentHero.id} 
-                  highlight={getHighlightClass(boss)} 
-                  onClick={() => selectedSkillId && selectedSkillType === 'DAMAGE' && useSkill(boss.id)} 
-                />
-              </div>
-            ))}
-          </div>
-          {/* Seconde ligne d'ennemis (positions 2-3) */}
-          <div className="flex gap-8">
-            {enemies.slice(2).map(boss => (
-              <div key={boss.id} ref={el => targetRefs.current[boss.id] = el} className="battle-target">
-                <BattleHeroCard 
-                  hero={boss} 
-                  isCurrent={boss.id === currentHero.id} 
-                  highlight={getHighlightClass(boss)} 
-                  onClick={() => selectedSkillId && selectedSkillType === 'DAMAGE' && useSkill(boss.id)} 
-                />
-              </div>
-            ))}
-          </div>
+          {[enemies.slice(0,2), enemies.slice(2)].map((row,i) => (
+            <div key={i} className="flex gap-8">
+              {row.map(b => (
+                <div key={b.id} ref={el => targetRefs.current[b.id] = el} className="battle-target">
+                  <BattleHeroCard
+                    hero={b}
+                    isCurrent={b.id === current.id}
+                    highlight={getHighlightClass(b)}
+                    onClick={() => selectedSkillId && selectedSkillType==='DAMAGE' && useSkill(b.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Barre de compétences (visible uniquement quand c'est au tour du joueur) */}
+      {/* skill bar */}
       {isPlayerTurn && currentHeroSkills.length > 0 && (
-        <div
-          id="skill-bar"
-          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30"
-        >
+        <div id="skill-bar" className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30">
           <BattleSkillBar
-            currentHero={currentHero}
+            currentHero={current}
             currentHeroSkills={currentHeroSkills}
             cooldowns={cooldowns}
             selectedSkillId={selectedSkillId}
@@ -399,27 +288,24 @@ export default function Battle() {
         </div>
       )}
 
-      {/* Animations de dégâts flottants */}
-      {floatingDamages.map(fd => (<FloatingDamage key={fd.id} {...fd} />))}
+      {/* dégâts flottants */}
+      {floatingDamages.map(fd => <FloatingDamage key={fd.id} {...fd} />)}
 
-      {/* Overlay de fin de combat (victoire ou défaite) */}
+      {/* fin */}
       {battleState.finished && (
-  <BattleEndOverlay 
-    status={battleState.logs.some(log => log.includes("Victoire")) ? "VICTOIRE" : "DÉFAITE"} 
-    reward={reward}
-    onReturn={() => navigate("/dashboard")} 
-  />
-)}
-{/* Bouton pour abandonner le combat (visible uniquement quand c'est au tour du joueur) */}
-{(isPlayerTurn && !battleState.finished) && (
-  <div className="absolute bottom-4 right-4 z-50">
-    <BattleForfeitButton onClick={() => setSelectionPhase(true)} />   
-  </div>
-)}
+        <BattleEndOverlay
+          status={battleState.logs.some(l => l.includes('Victoire')) ? 'VICTOIRE' : 'DÉFAITE'}
+          reward={reward}
+          onReturn={() => navigate('/dashboard')}
+        />
+      )}
 
-
-
-
+      {/* abandon */}
+      {isPlayerTurn && !battleState.finished && (
+        <div className="absolute bottom-4 right-4 z-50">
+          <BattleForfeitButton onClick={() => setSelectionPhase(true)} />
+        </div>
+      )}
     </div>
   );
 }

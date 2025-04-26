@@ -12,7 +12,7 @@ import DroppableSlot from './DroppableSlot';
 import FilterControls from './FilterControls';
 import { heroImg } from '../../heroUtils';
 
-export default function HeroSelectionPanel({ availableHeroes: initialHeroes, selectedHeroes, setSelectedHeroes, onStart }) {
+export default function HeroSelectionPanel({ availableHeroes: initialHeroes, selectedHeroes, setSelectedHeroes, onStart, rtaMode = false }) {
   const [availableHeroes, setAvailableHeroes] = useState(initialHeroes);
   const [activeHero, setActiveHero] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,14 +122,21 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
 
           <button
             onClick={onStart}
-            disabled={selectedHeroes.filter(Boolean).length === 0}
+            disabled={rtaMode ? selectedHeroes.filter(Boolean).length <2 : selectedHeroes.filter(Boolean).length < 1}
             className={`mt-6 px-8 py-3 rounded-xl font-bold transition transform duration-300 ${
-              selectedHeroes.filter(Boolean).length === 0
+              (rtaMode && selectedHeroes.filter(Boolean).length !== 4) || 
+              (!rtaMode && selectedHeroes.filter(Boolean).length < 1)
                 ? 'bg-gray-600 cursor-not-allowed opacity-50'
-                : 'bg-green-600 hover:bg-green-700 hover:scale-105 shadow-lg'
+                : rtaMode 
+                  ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 shadow-lg'
+                  : 'bg-green-600 hover:bg-green-700 hover:scale-105 shadow-lg'
             }`}
           >
-            🚀 Lancer le combat
+            {rtaMode 
+              ? '🔍 Rechercher un adversaire (4 héros requis)' 
+              : selectedHeroes.filter(Boolean).length > 0 
+                ? '🚀 Lancer le combat' 
+                : '🚀 Sélectionnez au moins 1 héro'}
           </button>
         </div>
 

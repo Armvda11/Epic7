@@ -63,7 +63,7 @@ const HeroCard = ({ heroInstance, onSelect }) => {
       {/* Image du héros */}
       <figure className="overflow-hidden rounded-lg shadow-inner">
         <picture>
-        <source srcSet={heroImgAvif(imgCode)} type="image/avif" />
+
         <source srcSet={heroImg(imgCode)} type="image/webp" />
           <img
             src={heroImg(imgCode)}

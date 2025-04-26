@@ -20,7 +20,7 @@ import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,Fa
 const Dashboard = () => {
   const navigate = useNavigate();
   const settings = useSettings();
-console.log("settings:", settings); // bizarre vérification
+
   const { language, t, theme } = settings ;   // Add theme from settings
   const [user, setUser] = useState(null);  // inormations de l'utilisateur
   const [showProfile, setShowProfile] = useState(false); // État pour afficher la carte de profil
@@ -129,7 +129,7 @@ console.log("settings:", settings); // bizarre vérification
     { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
     { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
-    { label: t("battle", language), icon: <FaCrosshairs size={28} /> },
+    { label: t("battle", language), icon: <FaCrosshairs size={28} /> ,action: () => navigate("/rta")},
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
     { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
   ];

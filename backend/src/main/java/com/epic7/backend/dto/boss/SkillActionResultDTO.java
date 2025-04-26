@@ -1,4 +1,4 @@
-package com.epic7.backend.dto.simple;
+package com.epic7.backend.dto.boss;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

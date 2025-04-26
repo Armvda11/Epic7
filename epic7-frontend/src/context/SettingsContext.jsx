@@ -32,7 +32,7 @@ export const SettingsProvider = ({ children }) => {
     localStorage.setItem("theme", theme);
     
     // Log for debugging
-    console.log(`Theme set to: ${theme}`);
+    // console.log(`Theme set to: ${theme}`);
   }, [theme]);
 
   // Save language preference to localStorage

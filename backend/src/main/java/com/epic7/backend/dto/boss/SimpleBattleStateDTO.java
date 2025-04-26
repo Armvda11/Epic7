@@ -1,4 +1,4 @@
-package com.epic7.backend.dto.simple;
+package com.epic7.backend.dto.boss;
 
 import com.epic7.backend.service.battle.model.BattleParticipant;
 import com.epic7.backend.service.battle.state.BattleState;
