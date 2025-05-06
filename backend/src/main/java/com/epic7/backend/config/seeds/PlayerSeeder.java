@@ -31,7 +31,7 @@ public class PlayerSeeder {
         if (playerHeroRepo.count() == 0) {
             Optional<User> u1 = userRepo.findByEmail("hermas@example.com");
             Optional<User> u2 = userRepo.findByEmail("arya@example.com");
-            Optional<User> u3 = userRepo.findByEmail("corentin.cousty@gmail.com");
+            Optional<User> u3 = userRepo.findByEmail("corentin@example.com");
             List<Hero> heroes = heroRepo.findAll();
 
             if (u1.isPresent() && u2.isPresent() && heroes.size() >= 3) {
@@ -47,7 +47,6 @@ public class PlayerSeeder {
                     new PlayerHero(u3.get(), heroes.get(2)),
                     new PlayerHero(u3.get(), heroes.get(4)),
                     new PlayerHero(u3.get(), heroes.get(3))
-                    
                 ));
                 System.out.println("✅ Héros joueurs ajoutés.");
             }
