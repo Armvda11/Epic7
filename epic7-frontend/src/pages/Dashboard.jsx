@@ -10,7 +10,7 @@ import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
 
-import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,FaStar } from "react-icons/fa";
+import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen, FaStar, FaComments } from "react-icons/fa";
 
 // Cette page affiche le tableau de bord de l'utilisateur
 // Elle affiche les informations de l'utilisateur, un menu de navigation
@@ -43,10 +43,18 @@ const Dashboard = () => {
     const loadUser = async () => {
       try {
         const data = await fetchUserProfile(); // Récupération des données utilisateur
+        
+        // If data is null, it means the user is not authenticated
+        if (data === null) {
+          console.log("User not authenticated, redirecting to login page");
+          navigate("/"); // Redirect to login page
+          return;
+        }
+        
         setUser(data); // Mise à jour de l'état avec les données utilisateur
       } catch (error) {
         console.error("Failed to load user profile:", error);
-        // Redirection vers la page de connexion en cas d'erreur}
+        // Redirection vers la page de connexion en cas d'erreur
         navigate("/");
       }
     };
@@ -128,6 +136,7 @@ const Dashboard = () => {
     { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
     { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
     { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
+    { label: t("globalChat", language), icon: <FaComments size={28} />, action: () => navigate("/global-chat") },
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
     { label: t("battle", language), icon: <FaCrosshairs size={28} /> ,action: () => navigate("/rta")},
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },

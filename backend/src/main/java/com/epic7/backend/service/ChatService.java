@@ -2,6 +2,7 @@ package com.epic7.backend.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
@@ -35,6 +36,8 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
     private final GuildRepository guildRepository;
+    
+    private final GuildService guildService;
 
     // ------------------ CHAT ROOM MANAGEMENT ------------------
 
@@ -395,8 +398,9 @@ public class ChatService {
             Guild guild = guildRepository.findById(chatRoom.getGroupId())
                     .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
             
-            return guild.getMembers().stream()
-                    .anyMatch(member -> member.getUser().getId().equals(userId));
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
+            return guildService.isMemberOfGuild(user, chatRoom.getGroupId());
         } else if (chatRoom.getType() == ChatType.FIGHT) {
             // Pour un chat de combat, l'accès est limité aux participants du combat
             // Seuls les participants sont dans la room

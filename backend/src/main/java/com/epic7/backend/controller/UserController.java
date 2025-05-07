@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
@@ -28,20 +29,28 @@ public class UserController {
         this.userService = userService;
     }
 
-
     @GetMapping("/me")
-    public UserProfileResponse getProfile(HttpServletRequest request) {
-        String token = jwtUtil.extractTokenFromHeader(request);
-        User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+    public ResponseEntity<?> getProfile(HttpServletRequest request) {
+        try {
+            String token = jwtUtil.extractTokenFromHeader(request);
+            if (token == null) {
+                // Return a specific response indicating user is not logged in
+                return ResponseEntity.ok(Map.of("authenticated", false, "message", "User not authenticated"));
+            }
+            
+            User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
+            userService.updateEnergy(user); // Mise à jour à la volée
 
-        userService.updateEnergy(user); // Mise à jour à la volée
-
-        return new UserProfileResponse(
-                user.getUsername(),
-                user.getLevel(),
-                user.getGold(),
-                user.getDiamonds(),
-                user.getEnergy());
+            return ResponseEntity.ok(new UserProfileResponse(
+                    user.getUsername(),
+                    user.getLevel(),
+                    user.getGold(),
+                    user.getDiamonds(),
+                    user.getEnergy()));
+        } catch (Exception e) {
+            // Just return a "not authenticated" response instead of throwing an error
+            return ResponseEntity.ok(Map.of("authenticated", false, "message", "User not authenticated"));
+        }
     }
 
     @GetMapping("/friends")

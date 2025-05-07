@@ -27,7 +27,8 @@ import {
   FaPencilAlt,
   FaCog,
   FaTrash,
-  FaUsers
+  FaUsers,
+  FaComments
 } from "react-icons/fa";
 import GuildSearchModal from "../components/guilds/GuildSearchModal";
 import GuildMemberList from "../components/guilds/GuildMemberList";
@@ -46,7 +47,8 @@ const GuildDetails = ({
   onDeleteGuild, 
   onKickMember, 
   onChangeRole, 
-  onBanMember 
+  onBanMember,
+  onOpenChat
 }) => {
   const { language, t } = useSettings();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -212,6 +214,13 @@ const GuildDetails = ({
             className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center"
           >
             <FaSignOutAlt className="mr-2" /> {t("leaveGuild", language)}
+          </button>
+          {/* Button to open guild chat */}
+          <button
+            onClick={() => onOpenChat(userGuild.id)}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <FaComments className="mr-2" /> {t("guildChat", language)}
           </button>
           {/* Button to show/hide the search bar */}
           <button
@@ -629,6 +638,7 @@ const GuildsPage = () => {
                 joinDate: new Date().toISOString()
               };
               setGuildMembers([defaultMember]);
+              console.log("Created default member:", defaultMember);
             }
           }, 500);
           
@@ -811,6 +821,11 @@ const GuildsPage = () => {
     setShowSearchModal(true);
   };
 
+  // Handle navigate to guild chat
+  const handleOpenGuildChat = (guildId) => {
+    navigate(`/guild/${guildId}/chat`);
+  };
+
   // If data is loading
   if (loading) {
     return (
@@ -899,6 +914,7 @@ const GuildsPage = () => {
             onKickMember={handleKickMember}
             onChangeRole={handleChangeRole}
             onBanMember={handleBanMember}
+            onOpenChat={handleOpenGuildChat}
           />
         ) : (
           <NoGuildSection

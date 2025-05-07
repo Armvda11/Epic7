@@ -6,6 +6,14 @@ export const fetchUserProfile = async () => {
     const response = await API.get("/user/me", { 
       useGlobalErrorHandler: false 
     });
+    
+    // Check if the response indicates the user is not authenticated
+    if (response.data && response.data.authenticated === false) {
+      // Return null or throw a specific error that can be handled gracefully
+      // without showing error messages in the console
+      return null;
+    }
+    
     return response.data;
   } catch (error) {
     console.error("Erreur lors du chargement du profil utilisateur :", error);

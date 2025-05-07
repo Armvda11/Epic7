@@ -43,6 +43,11 @@ export const logout = () => localStorage.removeItem(TOKEN_KEY);
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 
 /**
+ * Vérifie si l'utilisateur est authentifié.
+ */
+export const isAuthenticated = () => !!getToken();
+
+/**
  * Retourne les headers d'autorisation (Bearer).
  */
 export const getAuthHeaders = () => {

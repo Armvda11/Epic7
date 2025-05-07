@@ -8,10 +8,9 @@ import com.epic7.backend.model.*;
 import com.epic7.backend.model.enums.GuildRole;
 import com.epic7.backend.repository.*;
 
-import lombok.AllArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,7 +33,6 @@ import java.util.ArrayList;
  * @authors hermas, corentin
  */
 @Service
-@AllArgsConstructor
 public class GuildService {
 
     private final GuildRepository guildRepository;
@@ -43,6 +41,22 @@ public class GuildService {
     private final GuildBanRepository guildBanRepository;
     private final MessageService messageService;
     private final ChatService chatService;
+
+    // Constructor with @Lazy for ChatService to break circular dependency
+    public GuildService(
+            GuildRepository guildRepository,
+            GuildMembershipRepository guildMembershipRepository,
+            UserRepository userRepository,
+            GuildBanRepository guildBanRepository,
+            MessageService messageService,
+            @Lazy ChatService chatService) {
+        this.guildRepository = guildRepository;
+        this.guildMembershipRepository = guildMembershipRepository;
+        this.userRepository = userRepository;
+        this.guildBanRepository = guildBanRepository;
+        this.messageService = messageService;
+        this.chatService = chatService;
+    }
 
     /**
      * Crée une nouvelle guilde.
@@ -223,6 +237,16 @@ public class GuildService {
         Guild guild = guildRepository.findByName(guildName)
                 .orElseThrow(() -> new IllegalArgumentException("Guilde introuvable"));
         return guildMembershipRepository.findByUserIdAndGuildId(user.getId(), guild.getId()).isPresent();
+    }
+
+    /**
+     * Vérifie si un utilisateur est membre d'une guilde spécifique en utilisant leurs identifiants.
+     * @param userId L'identifiant de l'utilisateur à vérifier.
+     * @param guildId L'identifiant de la guilde.
+     * @return true si l'utilisateur est membre de la guilde, false sinon.
+     */
+    public boolean isUserInGuild(Long userId, Long guildId) {
+        return guildMembershipRepository.findByUserIdAndGuildId(userId, guildId).isPresent();
     }
 
     /**
