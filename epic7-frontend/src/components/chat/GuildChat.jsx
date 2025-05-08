@@ -1,32 +1,37 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChat } from '../../context/ChatContext';
 import { useSettings } from '../../context/SettingsContext';
 import ChatInterface from './ChatInterface';
 import { FaArrowLeft, FaUsers } from 'react-icons/fa';
 import { fetchUserProfile } from '../../services/userService';
-import { guildService } from '../../services/guildService';
+import ChatWebSocketService from '../../services/ChatWebSocketService';
+import { fetchChatMessages } from '../../services/ChatServices';
 
 /**
- * GuildChat component - Allows guild members to chat with each other
+ * GuildChat component - Allows guild members to chat together
  */
-const GuildChat = () => {
+const GuildChat = ({ guildRoom, guildName }) => {
   const navigate = useNavigate();
-  const { guildId } = useParams();
   const { t, language } = useSettings();
-  const { messages, loading, error, switchRoom, sendMessage, deleteMessage, loadGuildChat } = useChat();
+  const { messages, loading, error, switchRoom, sendMessage, deleteMessage } = useChat();
   const [currentUser, setCurrentUser] = useState(null);
-  const [guild, setGuild] = useState(null);
-  const [guildChatRoom, setGuildChatRoom] = useState(null);
-  const [loadingGuild, setLoadingGuild] = useState(true);
-  const [guildError, setGuildError] = useState(null);
+  const [localMessages, setLocalMessages] = useState([]);
+  const handlerIdRef = useRef(null);
+  const messageSeenRef = useRef(new Set()); // Track seen message IDs
 
-  // Load user profile
+  // Load user profile and store in localStorage for WebSocket service
   useEffect(() => {
     const loadUser = async () => {
       try {
         const userData = await fetchUserProfile();
         setCurrentUser(userData);
+        
+        // Store user data in localStorage for WebSocket service
+        if (userData && userData.id) {
+          localStorage.setItem('userData', JSON.stringify(userData));
+          console.log('Stored user data in localStorage:', userData.id);
+        }
       } catch (error) {
         console.error('Failed to load user profile:', error);
       }
@@ -35,70 +40,196 @@ const GuildChat = () => {
     loadUser();
   }, []);
 
-  // Load guild and guild chat
+  // Initialize with context messages
   useEffect(() => {
-    const loadGuildData = async () => {
-      if (!guildId) {
-        setGuildError(t('guildIdRequired', language));
-        setLoadingGuild(false);
-        return;
-      }
-
-      try {
-        setLoadingGuild(true);
-        
-        // Load guild details
-        const guildData = await guildService.getGuildById(guildId);
-        setGuild(guildData);
-        
-        // Load guild chat room
-        const chatRoom = await loadGuildChat(guildId);
-        setGuildChatRoom(chatRoom);
-        
-        // Set active room to load messages
-        if (chatRoom) {
-          switchRoom(chatRoom);
+    if (messages && messages.length > 0) {
+      console.log('Syncing with context messages:', messages.length);
+      
+      // Add all message IDs to the seen set
+      messages.forEach(msg => {
+        if (msg.id) {
+          messageSeenRef.current.add(msg.id.toString());
         }
-        
-        setLoadingGuild(false);
+      });
+      
+      setLocalMessages(messages);
+    }
+  }, [messages]);
+
+  // Fetch all messages for the room when guildRoom changes
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!guildRoom || !guildRoom.id) return;
+      try {
+        const msgs = await fetchChatMessages(guildRoom.id);
+        // Add all message IDs to the seen set
+        msgs.forEach(msg => {
+          if (msg.id) messageSeenRef.current.add(msg.id.toString());
+        });
+        setLocalMessages(msgs);
       } catch (err) {
-        console.error('Failed to load guild data:', err);
-        setGuildError(t('failedToLoadGuild', language));
-        setLoadingGuild(false);
+        console.error('Failed to fetch guild chat messages:', err);
       }
     };
+    loadMessages();
+  }, [guildRoom]);
 
-    loadGuildData();
-  }, [guildId, loadGuildChat, switchRoom, t, language]);
+  // Initialize WebSocket connection for real-time messages
+  useEffect(() => {
+    if (!guildRoom || !guildRoom.id) return;
+    
+    console.log('Initializing WebSocket handler for guild chat:', guildRoom.id);
+    
+    // Create direct WebSocket handler for this component
+    const handleNewMessage = (messageData) => {
+      console.log('Guild component received new message:', messageData);
+      
+      if (!messageData) return;
+      
+      // Skip if we've already seen this message
+      if (messageData.id && messageSeenRef.current.has(messageData.id.toString())) {
+        console.log('Skipping already seen message:', messageData.id);
+        return;
+      }
+      
+      // Add to seen set
+      if (messageData.id) {
+        messageSeenRef.current.add(messageData.id.toString());
+      }
+      
+      // Add roomId to message if missing
+      const message = {
+        ...messageData,
+        roomId: messageData.roomId || guildRoom.id
+      };
+      
+      // If the user is the sender, mark the message
+      if (currentUser && message.sender && message.sender.id === currentUser.id) {
+        message.fromCurrentUser = true;
+      }
+      
+      // Update the local messages state immediately
+      setLocalMessages(prev => {
+        // First check if this is a confirmation of an optimistic message
+        const optimisticIndex = prev.findIndex(m => 
+          m.isOptimistic && 
+          m.content === message.content && 
+          m.sender?.id === message.sender?.id
+        );
+        
+        if (optimisticIndex !== -1) {
+          // Replace the optimistic message with the confirmed one
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = {
+            ...message,
+            fromCurrentUser: prev[optimisticIndex].fromCurrentUser
+          };
+          return newMessages;
+        }
+        
+        // Check if message already exists to avoid duplicates
+        const isDuplicate = prev.some(m => m.id === message.id);
+        if (isDuplicate) return prev;
+        
+        // Add the new message
+        return [...prev, message];
+      });
+    };
+    
+    // Register this component's message handler with the WebSocket service
+    // Listen for both direct CHAT_MESSAGE events and events that come through onChatMessage
+    const handlerId1 = ChatWebSocketService.addHandler('CHAT_MESSAGE', handleNewMessage);
+    const handlerId2 = ChatWebSocketService.addHandler('onChatMessage', handleNewMessage);
+    handlerIdRef.current = [handlerId1, handlerId2];
+    
+    console.log('Registered message handlers with IDs:', handlerIdRef.current);
+    
+    // Connect to room if not already connected
+    if (!ChatWebSocketService.isConnected() || ChatWebSocketService.roomId !== guildRoom.id) {
+      console.log('Connecting to guild chat room:', guildRoom.id);
+      ChatWebSocketService.connect(guildRoom.id);
+    }
+    
+    // Cleanup function
+    return () => {
+      if (handlerIdRef.current) {
+        console.log('Removing message handlers:', handlerIdRef.current);
+        handlerIdRef.current.forEach(id => ChatWebSocketService.removeHandler(id));
+      }
+    };
+  }, [guildRoom, currentUser]);
+
+  // Set guild chat as active when component mounts
+  useEffect(() => {
+    if (guildRoom) {
+      switchRoom(guildRoom);
+    }
+  }, [guildRoom, switchRoom]);
 
   // Handle send message
   const handleSendMessage = async (content) => {
-    await sendMessage(content);
+    // Create optimistic message
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      id: optimisticId,
+      content: content,
+      timestamp: new Date().toISOString(),
+      roomId: guildRoom?.id,
+      sender: currentUser ? { id: currentUser.id, username: currentUser.username } : undefined,
+      fromCurrentUser: true,
+      isOptimistic: true
+    };
+    
+    // Add optimistic message immediately
+    setLocalMessages(prev => [...prev, optimisticMessage]);
+    
+    // Send via WebSocket first for fastest delivery
+    if (ChatWebSocketService.isConnected()) {
+      ChatWebSocketService.sendMessage(content, guildRoom?.id);
+    }
+    
+    // Also send via chat context for persistence
+    const response = await sendMessage(content);
+    
+    // Replace optimistic message with real one if we got a response
+    if (response && response.id) {
+      // Add to seen set to prevent duplication
+      messageSeenRef.current.add(response.id.toString());
+      
+      setLocalMessages(prev => prev.map(msg => 
+        msg.id === optimisticId ? {
+          ...response,
+          fromCurrentUser: true
+        } : msg
+      ));
+    }
   };
 
   // Handle delete message
   const handleDeleteMessage = async (messageId) => {
+    // Remove from seen set
+    messageSeenRef.current.delete(messageId.toString());
+    
+    // Remove from local messages immediately
+    setLocalMessages(prev => prev.filter(msg => msg.id !== messageId));
+    
+    // Delete via chat context
     await deleteMessage(messageId);
   };
 
-  // Return to guild page
+  // Return to guilds page
   const handleBack = () => {
-    navigate(`/guilds/${guildId}`);
-  };
-
-  // Return to guilds list
-  const handleBackToGuilds = () => {
     navigate('/guilds');
   };
 
-  if (guildError || error) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
         <div className="max-w-3xl mx-auto bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6">
           <h2 className="text-2xl font-bold mb-4 text-red-500">{t('error', language)}</h2>
-          <p>{guildError || error}</p>
+          <p>{error}</p>
           <button 
-            onClick={handleBackToGuilds}
+            onClick={handleBack}
             className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
             <FaArrowLeft /> {t('backToGuilds', language)}
@@ -108,13 +239,8 @@ const GuildChat = () => {
     );
   }
 
-  if (loadingGuild) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6 flex items-center justify-center">
-        <div className="animate-spin h-12 w-12 border-4 border-purple-500 rounded-full border-t-transparent"></div>
-      </div>
-    );
-  }
+  // Use local messages for display
+  const displayMessages = localMessages;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
@@ -124,58 +250,38 @@ const GuildChat = () => {
           onClick={handleBack}
           className="mb-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
-          <FaArrowLeft /> {t('backToGuild', language)}
+          <FaArrowLeft /> {t('backToGuilds', language)}
         </button>
 
         {/* Page Header */}
-        <header className="mb-6">
+        <header className="mb-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
             <FaUsers className="text-purple-500" size={28} />
-            <h1 className="text-3xl font-bold">{guild?.name} - {t('guildChat', language)}</h1>
+            <h1 className="text-3xl font-bold">{guildName || t('guildChat', language)}</h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-center">{t('chatWithGuildMembers', language)}</p>
+          <p className="text-gray-600 dark:text-gray-300">{t('chatWithGuildMembers', language)}</p>
         </header>
-
-        {/* Guild Info */}
-        <div className="mb-6 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold">{guild?.name}</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                {t('guildMembers', language)}: {guild?.members?.length || 0}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                {t('guildLevel', language)}: {guild?.level || 1}
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Chat Interface */}
         <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl">
           <ChatInterface 
-            messages={messages}
+            messages={displayMessages}
             onSendMessage={handleSendMessage}
             onDeleteMessage={handleDeleteMessage}
             currentUser={currentUser}
             loading={loading}
-            roomName={guild?.name || t('guildChat', language)}
+            roomName={guildName || t('guildChat', language)}
             chatType="GUILD"
             canDelete={true}
           />
         </div>
 
-        {/* Guild Rules */}
-        {guild?.rules && (
-          <div className="mt-6 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4">
-            <h3 className="font-bold mb-2">{t('guildRules', language)}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {guild.rules}
-            </p>
-          </div>
-        )}
+        {/* Guild Chat Info */}
+        <div className="mt-6 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('guildChatInfo', language) || 'Use this chat to coordinate with your guild members and plan strategies.'}
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,107 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaUsers } from 'react-icons/fa';
-import { useSettings } from '../context/SettingsContext';
 import { useChat } from '../context/ChatContext';
-import ChatInterface from '../components/chat/ChatInterface';
-import { fetchGuildChatRoom } from '../services/ChatServices';
-import { fetchUserGuild } from '../services/guildService';
+import { useSettings } from '../context/SettingsContext';
+import { fetchGuildById } from '../services/guildService';
+import ChatRoom from '../components/chat/ChatRoom';
 
+/**
+ * GuildChatPage - Page component for guild chat
+ */
 const GuildChatPage = () => {
   const navigate = useNavigate();
   const { guildId } = useParams();
-  const { language, t } = useSettings();
-  const { 
-    messages, 
-    currentUser, 
-    loading, 
-    error,
-    switchRoom, 
-    sendMessage, 
-    deleteMessage 
-  } = useChat();
-  const [localLoading, setLocalLoading] = useState(true);
-  const [localError, setLocalError] = useState(null);
-  const [guild, setGuild] = useState(null);
+  const { t, language } = useSettings();
+  const { fetchChatRoomByGuildId, loading, error } = useChat();
+  const [guildInfo, setGuildInfo] = useState(null);
+  const [chatRoom, setChatRoom] = useState(null);
+  const [loadingState, setLoadingState] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
 
+  // Fetch guild info and chat room on component mount
   useEffect(() => {
-    const loadGuildChat = async () => {
+    const loadGuildAndChatRoom = async () => {
       if (!guildId) {
-        setLocalError("Guild ID is missing");
-        setLocalLoading(false);
+        setErrorMessage('Guild ID is missing');
+        setLoadingState(false);
         return;
       }
 
       try {
-        setLocalLoading(true);
-        setLocalError(null);
+        // Fetch guild information
+        const guild = await fetchGuildById(guildId);
+        setGuildInfo(guild);
         
-        // First fetch guild info to verify the user is a member
-        const guildInfo = await fetchUserGuild();
-        
-        if (!guildInfo || guildInfo.id !== parseInt(guildId)) {
-          throw new Error('You are not a member of this guild');
-        }
-        
-        setGuild(guildInfo);
-        
-        // Fetch the guild chat room
-        const guildRoom = await fetchGuildChatRoom(guildId);
-        if (!guildRoom) {
-          throw new Error('Failed to load guild chat room');
-        }
-        
-        // Switch to the guild chat room in context
-        await switchRoom(guildRoom);
+        // Fetch chat room for this guild
+        const room = await fetchChatRoomByGuildId(guildId);
+        setChatRoom(room);
       } catch (err) {
         console.error('Error loading guild chat:', err);
-        setLocalError(err.message || 'Failed to load guild chat');
+        setErrorMessage(err.message || 'Failed to load guild chat');
       } finally {
-        setLocalLoading(false);
+        setLoadingState(false);
       }
     };
-    
-    loadGuildChat();
-    
-    // Clean up function
-    return () => {
-      // Any cleanup needed when component unmounts
-    };
-  }, [guildId, switchRoom]);
 
-  const handleSendMessage = async (content) => {
-    await sendMessage(content);
-  };
+    loadGuildAndChatRoom();
+  }, [guildId, fetchChatRoomByGuildId]);
 
-  const handleDeleteMessage = async (messageId) => {
-    await deleteMessage(messageId);
-  };
-
-  const handleBackClick = () => {
+  // Handle back navigation to guild page
+  const handleBack = () => {
     navigate('/guilds');
   };
 
-  if (localLoading || loading) {
+  // Handle errors
+  const displayError = errorMessage || error;
+  if (displayError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6 flex justify-center items-center">
-        <div className="animate-spin h-12 w-12 border-4 border-purple-500 rounded-full border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
+        <div className="max-w-3xl mx-auto bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6">
+          <h2 className="text-2xl font-bold mb-4 text-red-500">{t('error', language)}</h2>
+          <p>{displayError}</p>
+          <button 
+            onClick={handleBack}
+            className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <FaArrowLeft /> {t('backToGuilds', language)}
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (localError || error) {
+  // Display loading state
+  if (loadingState || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
-        <div className="max-w-4xl mx-auto bg-red-100 dark:bg-red-900 rounded-xl p-6 shadow-xl">
-          <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-4">
-            {t('error', language)}
-          </h2>
-          <p className="text-red-600 dark:text-red-200">{localError || error}</p>
-          <button
-            onClick={handleBackClick}
-            className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+        <div className="max-w-3xl mx-auto bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6 text-center">
+          <div className="animate-pulse text-xl">
+            {t('loadingGuildChat', language) || 'Loading guild chat...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no chat room is found
+  if (!chatRoom) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
+        <div className="max-w-3xl mx-auto bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6">
+          <h2 className="text-2xl font-bold mb-4 text-amber-500">{t('noChatRoom', language) || 'No Chat Room'}</h2>
+          <p>{t('noChatRoomForGuild', language) || 'This guild does not have a chat room yet.'}</p>
+          <button 
+            onClick={handleBack}
+            className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
-            {t('returnToGuilds', language)}
+            <FaArrowLeft /> {t('backToGuilds', language)}
           </button>
         </div>
       </div>
@@ -110,38 +104,43 @@ const GuildChatPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
-        <button
-          onClick={handleBackClick}
+      <div className="max-w-3xl mx-auto">
+        {/* Back button */}
+        <button 
+          onClick={handleBack}
           className="mb-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
           <FaArrowLeft /> {t('backToGuilds', language)}
         </button>
 
         {/* Page Header */}
-        <header className="mb-6">
+        <header className="mb-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
             <FaUsers className="text-purple-500" size={28} />
-            <h1 className="text-3xl font-bold">{guild?.name || t('guildChat', language)}</h1>
+            <h1 className="text-3xl font-bold">
+              {guildInfo?.name || t('guildChat', language)}
+            </h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-center">
+          <p className="text-gray-600 dark:text-gray-300">
             {t('chatWithGuildMembers', language)}
           </p>
         </header>
 
         {/* Chat Interface */}
-        <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4 mb-8">
-          <ChatInterface
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            onDeleteMessage={handleDeleteMessage}
-            currentUser={currentUser}
-            loading={loading}
-            roomName={guild?.name}
+        <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4">
+          <ChatRoom 
+            roomId={chatRoom.id}
+            roomName={guildInfo?.name || t('guildChat', language)}
             chatType="GUILD"
-            canDelete={true}
+            onBack={handleBack}
           />
+        </div>
+
+        {/* Guild Chat Info */}
+        <div className="mt-6 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('guildChatInfo', language) || 'Use this chat to coordinate with your guild members and plan strategies.'}
+          </p>
         </div>
       </div>
     </div>

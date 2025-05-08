@@ -43,6 +43,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
+    @Column
+    private String avatarUrl; // Added avatar URL field
+
     @Column(nullable = false)
     private int level = 1; // Niveau de l'utilisateur (ex. 1, 2, 3, etc.)
 

@@ -1,160 +1,162 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { fetchChatMessages, sendChatMessage, deleteChatMessage, connectToChat, isUserChatAdmin } from '../services/ChatServices';
-import { fetchUserProfile } from '../services/userService';
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  fetchGlobalChatRoom,
+  fetchGuildChatRoom,
+  fetchChatMessages,
+  sendChatMessage,
+  deleteChatMessage
+} from "../services/ChatServices";
+import ChatWebSocketService from "../services/ChatWebSocketService";
 
-// Create the Chat Context
-const ChatContext = createContext();
+export const ChatContext = createContext();
 
-// Chat Provider Component
 export const ChatProvider = ({ children }) => {
+  const [globalChatRoom, setGlobalChatRoom] = useState(null);
+  const [guildChatRooms, setGuildChatRooms] = useState({});
+  const [currentRoom, setCurrentRoom] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [currentRoom, setCurrentRoom] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [typingUsers, setTypingUsers] = useState([]);
-  
-  // Load current user on mount
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      try {
-        const user = await fetchUserProfile();
-        setCurrentUser(user);
-      } catch (err) {
-        console.error('Failed to load user profile:', err);
-        setError('Failed to load user profile');
-      }
-    };
-    
-    loadCurrentUser();
-  }, []);
-  
-  // Switch to a different chat room
-  const switchRoom = useCallback(async (room) => {
+
+  // Fetch messages for a room
+  const fetchMessages = useCallback(async (roomId) => {
+    if (!roomId) {
+      setError("Invalid chat room ID");
+      return;
+    }
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Connect to the new room
-      await connectToChat(room.id);
-      
-      // Check if user is admin
-      const adminStatus = await isUserChatAdmin(room.id);
-      setIsAdmin(adminStatus);
-      
-      // Load messages for the room
-      const chatMessages = await fetchChatMessages(room.id);
-      
-      // Ensure chatMessages is an array before setting it
-      if (Array.isArray(chatMessages)) {
-        setMessages(chatMessages);
+      const msgs = await fetchChatMessages(roomId);
+      setMessages(msgs);
+      ChatWebSocketService.connect(roomId);
+    } catch (err) {
+      setError("Failed to load messages");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch and set global chat room
+  const fetchGlobalRoom = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const room = await fetchGlobalChatRoom();
+      if (room && room.id) {
+        setGlobalChatRoom(room);
+        setCurrentRoom(room);
+        fetchMessages(room.id);
       } else {
-        console.error('Messages data is not an array:', chatMessages);
-        setMessages([]); // Set empty array to prevent map errors
+        setError("Global chat room not found.");
       }
-      
-      // Set the current room
+    } catch (err) {
+      setError("Failed to load global chat room");
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchMessages]);
+
+  // Fetch and set guild chat room by guildId
+  const fetchChatRoomByGuildId = useCallback(async (guildId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const room = await fetchGuildChatRoom(guildId);
+      setGuildChatRooms(prev => ({ ...prev, [guildId]: room }));
       setCurrentRoom(room);
+      fetchMessages(room.id);
+      return room;
     } catch (err) {
-      console.error('Error switching chat room:', err);
-      setError('Failed to load chat room');
-      setMessages([]); // Set empty array to prevent map errors
+      setError("Failed to load guild chat room");
+      return null;
     } finally {
       setLoading(false);
     }
-  }, []);
-  
-  // Refresh messages in the current room
-  const refreshMessages = useCallback(async () => {
-    if (!currentRoom) return;
-    
-    try {
-      setLoading(true);
-      const chatMessages = await fetchChatMessages(currentRoom.id);
-      
-      // Ensure chatMessages is an array before setting it
-      if (Array.isArray(chatMessages)) {
-        setMessages(chatMessages);
-      } else {
-        console.error('Messages data is not an array:', chatMessages);
-        setMessages([]); // Set empty array to prevent map errors
-      }
-    } catch (err) {
-      console.error('Error refreshing messages:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentRoom]);
-  
-  // Send a message to the current room
+  }, [fetchMessages]);
+
+  // Switch to a different room
+  const switchRoom = useCallback((room) => {
+    setCurrentRoom(room);
+    if (room && room.id) fetchMessages(room.id);
+  }, [fetchMessages]);
+
+  // Send a message
   const sendMessage = useCallback(async (content) => {
     if (!currentRoom || !content.trim()) return null;
-    
     try {
-      const sentMessage = await sendChatMessage(currentRoom.id, content);
-      
-      // Update the messages list with the new message
-      setMessages(prevMessages => {
-        // Ensure prevMessages is an array
-        const messagesArray = Array.isArray(prevMessages) ? prevMessages : [];
-        return [...messagesArray, sentMessage];
-      });
-      
-      return sentMessage;
+      if (ChatWebSocketService.isConnected()) {
+        ChatWebSocketService.sendMessage(content, currentRoom.id);
+      }
+      const response = await sendChatMessage(currentRoom.id, content);
+      return response;
     } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message');
+      setError("Failed to send message");
       return null;
     }
   }, [currentRoom]);
-  
+
   // Delete a message
-  const deleteMessage = useCallback(async (messageId) => {
+  const deleteMessageById = useCallback(async (messageId) => {
     try {
       await deleteChatMessage(messageId);
-      
-      // Remove the deleted message from the messages list
-      setMessages(prevMessages => {
-        // Ensure prevMessages is an array
-        if (!Array.isArray(prevMessages)) return [];
-        return prevMessages.filter(msg => msg.id !== messageId);
-      });
-      
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
       return true;
     } catch (err) {
-      console.error('Error deleting message:', err);
-      setError('Failed to delete message');
+      setError("Failed to delete message");
       return false;
     }
   }, []);
-  
-  // Value to be provided to consumers
+
+  // WebSocket: handle incoming messages
+  useEffect(() => {
+    const handlerId = ChatWebSocketService.addHandler('onChatMessage', (msg) => {
+      // msg is now the message object from data.message
+      if (!msg || !msg.roomId) return;
+      if (currentRoom && msg.roomId === currentRoom.id) {
+        setMessages(prev => {
+          // Try to find an optimistic message to replace
+          const optimisticIndex = prev.findIndex(m =>
+            m.isOptimistic &&
+            m.content === msg.content &&
+            m.sender?.id === msg.sender?.id
+          );
+          if (optimisticIndex !== -1) {
+            // Replace the optimistic message with the real one
+            const newMessages = [...prev];
+            newMessages[optimisticIndex] = msg;
+            return newMessages;
+          }
+          // Otherwise, add if not duplicate
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+    });
+    return () => {
+      ChatWebSocketService.removeHandler(handlerId);
+    };
+  }, [currentRoom]);
+
   const value = {
+    globalChatRoom,
+    guildChatRooms,
+    currentRoom,
+    messages,
     loading,
     error,
-    messages,
-    currentRoom,
-    currentUser,
-    isAdmin,
-    typingUsers,
+    fetchGlobalChatRoom: fetchGlobalRoom,
+    fetchChatRoomByGuildId,
     switchRoom,
-    refreshMessages,
     sendMessage,
-    deleteMessage,
-    setTypingUsers,
+    deleteMessage: deleteMessageById,
   };
-  
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+
+  return (
+    <ChatContext.Provider value={value}>
+      {children}
+    </ChatContext.Provider>
+  );
 };
 
-// Custom hook to use the Chat Context
-export const useChat = () => {
-  const context = useContext(ChatContext);
-  if (!context) {
-    throw new Error('useChat must be used within a ChatProvider');
-  }
-  return context;
-};
-
-export default ChatContext;
+export const useChat = () => useContext(ChatContext);

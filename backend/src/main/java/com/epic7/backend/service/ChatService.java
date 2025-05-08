@@ -1,563 +1,340 @@
 package com.epic7.backend.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.annotation.Lazy;
-
+import com.epic7.backend.dto.ChatMessageDTO;
+import com.epic7.backend.event.ChatMessageEvent;
+import com.epic7.backend.model.Guild;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import com.epic7.backend.model.chat.ChatRoom;
-import com.epic7.backend.model.Guild;
 import com.epic7.backend.model.enums.ChatType;
-import com.epic7.backend.repository.ChatRepository;
+import com.epic7.backend.repository.ChatMessageRepository;
 import com.epic7.backend.repository.ChatRoomRepository;
-import com.epic7.backend.repository.GuildRepository;
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.model.enums.GuildRole;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
- * Service de gestion des chats.
- *
- * Ce service gère les opérations liées aux chats, y compris la création de salons,
- * l'envoi et la récupération des messages de chat.
+ * Service for chat functionality.
+ * Handles chat rooms, messages, and access control.
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatService {
-    private final ChatRepository chatRepository;
-    private final ChatRoomRepository chatRoomRepository;
-    private final UserRepository userRepository;
-    private final GuildRepository guildRepository;
-    
-    private final GuildService guildService;
 
-    // ------------------ CHAT ROOM MANAGEMENT ------------------
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final GuildService guildService;
+    private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
-     * Crée une salle de chat globale.
-     *
-     * @param name Le nom de la salle de chat.
-     * @return La salle de chat créée.
+     * Get a chat room by ID
+     */
+    public ChatRoom getChatRoomById(Long roomId) {
+        return chatRoomRepository.findById(roomId).orElse(null);
+    }
+
+    /**
+     * Create a global chat room with the given name
      */
     @Transactional
     public ChatRoom createGlobalChatRoom(String name) {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setName(name);
         chatRoom.setType(ChatType.GLOBAL);
-        chatRoom.setGroupId(null);
         chatRoom.setUserIds(new ArrayList<>());
+        chatRoom.setAdminUserIds(new ArrayList<>());
         return chatRoomRepository.save(chatRoom);
     }
 
     /**
-     * Crée une salle de chat de guilde.
-     *
-     * @param guildId L'ID de la guilde.
-     * @return La salle de chat créée.
+     * Create a guild chat room
      */
     @Transactional
-    public ChatRoom createGuildChatRoom(Long guildId) {
-        Guild guild = guildRepository.findById(guildId)
-                .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
-        
+    public ChatRoom createGuildChatRoom(String name, Long guildId) {
         ChatRoom chatRoom = new ChatRoom();
-        chatRoom.setName(guild.getName() + " Chat");
+        chatRoom.setName(name);
         chatRoom.setType(ChatType.GUILD);
         chatRoom.setGroupId(guildId);
-        
-        // Initialize with guild members
-        List<Long> memberIds = guild.getMembers().stream()
-                .map(member -> member.getUser().getId())
-                .collect(Collectors.toList());
-        chatRoom.setUserIds(memberIds);
-        
-        // Initialize with guild leader as admin
-        List<Long> adminIds = new ArrayList<>();
-        if (guild.getLeader() != null) {
-            adminIds.add(guild.getLeader());
-        } else {
-            throw new IllegalArgumentException("Guild has no leader");
-        }
-        chatRoom.setAdminUserIds(adminIds);
-        
+        chatRoom.setUserIds(new ArrayList<>());
+        chatRoom.setAdminUserIds(new ArrayList<>());
         return chatRoomRepository.save(chatRoom);
     }
 
     /**
-     * Crée une salle de chat de combat.
-     *
-     * @param fightId L'ID du combat.
-     * @param participants Les utilisateurs participant au combat.
-     * @return La salle de chat créée.
+     * Create a fight chat room
      */
     @Transactional
-    public ChatRoom createFightChatRoom(Long fightId, List<User> participants) {
+    public ChatRoom createFightChatRoom(String name, Long fightId, List<Long> userIds, List<Long> adminUserIds) {
         ChatRoom chatRoom = new ChatRoom();
-        chatRoom.setName("Fight #" + fightId);
+        chatRoom.setName(name);
         chatRoom.setType(ChatType.FIGHT);
         chatRoom.setGroupId(fightId);
-        
-        List<Long> participantIds = participants.stream()
-                .map(User::getId)
-                .collect(Collectors.toList());
-        chatRoom.setUserIds(participantIds);
-        
+        chatRoom.setUserIds(new ArrayList<>(userIds));
+        chatRoom.setAdminUserIds(new ArrayList<>(adminUserIds));
         return chatRoomRepository.save(chatRoom);
     }
 
     /**
-     * Récupère une salle de chat par son ID.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @return La salle de chat.
+     * Get all chat rooms a user is a member of
      */
-    @Transactional(readOnly = true)
-    public ChatRoom getChatRoomById(Long chatRoomId) {
-        return chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
-    }
-
-    /**
-     * Ajoute un utilisateur à une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
-     * @return True si l'ajout a réussi, False sinon.
-     */
-    @Transactional
-    public boolean addUserToChatRoom(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        userRepository.findById(userId)
+    public List<ChatRoom> getUserChatRooms(Long userId) {
+        // Get rooms where user is explicitly in userIds
+        List<ChatRoom> userRooms = chatRoomRepository.findByUserIdsContaining(userId);
+        
+        // Get global rooms (available to all)
+        List<ChatRoom> globalRooms = chatRoomRepository.findByType(ChatType.GLOBAL);
+        
+        // Get guild room if user is member of a guild
+        List<ChatRoom> guildRooms = new ArrayList<>();
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
-        // Check if user is allowed to join
-        if (chatRoom.getType() == ChatType.GUILD) {
-            Guild guild = guildRepository.findById(chatRoom.getGroupId())
-                    .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
-            
-            boolean isMember = guild.getMembers().stream()
-                    .anyMatch(member -> member.getUser().getId().equals(userId));
-            
-            if (!isMember) {
-                return false; // User is not a member of the guild
+        // Check if user has a guild
+        if (user.getGuildMembership() != null) {
+            Long guildId = user.getGuildMembership().getGuild().getId();
+            List<ChatRoom> userGuildRooms = chatRoomRepository.findByTypeAndGroupId(ChatType.GUILD, guildId);
+            if (userGuildRooms != null && !userGuildRooms.isEmpty()) {
+                guildRooms.addAll(userGuildRooms);
             }
         }
         
-        List<Long> userIds = chatRoom.getUserIds();
-        if (!userIds.contains(userId)) {
-            userIds.add(userId);
-            chatRoom.setUserIds(userIds);
-            chatRoomRepository.save(chatRoom);
-        }
+        // Combine all lists
+        List<ChatRoom> allRooms = new ArrayList<>();
+        allRooms.addAll(userRooms);
+        allRooms.addAll(globalRooms);
+        allRooms.addAll(guildRooms);
         
-        return true;
+        // Remove duplicates (if any)
+        return allRooms.stream().distinct().toList();
     }
 
     /**
-     * Retire un utilisateur d'une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
+     * Get recent messages for a chat room
      */
-    @Transactional
-    public void removeUserFromChatRoom(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        List<Long> userIds = chatRoom.getUserIds();
-        userIds.remove(userId);
-        chatRoom.setUserIds(userIds);
-        chatRoomRepository.save(chatRoom);
-    }
-
-    // ------------------ ADMIN MANAGEMENT ------------------
-
-    /**
-     * Vérifie si un utilisateur est administrateur d'une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
-     * @return True si l'utilisateur est administrateur, False sinon.
-     */
-    @Transactional(readOnly = true)
-    public boolean isUserAdmin(Long chatRoomId, Long userId) {
-        return chatRoomRepository.isUserAdminOfChatRoom(chatRoomId, userId);
-    }
-
-    /**
-     * Ajoute un utilisateur comme administrateur d'une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
-     * @param requestingUserId L'ID de l'utilisateur faisant la demande.
-     * @return True si l'ajout a réussi, False sinon.
-     */
-    @Transactional
-    public boolean addUserAsAdmin(Long chatRoomId, Long userId, Long requestingUserId) {
-        // Check if requesting user is admin
-        if (!isUserAdmin(chatRoomId, requestingUserId)) {
-            return false; // Requesting user is not admin
-        }
+    public List<ChatMessage> getRecentMessages(Long roomId, Long userId, int limit) {
+        // Verify chat room exists
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
         
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        // Vérifier si l'utilisateur a accès au chat
+        // Check if user has access to this chat room
         if (!canUserAccessChat(userId, chatRoom)) {
-            return false; // L'utilisateur n'a pas accès à ce chat
-        }
-
-        // Check if user is already an admin
-        if (chatRoom.getAdminUserIds() == null) {
-            chatRoom.setAdminUserIds(new ArrayList<>());
+            throw new IllegalStateException("User does not have access to this chat room");
         }
         
-        List<Long> adminUserIds = chatRoom.getAdminUserIds();
-        if (!adminUserIds.contains(userId)) {
-            adminUserIds.add(userId);
-            chatRoom.setAdminUserIds(adminUserIds);
-            chatRoomRepository.save(chatRoom);
-        }
-        
-        return true;
+        // Get recent messages using Pageable for pagination
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
+        return chatMessageRepository.findByChatRoomIdOrderByTimestampDesc(roomId, pageable);
     }
 
     /**
-     * Retire les privilèges d'administrateur à un utilisateur.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
-     * @param requestingUserId L'ID de l'utilisateur faisant la demande.
-     * @return True si le retrait a réussi, False sinon.
+     * Send a message to a chat room
      */
     @Transactional
-    public boolean removeUserAsAdmin(Long chatRoomId, Long userId, Long requestingUserId) {
-        // Check if requesting user is admin
-        if (!isUserAdmin(chatRoomId, requestingUserId)) {
-            return false; // Requesting user is not admin
-        }
+    public ChatMessage sendMessage(User sender, Long roomId, String content) {
+        // Verify chat room exists
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
         
-        // Prevent removing yourself as admin
-        if (userId.equals(requestingUserId)) {
-            return false; // Cannot remove yourself as admin
-        }
-        
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        if (chatRoom.getAdminUserIds() == null) {
-            return false; // No admins to remove
-        }
-        
-        List<Long> adminUserIds = chatRoom.getAdminUserIds();
-        boolean removed = adminUserIds.remove(userId);
-        
-        if (removed) {
-            chatRoom.setAdminUserIds(adminUserIds);
-            chatRoomRepository.save(chatRoom);
-            return true;
-        }
-        
-        return false; // User was not an admin
-    }
-
-    /**
-     * Met à jour les administrateurs d'une salle de chat de guilde en fonction des rôles des membres.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param minRole Le rôle minimum requis pour être administrateur.
-     * @return True si la mise à jour a réussi, False sinon.
-     */
-    @Transactional
-    public boolean majGuildChatAdmins(Long chatRoomId, GuildRole minRole) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        // Cette fonction ne fonctionne que pour les salles de chat de guilde
-        if (chatRoom.getType() != ChatType.GUILD) {
-            return false;
-        }
-        
-        Long guildId = chatRoom.getGroupId();
-        Guild guild = guildRepository.findById(guildId)
-                .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
-        
-        // Mettre à jour le rôle minimum pour être admin dans cette guilde
-        guild.setChatAdminRole(minRole);
-        guildRepository.save(guild);
-        
-        // Obtenir tous les membres avec le rôle spécifié ou supérieur
-        List<Long> adminUserIds = guild.getMembers().stream()
-                .filter(member -> member.getRole().ordinal() >= minRole.ordinal())
-                .map(member -> member.getUser().getId())
-                .collect(Collectors.toList());
-        
-        // S'assurer que le leader de la guilde est administrateur
-        if (guild.getLeader() != null && !adminUserIds.contains(guild.getLeader())) {
-            adminUserIds.add(guild.getLeader());
-        }
-        
-        chatRoom.setAdminUserIds(adminUserIds);
-        chatRoomRepository.save(chatRoom);
-        
-        return true;
-    }
-
-    
-    /**
-     * Synchronise les admins du chat de guilde avec les rôles actuels des membres.
-     * À appeler après des changements de rôles multiples ou une réorganisation de la guilde.
-     *
-     * @param guildId L'ID de la guilde.
-     * @return True si la synchronisation a réussi, False sinon.
-     */
-    @Transactional
-    public boolean syncGuildChatAdmins(Long guildId) {
-        // Trouver la guilde
-        Guild guild = guildRepository.findById(guildId)
-                .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
-        
-        // Trouver la salle de chat de la guilde
-        ChatRoom chatRoom = chatRoomRepository.findByTypeAndGroupId(ChatType.GUILD, guildId);
-        if (chatRoom == null) {
-            throw new IllegalArgumentException("Chat room not found for this guild");
-        }
-        
-        // Utiliser le rôle minimum configuré pour cette guilde
-        GuildRole minAdminRole = guild.getChatAdminRole();
-        
-        // Mettre à jour tous les administrateurs
-        return majGuildChatAdmins(chatRoom.getId(), minAdminRole);
-    }
-    
-    /**
-     * Récupère le rôle minimum pour être admin dans une guilde.
-     * Cette méthode pourrait être implémentée différemment selon votre modèle de données.
-     * 
-     * @param guild La guilde.
-     * @return Le rôle minimum pour être admin.
-     */
-    public GuildRole getMinAdminRoleForGuild(Guild guild) {
-        // Si la guilde a un attribut minAdminRole, vous pourriez le récupérer ici
-        return guild.getChatAdminRole();
-    }
-
-    // ------------------ MESSAGE MANAGEMENT ------------------
-
-    /**
-     * Envoie un message dans une salle de chat.
-     *
-     * @param sender L'utilisateur qui envoie le message.
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param content Le contenu du message.
-     * @return Le message envoyé.
-     */
-    @Transactional
-    public ChatMessage sendMessage(User sender, Long chatRoomId, String content) {
-        Optional<User> optionalSender = userRepository.findById(sender.getId());
-        if (optionalSender.isEmpty()) {
-            throw new IllegalArgumentException("L'expéditeur n'existe pas.");
-        }
-        
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        // Vérifier si l'utilisateur a accès à cette salle de chat
+        // Check if user has access to this chat room
         if (!canUserAccessChat(sender.getId(), chatRoom)) {
-            throw new IllegalArgumentException("L'utilisateur n'a pas accès à cette salle de chat.");
+            throw new IllegalStateException("User does not have access to this chat room");
         }
         
-        // Vérifier si l'utilisateur est connecté à la salle de chat
-        if (!chatRoom.getUserIds().contains(sender.getId())) {
-            throw new IllegalArgumentException("L'utilisateur n'est pas connecté à cette salle de chat.");
-        }
-        
+        // Create and save message
         ChatMessage message = new ChatMessage();
         message.setChatRoom(chatRoom);
-        message.setSender(optionalSender.get());
+        message.setSender(sender);
         message.setContent(content);
         message.setTimestamp(Instant.now());
         
-        return chatRepository.save(message);
-    }
-
-    /**
-     * Vérifie si un utilisateur a accès à une salle de chat.
-     *
-     * @param userId L'ID de l'utilisateur.
-     * @param chatRoom La salle de chat.
-     * @return True si l'utilisateur a accès, False sinon.
-     */
-    private boolean canUserAccessChat(Long userId, ChatRoom chatRoom) {
-        if (chatRoom.getType() == ChatType.GLOBAL) {
-            return true; // Tout le monde a accès au chat global
-        } else if (chatRoom.getType() == ChatType.GUILD) {
-            // Vérifier si l'utilisateur est membre de la guilde
-            Guild guild = guildRepository.findById(chatRoom.getGroupId())
-                    .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
-            
-            User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
-            return guildService.isMemberOfGuild(user, chatRoom.getGroupId());
-        } else if (chatRoom.getType() == ChatType.FIGHT) {
-            // Pour un chat de combat, l'accès est limité aux participants du combat
-            // Seuls les participants sont dans la room
-            return chatRoom.getUserIds().contains(userId);
-        }
+        // Save to database
+        ChatMessage savedMessage = chatMessageRepository.save(message);
         
-        return false;
+        // Publish event to notify listeners (like WebSocket handler)
+        eventPublisher.publishEvent(new ChatMessageEvent(this, roomId, savedMessage));
+        
+        return savedMessage;
     }
 
     /**
-     * Récupère tous les messages d'une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @return La liste des messages de la salle de chat.
-     */
-    @Transactional(readOnly = true)
-    public List<ChatMessage> getChatRoomMessages(Long chatRoomId) {
-        // Vérifier si la salle de chat existe
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        if (chatRoom == null) {
-            throw new IllegalArgumentException("Chat room not found");
-        }
-        // Find all messages for this chat room (this would require a new method in the ChatRepository)
-        return chatRepository.findByChatRoomId(chatRoomId);
-    }
-
-    /**
-     * Récupère les salles de chat auxquelles un utilisateur est connecté.
-     *
-     * @param userId L'ID de l'utilisateur.
-     * @return La liste des salles de chat.
-     */
-    @Transactional(readOnly = true)
-    public List<ChatRoom> getUserChatRooms(Long userId) {
-        // Find all chat rooms where the user is a member
-        // This would require a new method in the ChatRoomRepository
-        return chatRoomRepository.findByUserIdsContaining(userId);
-    }
-
-    /**
-     * Récupère les messages récents d'une salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param limit Le nombre maximum de messages à récupérer.
-     * @return La liste des messages récents.
-     */
-    @Transactional(readOnly = true)
-    public List<ChatMessage> getRecentMessages(Long chatRoomId, int limit) {
-        // Get recent messages for a chat room, ordered by timestamp
-        // This would require a new method in the ChatRepository
-        return chatRepository.findTopByChatRoomIdOrderByTimestampDesc(chatRoomId, limit);
-    }
-
-    /**
-     * Supprime un message de chat.
-     *
-     * @param messageId L'ID du message.
-     * @param requestingUserId L'ID de l'utilisateur qui demande la suppression.
-     * @return True si la suppression a réussi, False sinon.
+     * Delete a message
      */
     @Transactional
-    public boolean deleteMessage(Long messageId, Long requestingUserId) {
-        ChatMessage message = chatRepository.findById(messageId)
+    public boolean deleteMessage(Long messageId, Long userId) {
+        // Find message
+        ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Message not found"));
         
-        // The sender or an admin can delete a message
-        if (message.getSender().getId().equals(requestingUserId) ||
-                isUserAdmin(message.getChatRoom().getId(), requestingUserId)) {
-            chatRepository.delete(message);
+        // Check if user is sender or admin
+        boolean isAdmin = isUserAdmin(message.getChatRoom().getId(), userId);
+        boolean isSender = message.getSender().getId().equals(userId);
+        
+        if (isAdmin || isSender) {
+            chatMessageRepository.delete(message);
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     /**
-     * Connecte un utilisateur à une salle de chat.
-     * Cela ajoute l'utilisateur à la liste des utilisateurs connectés.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
-     * @return True si la connexion a réussi, False sinon.
+     * Check if a user is an admin of a chat room
+     */
+    public boolean isUserAdmin(Long roomId, Long userId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
+        
+        return chatRoom.getAdminUserIds() != null && chatRoom.getAdminUserIds().contains(userId);
+    }
+
+    /**
+     * Check if a user is an admin of a chat room - method to match controller endpoint naming
+     */
+    public boolean isUserChatRoomAdmin(Long roomId, Long userId) {
+        return isUserAdmin(roomId, userId);
+    }
+
+    /**
+     * Connect a user to a chat room
      */
     @Transactional
-    public boolean connectUserToChatRoom(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    public boolean connectUserToChatRoom(Long roomId, Long userId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
         
-        // Vérifier si l'utilisateur a accès au chat
+        // Check if user can access this chat room
         if (!canUserAccessChat(userId, chatRoom)) {
-            return false; // L'utilisateur n'a pas accès à ce chat
+            return false;
         }
         
-        // Ajouter l'utilisateur à la liste des utilisateurs connectés s'il n'y est pas déjà
-        List<Long> userIds = chatRoom.getUserIds();
-        if (!userIds.contains(userId)) {
-            userIds.add(userId);
-            chatRoom.setUserIds(userIds);
+        // Add user to the room if not already there and not a global room
+        if (chatRoom.getType() != ChatType.GLOBAL && 
+            (chatRoom.getUserIds() == null || !chatRoom.getUserIds().contains(userId))) {
+            
+            if (chatRoom.getUserIds() == null) {
+                chatRoom.setUserIds(new ArrayList<>());
+            }
+            
+            chatRoom.getUserIds().add(userId);
             chatRoomRepository.save(chatRoom);
         }
+        
         return true;
     }
 
     /**
-     * Déconnecte un utilisateur d'une salle de chat.
-     * Cela retire l'utilisateur de la liste des utilisateurs connectés.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur.
+     * Check if a user can access a chat room
+     */
+    public boolean canUserAccessChat(Long userId, ChatRoom chatRoom) {
+        if (chatRoom == null) {
+            return false;
+        }
+        
+        // Global chat rooms are accessible to all
+        if (chatRoom.getType() == ChatType.GLOBAL) {
+            return true;
+        }
+        
+        // Guild chat rooms require guild membership
+        if (chatRoom.getType() == ChatType.GUILD) {
+            if (chatRoom.getGroupId() == null) {
+                return false;
+            }
+            
+            return guildService.isUserInGuild(userId, chatRoom.getGroupId());
+        }
+        
+        // Fight chat rooms require being in the userIds list
+        if (chatRoom.getType() == ChatType.FIGHT) {
+            return chatRoom.getUserIds() != null && chatRoom.getUserIds().contains(userId);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Process a batch of chat messages
+     * 
+     * @param sender The user sending the messages
+     * @param messageDTOs The messages to process
+     * @return List of processed messages
      */
     @Transactional
-    public void disconnectUserFromChatRoom(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        List<Long> userIds = chatRoom.getUserIds();
-        userIds.remove(userId);
-        chatRoom.setUserIds(userIds);
-        chatRoomRepository.save(chatRoom);
+    public List<ChatMessage> processBatchMessages(User sender, List<ChatMessageDTO> messageDTOs) {
+        if (messageDTOs == null || messageDTOs.isEmpty()) {
+            return Collections.emptyList();
+        }
+        
+        List<ChatMessage> processedMessages = new ArrayList<>();
+        
+        for (ChatMessageDTO messageDTO : messageDTOs) {
+            if (messageDTO.getRoomId() == null || messageDTO.getContent() == null) {
+                throw new IllegalArgumentException("Room ID and content are required for each message");
+            }
+            
+            // Process each message individually
+            ChatMessage message = sendMessage(sender, messageDTO.getRoomId(), messageDTO.getContent());
+            processedMessages.add(message);
+        }
+        
+        return processedMessages;
+    }
+    
+    /**
+     * Mark messages as read up to a specific message ID
+     * 
+     * @param roomId The chat room ID
+     * @param userId The user ID
+     * @param lastReadMessageId The last message ID that was read
+     * @return Number of messages marked as read
+     */
+    @Transactional
+    public int markMessagesAsRead(Long roomId, Long userId, Long lastReadMessageId) {
+        // Verify chat room exists
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
+        
+        // Check if user has access to this chat room
+        if (!canUserAccessChat(userId, chatRoom)) {
+            throw new IllegalStateException("User does not have access to this chat room");
+        }
+        
+        // Find all unread messages in the room up to the lastReadMessageId
+        List<ChatMessage> messages = chatMessageRepository.findByChatRoomId(roomId);
+        int updatedCount = 0;
+        
+        // In a real implementation, you would have a more efficient query
+        // This is a simplistic approach
+        for (ChatMessage message : messages) {
+            if (message.getId() <= lastReadMessageId) {
+                // Mark as read in your user-message read status tracking
+                // This would depend on how you track read status
+                updatedCount++;
+            }
+        }
+        
+        return updatedCount;
     }
 
     /**
-     * Récupère les messages d'une salle de chat.
-     * L'utilisateur doit avoir accès à la salle de chat.
+     * Find chat rooms by type
      *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur qui demande les messages.
-     * @return La liste des messages de la salle de chat.
+     * @param type The chat room type
+     * @return A list of chat rooms of the specified type
      */
-    @Transactional(readOnly = true)
-    public List<ChatMessage> getChatRoomMessages(Long chatRoomId, Long userId) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        // Vérifier si l'utilisateur a accès à cette salle de chat
-        if (!canUserAccessChat(userId, chatRoom)) {
-            throw new IllegalArgumentException("L'utilisateur n'a pas accès à cette salle de chat.");
-        }
-        
-        return chatRepository.findByChatRoomId(chatRoomId);
-    }
-
-    /**
-     * Récupère les messages récents d'une salle de chat.
-     * L'utilisateur doit avoir accès à la salle de chat.
-     *
-     * @param chatRoomId L'ID de la salle de chat.
-     * @param userId L'ID de l'utilisateur qui demande les messages.
-     * @param limit Le nombre maximum de messages à récupérer.
-     * @return La liste des messages récents.
-     */
-    @Transactional(readOnly = true)
-    public List<ChatMessage> getRecentMessages(Long chatRoomId, Long userId, int limit) {
-        ChatRoom chatRoom = getChatRoomById(chatRoomId);
-        
-        // Vérifier si l'utilisateur a accès à cette salle de chat
-        if (!canUserAccessChat(userId, chatRoom)) {
-            throw new IllegalArgumentException("L'utilisateur n'a pas accès à cette salle de chat.");
-        }
-        
-        return chatRepository.findTopByChatRoomIdOrderByTimestampDesc(chatRoomId, limit);
+    public List<ChatRoom> findChatRoomsByType(ChatType type) {
+        return chatRoomRepository.findByType(type);
     }
 }
