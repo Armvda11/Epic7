@@ -163,7 +163,7 @@ public class ChatService {
         ChatMessage savedMessage = chatMessageRepository.save(message);
         
         // Publish event to notify listeners (like WebSocket handler)
-        eventPublisher.publishEvent(new ChatMessageEvent(this, roomId, savedMessage));
+        eventPublisher.publishEvent(new ChatMessageEvent(roomId, savedMessage));
         
         return savedMessage;
     }
@@ -204,6 +204,33 @@ public class ChatService {
      */
     public boolean isUserChatRoomAdmin(Long roomId, Long userId) {
         return isUserAdmin(roomId, userId);
+    }
+
+    /**
+     * Check if a user is an admin of a chat room
+     * Legacy method name for backward compatibility
+     */
+    public boolean isUserChatAdmin(Long userId, Long roomId) {
+        return isUserAdmin(roomId, userId);
+    }
+
+    /**
+     * Delete a message by ID
+     * Simplified method that doesn't require userId parameter
+     */
+    public boolean deleteMessage(Long messageId) {
+        try {
+            // Find message
+            ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+            
+            // Delete the message
+            chatMessageRepository.delete(message);
+            return true;
+        } catch (Exception e) {
+            log.error("Error deleting message", e);
+            return false;
+        }
     }
 
     /**
@@ -336,5 +363,17 @@ public class ChatService {
      */
     public List<ChatRoom> findChatRoomsByType(ChatType type) {
         return chatRoomRepository.findByType(type);
+    }
+
+    /**
+     * Get a chat message by its ID
+     * @param messageId The ID of the message to retrieve
+     * @return The ChatMessage if found, null otherwise
+     */
+    public ChatMessage getMessageById(Long messageId) {
+        if (messageId == null) {
+            return null;
+        }
+        return chatMessageRepository.findById(messageId).orElse(null);
     }
 }

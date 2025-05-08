@@ -85,9 +85,12 @@ export const ChatProvider = ({ children }) => {
   const sendMessage = useCallback(async (content) => {
     if (!currentRoom || !content.trim()) return null;
     try {
+      // Send message via WebSocket for real-time updates to all clients
       if (ChatWebSocketService.isConnected()) {
         ChatWebSocketService.sendMessage(content, currentRoom.id);
       }
+      
+      // Also send via API for persistence
       const response = await sendChatMessage(currentRoom.id, content);
       return response;
     } catch (err) {
@@ -99,42 +102,70 @@ export const ChatProvider = ({ children }) => {
   // Delete a message
   const deleteMessageById = useCallback(async (messageId) => {
     try {
+      // Delete via API for persistence
       await deleteChatMessage(messageId);
+      
+      // Delete via WebSocket for real-time updates to all clients
+      if (ChatWebSocketService.isConnected() && currentRoom) {
+        ChatWebSocketService.deleteMessage(messageId, currentRoom.id);
+      }
+      
+      // Update local state
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
       return true;
     } catch (err) {
       setError("Failed to delete message");
       return false;
     }
-  }, []);
+  }, [currentRoom]);
 
-  // WebSocket: handle incoming messages
+  // Setup WebSocket handlers
   useEffect(() => {
-    const handlerId = ChatWebSocketService.addHandler('onChatMessage', (msg) => {
-      // msg is now the message object from data.message
+    // Handler for new messages
+    const messageHandler = ChatWebSocketService.addHandler('onChatMessage', (msg) => {
       if (!msg || !msg.roomId) return;
+      
+      // Only process messages for the current room
       if (currentRoom && msg.roomId === currentRoom.id) {
         setMessages(prev => {
-          // Try to find an optimistic message to replace
+          // Check if this is a confirmation of an optimistic message
           const optimisticIndex = prev.findIndex(m =>
             m.isOptimistic &&
             m.content === msg.content &&
             m.sender?.id === msg.sender?.id
           );
+          
           if (optimisticIndex !== -1) {
             // Replace the optimistic message with the real one
             const newMessages = [...prev];
-            newMessages[optimisticIndex] = msg;
+            newMessages[optimisticIndex] = {
+              ...msg,
+              fromCurrentUser: newMessages[optimisticIndex].fromCurrentUser
+            };
             return newMessages;
           }
-          // Otherwise, add if not duplicate
+          
+          // Check for duplicates
           if (prev.some(m => m.id === msg.id)) return prev;
+          
+          // Add the new message
           return [...prev, msg];
         });
       }
     });
+    
+    // Handler for deleted messages
+    const deleteHandler = ChatWebSocketService.addHandler('onMessageDeleted', (messageId) => {
+      if (!messageId) return;
+      
+      // Remove the deleted message from state
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    });
+    
+    // Cleanup function
     return () => {
-      ChatWebSocketService.removeHandler(handlerId);
+      ChatWebSocketService.removeHandler(messageHandler);
+      ChatWebSocketService.removeHandler(deleteHandler);
     };
   }, [currentRoom]);
 

@@ -23,6 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * WebSocket handler for chat functionality.
@@ -296,6 +297,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             
             // Broadcast to all users in the room
             broadcastToRoom(roomId, new TextMessage(messageNode.toString()), null);
+            
+            log.info("Message from user {} broadcast to room {}", chatMessage.getSender().getId(), roomId);
         } catch (Exception e) {
             log.error("Error broadcasting chat message", e);
         }
@@ -342,24 +345,35 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     /**
      * Broadcast a message to all users in a room, optionally excluding one user
      */
-    private void broadcastToRoom(Long roomId, TextMessage message, Long excludeUserId) {
+    public void broadcastToRoom(Long roomId, TextMessage message, Long excludeUserId) {
         Map<Long, WebSocketSession> roomSessionMap = roomSessions.get(roomId);
         if (roomSessionMap == null || roomSessionMap.isEmpty()) {
             log.debug("No sessions in room {}", roomId);
             return;
         }
         
+        log.info("Broadcasting to room {} with {} users (excluding user {})", 
+                roomId, roomSessionMap.size(), excludeUserId);
+        
+        AtomicInteger successCount = new AtomicInteger(0);
         roomSessionMap.forEach((userId, session) -> {
             if (excludeUserId == null || !userId.equals(excludeUserId)) {
                 try {
                     if (session.isOpen()) {
                         session.sendMessage(message);
+                        log.debug("Message sent to user {} in room {}", userId, roomId);
+                        successCount.incrementAndGet();
+                    } else {
+                        log.warn("Session for user {} is no longer open, removing from room {}", userId, roomId);
+                        roomSessionMap.remove(userId);
                     }
                 } catch (IOException e) {
-                    log.error("Error sending message to session {}", session.getId(), e);
+                    log.error("Error sending message to session {} for user {}", session.getId(), userId, e);
                 }
             }
         });
+        
+        log.info("Successfully broadcast message to {} users in room {}", successCount, roomId);
     }
     
     /**

@@ -38,4 +38,12 @@ public class ChatMessage {
 
     @Column(nullable = false)
     private Instant timestamp;
+
+    /**
+     * Get the chat room this message belongs to
+     * @return The chat room
+     */
+    public ChatRoom getRoom() {
+        return this.chatRoom;
+    }
 }

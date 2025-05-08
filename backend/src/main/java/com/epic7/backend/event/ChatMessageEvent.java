@@ -5,16 +5,15 @@ import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 
 /**
- * Event that is published when a new chat message is created.
- * This helps decouple the ChatService from the WebSocket handler.
+ * Event that is fired when a chat message is sent
  */
 @Getter
 public class ChatMessageEvent extends ApplicationEvent {
     private final Long roomId;
     private final ChatMessage message;
 
-    public ChatMessageEvent(Object source, Long roomId, ChatMessage message) {
-        super(source);
+    public ChatMessageEvent(Long roomId, ChatMessage message) {
+        super(message);
         this.roomId = roomId;
         this.message = message;
     }

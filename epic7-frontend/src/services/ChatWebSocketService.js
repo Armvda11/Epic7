@@ -16,6 +16,7 @@ class ChatWebSocketService {
     this.handlerIdCounter = 0;
     this.roomId = null;
     this.pendingMessages = []; // Store messages that failed to send due to connection issues
+    this.pendingDeletes = []; // Store message deletions that failed due to connection issues
   }
 
   /**
@@ -35,10 +36,23 @@ class ChatWebSocketService {
     try {
       // Determine WebSocket URL - using secure WebSocket if on HTTPS
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = process.env.REACT_APP_API_URL || window.location.host;
-      // Use backend-expected URL: /ws/chat/{roomId}?userId=...&token=...
+      
+      // Use API base URL from environment or current host
+      let host = process.env.REACT_APP_API_URL;
+      if (!host) {
+        // If no API URL is specified, use current host but ensure correct port for development
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          host = `${window.location.hostname}:8080`;  // Backend typically runs on 8080
+        } else {
+          host = window.location.host;
+        }
+      }
+      
+      // Use backend-expected URL format
       const wsUrl = `${wsProtocol}//${host}/ws/chat/${this.roomId}?userId=${userId}&token=${token}`;
       console.log('Initializing WebSocket connection to:', wsUrl.replace(/token=.*/, 'token=HIDDEN'));
+      
+      // Create new WebSocket with proper URL
       this.socket = new WebSocket(wsUrl);
       this.socket.onopen = this.handleOpen.bind(this);
       this.socket.onmessage = this.handleMessage.bind(this);
@@ -100,7 +114,7 @@ class ChatWebSocketService {
       return false;
     }
 
-    // Use backend-expected type
+    // Use backend-expected message format
     const chatMessage = {
       type: 'CHAT_MESSAGE',
       roomId: roomId,
@@ -110,10 +124,10 @@ class ChatWebSocketService {
 
     try {
       this.socket.send(JSON.stringify(chatMessage));
-      console.log(`Message sent to room ${roomId}`);
+      console.log(`Message sent to room ${roomId} via WebSocket`);
       return true;
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('Failed to send message via WebSocket:', error);
       // Store message to send when connection is restored
       this.pendingMessages.push({ content, roomId });
       return false;
@@ -184,10 +198,8 @@ class ChatWebSocketService {
     this.connected = true;
     this.reconnectAttempts = 0;
 
-    // If we have a room ID, join that room immediately
-    if (this.roomId) {
-      this.joinRoom(this.roomId);
-    }
+    // Send any pending messages that failed due to connection issues
+    this.sendPendingMessages();
 
     // Notify any open handlers
     this.notifyHandlers('onOpen', event);
@@ -200,28 +212,66 @@ class ChatWebSocketService {
   handleMessage(event) {
     try {
       const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data.type || 'Unknown type');
+      console.log('WebSocket message received:', data);
       
-      // Handle backend-expected types
+      // Handle various message types from the backend
       if (data.type === 'CHAT_MESSAGE' && data.message) {
+        console.log('Processing CHAT_MESSAGE with message property:', data.message);
         this.notifyHandlers('onChatMessage', data.message);
-      } else if (data.type === 'MESSAGE_SENT' && data.data) {
-        // Treat MESSAGE_SENT as a new chat message from the current user
+        this.notifyHandlers('CHAT_MESSAGE', data.message);
+      } else if (data.type === 'CHAT_MESSAGE') {
+        console.log('Processing CHAT_MESSAGE direct:', data);
+        this.notifyHandlers('onChatMessage', data);
+        this.notifyHandlers('CHAT_MESSAGE', data);
+      } else if (data.code === 'MESSAGE_SENT' && data.data) {
+        console.log('Processing MESSAGE_SENT with code and data:', data.data);
         this.notifyHandlers('onChatMessage', data.data);
+        this.notifyHandlers('MESSAGE_SENT', data.data);
+      } else if (data.type === 'MESSAGE_SENT' && data.data) {
+        console.log('Processing MESSAGE_SENT with type and data:', data.data);
+        this.notifyHandlers('onChatMessage', data.data);
+        this.notifyHandlers('MESSAGE_SENT', data.data);
+      } else if (data.type === 'MESSAGE_DELETED' && data.messageId) {
+        console.log('Processing MESSAGE_DELETED with messageId:', data.messageId);
+        this.notifyHandlers('onMessageDeleted', data.messageId);
+      } else if (data.code === 'MESSAGE_DELETED' && data.data && data.data.messageId) {
+        console.log('Processing MESSAGE_DELETED with code and data.messageId:', data.data.messageId);
+        this.notifyHandlers('onMessageDeleted', data.data.messageId);
+      } else if (data.type === 'MESSAGE_DELETED' && data.data) {
+        console.log('Processing MESSAGE_DELETED with type and data:', data.data);
+        const messageId = data.data.messageId || data.data.id || data.data;
+        if (messageId) {
+          this.notifyHandlers('onMessageDeleted', messageId);
+        }
       } else if (data.type === 'USER_JOINED') {
+        console.log('User joined the chat:', data.user?.username);
         this.notifyHandlers('onUserJoin', data);
       } else if (data.type === 'USER_LEFT') {
+        console.log('User left the chat:', data.user?.username);
         this.notifyHandlers('onUserLeave', data);
       } else if (data.type === 'TYPING') {
         this.notifyHandlers('onTyping', data);
-      } else if (data.type === 'ERROR') {
+      } else if (data.type === 'ERROR' || data.code === 'ERROR') {
+        console.error('Error from WebSocket:', data);
         this.notifyHandlers('onError', data);
+      } else {
+        // Handle unrecognized formats
+        console.warn('Unrecognized WebSocket message format:', data);
+        
+        // Try to extract chat message data if possible
+        if (data.content && (data.roomId || data.sender)) {
+          console.log('Appears to be a chat message:', data);
+          this.notifyHandlers('onChatMessage', data);
+        } else if (data.data && data.data.content && (data.data.roomId || data.data.sender)) {
+          console.log('Data property appears to be a chat message:', data.data);
+          this.notifyHandlers('onChatMessage', data.data);
+        }
       }
       
-      // Also notify general message handlers
+      // Always notify general message handlers
       this.notifyHandlers('onMessage', data);
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
+      console.error('Error parsing WebSocket message:', error, event.data);
     }
   }
 
@@ -265,6 +315,8 @@ class ChatWebSocketService {
     if (!this.handlers[eventType]) {
       return;
     }
+    
+    console.log(`Notifying ${this.handlers[eventType].length} handlers for event: ${eventType}`);
     
     this.handlers[eventType].forEach(handler => {
       try {
@@ -380,20 +432,70 @@ class ChatWebSocketService {
    * Send any pending messages that failed due to connection issues
    */
   sendPendingMessages() {
-    if (this.pendingMessages.length === 0) {
-      return;
+    // Handle pending regular messages
+    if (this.pendingMessages.length > 0) {
+      console.log(`Sending ${this.pendingMessages.length} pending messages`);
+      
+      // Create a copy of the pending messages and clear the original array
+      const messagesToSend = [...this.pendingMessages];
+      this.pendingMessages = [];
+      
+      // Send each message
+      messagesToSend.forEach(msg => {
+        this.sendMessage(msg.content, msg.roomId);
+      });
     }
     
-    console.log(`Sending ${this.pendingMessages.length} pending messages`);
-    
-    // Create a copy of the pending messages and clear the original array
-    const messagesToSend = [...this.pendingMessages];
-    this.pendingMessages = [];
-    
-    // Send each message
-    messagesToSend.forEach(msg => {
-      this.sendMessage(msg.content, msg.roomId);
-    });
+    // Handle pending delete operations
+    if (this.pendingDeletes.length > 0) {
+      console.log(`Processing ${this.pendingDeletes.length} pending message deletions`);
+      
+      const deletesToSend = [...this.pendingDeletes];
+      this.pendingDeletes = [];
+      
+      deletesToSend.forEach(del => {
+        this.deleteMessage(del.messageId, del.roomId);
+      });
+    }
+  }
+
+  /**
+   * Delete a message from the chat
+   * @param {string|number} messageId - The ID of the message to delete
+   * @param {string|number} roomId - The room ID where the message is
+   */
+  deleteMessage(messageId, roomId = this.roomId) {
+    if (!this.isConnected()) {
+      console.warn('Cannot delete message: WebSocket not connected. Adding to pending queue.');
+      // Store deletion to execute when connection is restored
+      this.pendingDeletes.push({ messageId, roomId });
+      this.reconnect();
+      return false;
+    }
+
+    if (!roomId || !messageId) {
+      console.error('Cannot delete message: Missing room ID or message ID');
+      return false;
+    }
+
+    // Use backend-expected type for message deletion
+    const deleteCommand = {
+      type: 'DELETE_MESSAGE',
+      roomId: roomId,
+      messageId: messageId,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      this.socket.send(JSON.stringify(deleteCommand));
+      console.log(`Delete command sent for message ${messageId} in room ${roomId}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send delete command:', error);
+      // Store delete command to send when connection is restored
+      this.pendingDeletes.push({ messageId, roomId });
+      return false;
+    }
   }
 }
 

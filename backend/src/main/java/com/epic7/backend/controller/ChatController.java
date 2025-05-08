@@ -1,21 +1,27 @@
 package com.epic7.backend.controller;
 
+import com.epic7.backend.dto.ApiResponse;
 import com.epic7.backend.dto.ChatMessageBatchDTO;
 import com.epic7.backend.dto.ChatMessageDTO;
 import com.epic7.backend.dto.ChatRoomDTO;
 import com.epic7.backend.dto.ResponseDTO;
+import com.epic7.backend.event.ChatMessageEvent;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import com.epic7.backend.model.chat.ChatRoom;
 import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ChatService;
+import com.epic7.backend.service.UserService;
 import com.epic7.backend.utils.JwtUtil;
+import com.epic7.backend.websocket.ChatWebSocketHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Null;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,6 +40,9 @@ public class ChatController {
     private final JwtUtil jwtUtil;
     private final AuthService authService;
     private final ChatService chatService;
+    private final UserService userService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final ChatWebSocketHandler webSocketHandler;
     
     // Error codes constants
     private static final String ERROR_INVALID_INPUT = "CHAT_INVALID_INPUT";
@@ -47,10 +56,14 @@ public class ChatController {
     private static final String SUCCESS_DELETED = "MESSAGE_DELETED";
     private static final String SUCCESS_DATA_RETRIEVED = "CHAT_DATA_RETRIEVED";
 
-    public ChatController(JwtUtil jwtUtil, AuthService authService, ChatService chatService) {
+    public ChatController(JwtUtil jwtUtil, AuthService authService, ChatService chatService, UserService userService,
+                         ApplicationEventPublisher eventPublisher, ChatWebSocketHandler webSocketHandler) {
         this.jwtUtil = jwtUtil;
         this.authService = authService;
         this.chatService = chatService;
+        this.userService = userService;
+        this.eventPublisher = eventPublisher;
+        this.webSocketHandler = webSocketHandler;
     }
     
     /**
@@ -235,33 +248,43 @@ public class ChatController {
      * Send a message to a chat room (REST endpoint for non-websocket clients)
      */
     @PostMapping("/send")
-    public ResponseEntity<ResponseDTO> sendMessage(
-            HttpServletRequest request,
+    public ResponseEntity<ApiResponse<ChatMessageDTO>> sendMessage(
+            Authentication authentication,
             @RequestParam Long roomId,
             @RequestParam String content) {
         
         try {
-            User user = getCurrentUser(request);
-            ChatMessage message = chatService.sendMessage(user, roomId, content);
+            String email = authentication.getName();
+            User sender = userService.getUserByEmail(email);
             
-            // Convert to DTO
-            ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(message, user.getId());
+            if (sender == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("USER_NOT_FOUND", "User not found"));
+            }
             
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_SENT,
-                "Message sent successfully",
-                messageDTO
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_INVALID_INPUT, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
+            // Save the message using the service
+            ChatMessage message = chatService.sendMessage(sender, roomId, content);
+            
+            if (message == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("MESSAGE_SEND_FAILED", "Failed to send message"));
+            }
+            
+            // Create response DTO
+            ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(message, sender.getId());
+            
+            // Publish event for real-time notification via WebSocket
+            eventPublisher.publishEvent(new ChatMessageEvent(roomId, message));
+            
+            // Also directly broadcast the message via WebSocketHandler for immediate delivery
+            log.info("Broadcasting message via WebSocketHandler");
+            webSocketHandler.broadcastChatMessage(roomId, message);
+            
+            return ResponseEntity.ok(ApiResponse.success("MESSAGE_SENT", "Message sent successfully", messageDTO));
         } catch (Exception e) {
             log.error("Error sending message", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while sending the message"));
+                    .body(ApiResponse.error("SERVER_ERROR", "An error occurred while sending the message"));
         }
     }
     
@@ -337,30 +360,76 @@ public class ChatController {
      * Delete a message
      */
     @DeleteMapping("/messages/{messageId}")
-    public ResponseEntity<ResponseDTO> deleteMessage(
-            HttpServletRequest request,
+    public ResponseEntity<ApiResponse<?>> deleteMessage(
+            Authentication authentication,
             @PathVariable Long messageId) {
         
         try {
-            User user = getCurrentUser(request);
-            boolean deleted = chatService.deleteMessage(messageId, user.getId());
+            String email = authentication.getName();
+            User user = userService.getUserByEmail(email);
             
-            if (deleted) {
-                return ResponseEntity.ok(ResponseDTO.success(
-                    SUCCESS_DELETED,
-                    "Message deleted successfully"
-                ));
-            } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, "You do not have permission to delete this message"));
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("USER_NOT_FOUND", "User not found"));
             }
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
+            
+            // Get the message to be deleted (for room ID)
+            ChatMessage message = chatService.getMessageById(messageId);
+            if (message == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("MESSAGE_NOT_FOUND", "Message not found"));
+            }
+            
+            // Check if the user is authorized to delete the message
+            boolean isAdmin = chatService.isUserChatAdmin(user.getId(), message.getRoom().getId());
+            boolean isAuthor = message.getSender().getId().equals(user.getId());
+            
+            if (!isAdmin && !isAuthor) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("UNAUTHORIZED", "You are not authorized to delete this message"));
+            }
+            
+            // Store the room ID before deletion
+            Long roomId = message.getRoom().getId();
+            
+            // Delete the message
+            boolean deleted = chatService.deleteMessage(messageId);
+            
+            if (!deleted) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("DELETE_FAILED", "Failed to delete message"));
+            }
+            
+            // Publish WebSocket event for real-time notification
+            log.info("Broadcasting message deletion via WebSocket");
+            // Use the webSocketHandler to broadcast the deletion to all clients
+            // Create message payload for deletion
+            broadcastMessageDeletion(roomId, messageId);
+            
+            return ResponseEntity.ok(ApiResponse.success("MESSAGE_DELETED", "Message deleted successfully"));
         } catch (Exception e) {
             log.error("Error deleting message", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while deleting the message"));
+                    .body(ApiResponse.error("SERVER_ERROR", "An error occurred while deleting the message"));
+        }
+    }
+
+    /**
+     * Helper method to broadcast message deletion to all clients
+     */
+    private void broadcastMessageDeletion(Long roomId, Long messageId) {
+        try {
+            log.info("Broadcasting message deletion for message {} in room {}", messageId, roomId);
+            
+            // Create deletion event for WebSocket clients
+            org.springframework.web.socket.TextMessage deleteNotification = new org.springframework.web.socket.TextMessage(
+                "{\"type\":\"MESSAGE_DELETED\",\"messageId\":" + messageId + ",\"roomId\":" + roomId + "}"
+            );
+            
+            // Broadcast the deletion to all clients in the room
+            webSocketHandler.broadcastToRoom(roomId, deleteNotification, null);
+        } catch (Exception e) {
+            log.error("Error broadcasting message deletion", e);
         }
     }
     

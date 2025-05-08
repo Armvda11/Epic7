@@ -79,6 +79,37 @@ const ChatInterface = ({
   const messagesContainerRef = useRef(null);
   const lastMessageCountRef = useRef(0);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
+  const [sortedMessages, setSortedMessages] = useState([]);
+  
+  // Sort messages when they arrive
+  useEffect(() => {
+    if (!messages || !Array.isArray(messages)) {
+      setSortedMessages([]);
+      return;
+    }
+    
+    // Sort messages chronologically (oldest first, newest last)
+    const sorted = [...messages].sort((a, b) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeA - timeB;
+    });
+    
+    setSortedMessages(sorted);
+    
+    // Check if new messages were added
+    if (messages.length > lastMessageCountRef.current) {
+      // Check if we should auto-scroll based on user position
+      const shouldScroll = shouldScrollToBottom || checkShouldScrollToBottom();
+      
+      if (shouldScroll) {
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    }
+    
+    // Update ref to current message count
+    lastMessageCountRef.current = messages.length;
+  }, [messages, shouldScrollToBottom]);
   
   // Check if user was near bottom before new messages
   const checkShouldScrollToBottom = () => {
@@ -93,21 +124,10 @@ const ChatInterface = ({
 
   // Handle scrolling when messages update
   useEffect(() => {
-    if (!messages || !Array.isArray(messages)) return;
-    
-    // Check if new messages were added
-    if (messages.length > lastMessageCountRef.current) {
-      // Check if we should auto-scroll based on user position
-      const shouldScroll = shouldScrollToBottom || checkShouldScrollToBottom();
-      
-      if (shouldScroll) {
-        scrollToBottom();
-      }
+    if (sortedMessages.length > 0 && shouldScrollToBottom) {
+      scrollToBottom();
     }
-    
-    // Update ref to current message count
-    lastMessageCountRef.current = messages.length;
-  }, [messages, shouldScrollToBottom]);
+  }, [sortedMessages, shouldScrollToBottom]);
 
   // Handle outside click for emoji picker
   useEffect(() => {
@@ -205,7 +225,7 @@ const ChatInterface = ({
 
   // Render message list
   const renderMessages = () => {
-    if (!Array.isArray(messages)) {
+    if (!Array.isArray(sortedMessages)) {
       return (
         <div className="flex justify-center items-center h-full text-gray-500 dark:text-gray-400">
           {t('errorLoadingMessages', language)}
@@ -213,20 +233,13 @@ const ChatInterface = ({
       );
     }
 
-    if (messages.length === 0) {
+    if (sortedMessages.length === 0) {
       return (
         <div className="flex justify-center items-center h-full text-gray-500 dark:text-gray-400">
           {t('noMessages', language)}
         </div>
       );
     }
-    
-    // Sort messages by timestamp to ensure chronological order (oldest first)
-    const sortedMessages = [...messages].sort((a, b) => {
-      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return timeA - timeB;
-    });
     
     return (
       <>

@@ -15,7 +15,7 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
-  const handlerIdRef = useRef(null);
+  const handlerIdsRef = useRef([]);
   const messageSeenRef = useRef(new Set()); // Track message IDs to avoid duplicates
   const messageContainerRef = useRef(null);
 
@@ -49,7 +49,14 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
         if (msg.id) messageSeenRef.current.add(msg.id.toString());
       });
       
-      setLocalMessages(contextMessages);
+      // Sort messages chronologically
+      const sortedMessages = [...contextMessages].sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeA - timeB;
+      });
+      
+      setLocalMessages(sortedMessages);
     }
   }, [contextMessages]);
 
@@ -60,11 +67,11 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     }
   }, [localMessages]);
 
-  // Set up WebSocket handler for real-time messages
+  // Set up WebSocket handlers for real-time messages
   useEffect(() => {
     if (!roomId || !currentUser) return;
     
-    console.log(`Setting up WebSocket handler for room ${roomId}`);
+    console.log(`Setting up WebSocket handlers for room ${roomId}`);
     
     // Handler for new messages from WebSocket
     const handleNewMessage = (messageData) => {
@@ -99,17 +106,58 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
       
       // Update state with the new message
       setLocalMessages(prevMessages => {
+        // Check for optimistic message replacement
+        const optimisticIndex = prevMessages.findIndex(m => 
+          m.isOptimistic && 
+          m.content === processedMessage.content && 
+          m.sender?.id === processedMessage.sender?.id
+        );
+        
+        if (optimisticIndex !== -1) {
+          // Replace optimistic message with real one
+          const newMessages = [...prevMessages];
+          newMessages[optimisticIndex] = {
+            ...processedMessage,
+            fromCurrentUser: newMessages[optimisticIndex].fromCurrentUser
+          };
+          return newMessages;
+        }
+        
         // Check for duplicates
         const isDuplicate = prevMessages.some(m => m.id === processedMessage.id);
         if (isDuplicate) return prevMessages;
         
-        return [...prevMessages, processedMessage];
+        // Add the new message and sort chronologically
+        const updatedMessages = [...prevMessages, processedMessage];
+        return updatedMessages.sort((a, b) => {
+          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return timeA - timeB;
+        });
       });
     };
     
-    // Register message handler
-    const handlerId = ChatWebSocketService.addHandler('onChatMessage', handleNewMessage);
-    handlerIdRef.current = handlerId;
+    // Handler for message deletions
+    const handleDeletedMessage = (messageId) => {
+      if (!messageId) return;
+      
+      console.log('Message deleted notification received:', messageId);
+      
+      // Remove from seen set
+      messageSeenRef.current.delete(messageId.toString());
+      
+      // Remove from local messages
+      setLocalMessages(prev => prev.filter(msg => msg.id !== messageId));
+    };
+    
+    // Register multiple handlers to catch all message types
+    const messageHandlerId = ChatWebSocketService.addHandler('onChatMessage', handleNewMessage);
+    const chatMessageHandlerId = ChatWebSocketService.addHandler('CHAT_MESSAGE', handleNewMessage);
+    const messageSentHandlerId = ChatWebSocketService.addHandler('MESSAGE_SENT', handleNewMessage);
+    const deleteHandlerId = ChatWebSocketService.addHandler('onMessageDeleted', handleDeletedMessage);
+    handlerIdsRef.current = [messageHandlerId, chatMessageHandlerId, messageSentHandlerId, deleteHandlerId];
+    
+    console.log('Registered WebSocket handlers:', handlerIdsRef.current);
     
     // Connect WebSocket if not already connected to this room
     if (!ChatWebSocketService.isConnected() || ChatWebSocketService.roomId !== roomId) {
@@ -118,8 +166,9 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     
     // Cleanup
     return () => {
-      if (handlerIdRef.current) {
-        ChatWebSocketService.removeHandler(handlerIdRef.current);
+      if (handlerIdsRef.current.length > 0) {
+        console.log('Removing WebSocket handlers:', handlerIdsRef.current);
+        handlerIdsRef.current.forEach(id => ChatWebSocketService.removeHandler(id));
       }
     };
   }, [roomId, currentUser]);
@@ -143,7 +192,14 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     };
     
     // Add optimistic message to local state
-    setLocalMessages(prev => [...prev, optimisticMessage]);
+    setLocalMessages(prev => {
+      const updatedMessages = [...prev, optimisticMessage];
+      return updatedMessages.sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeA - timeB;
+      });
+    });
     
     // Clear input field immediately for better UX
     setNewMessage('');
@@ -187,7 +243,12 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     messageSeenRef.current.delete(messageId.toString());
     
     try {
-      await deleteMessage(messageId);
+      // Use the context method which handles both API and WebSocket
+      const success = await deleteMessage(messageId);
+      
+      if (!success) {
+        throw new Error('Delete operation failed');
+      }
     } catch (error) {
       console.error('Error deleting message:', error);
       setError('Failed to delete message. Please try again.');

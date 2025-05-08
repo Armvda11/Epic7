@@ -1,12 +1,14 @@
 // src/main.jsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App.jsx'
-import './index.css'
-import { SettingsProvider } from './context/SettingsContext.jsx'
-import { MailboxProvider } from './context/MailboxContext'
-import { ChatProvider } from './context/ChatContext.jsx'
+import React, { useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import './index.css';
+import './polyfill.js';
+import App from './App';
+import { SettingsProvider } from './context/SettingsContext';
+import { MailboxProvider } from './context/MailboxContext';
+import { ChatProvider } from './context/ChatContext';
+import ChatWebSocketService from './services/ChatWebSocketService';
 
 // Polyfill pour structuredClone
 import './polyfill.js'
@@ -57,7 +59,38 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+// Add a global error handler for WebSocket errors
+window.addEventListener('error', (event) => {
+  if (event.message && event.message.includes('WebSocket')) {
+    console.error('WebSocket error caught by window error handler:', event);
+  }
+});
+
+// Create a simple heartbeat function to keep WebSocket connections alive
+const setupWebSocketHeartbeat = () => {
+  // Check WebSocket connection every 30 seconds
+  const heartbeatInterval = setInterval(() => {
+    if (ChatWebSocketService.isConnected()) {
+      console.log('WebSocket heartbeat: connection is active');
+    } else if (ChatWebSocketService.roomId) {
+      console.log('WebSocket heartbeat: connection lost, attempting to reconnect...');
+      ChatWebSocketService.reconnect();
+    }
+  }, 30000);
+  
+  // Clean up on page unload
+  window.addEventListener('beforeunload', () => {
+    clearInterval(heartbeatInterval);
+  });
+};
+
+// Set up WebSocket heartbeat
+setupWebSocketHeartbeat();
+
+const container = document.getElementById('root');
+const root = createRoot(container);
+
+root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <SettingsProvider>
@@ -70,5 +103,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </BrowserRouter>
       </SettingsProvider>
     </ErrorBoundary>
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

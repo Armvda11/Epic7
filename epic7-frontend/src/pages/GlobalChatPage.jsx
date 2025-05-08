@@ -11,12 +11,20 @@ import ChatRoom from '../components/chat/ChatRoom';
 const GlobalChatPage = () => {
   const navigate = useNavigate();
   const { t, language } = useSettings();
-  const { globalChatRoom, error, fetchGlobalChatRoom } = useChat();
+  const { globalChatRoom, error, fetchGlobalChatRoom, messages } = useChat();
 
   // Fetch the global chat room on component mount
   useEffect(() => {
+    console.log('Fetching global chat room');
     fetchGlobalChatRoom();
   }, [fetchGlobalChatRoom]);
+
+  // Log when messages update
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      console.log(`Global chat has ${messages.length} messages`);
+    }
+  }, [messages]);
 
   // Handle back navigation
   const handleBack = () => {
