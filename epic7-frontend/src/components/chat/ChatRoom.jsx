@@ -49,9 +49,17 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
         // Track seen message IDs
         if (msg.id) messageSeenRef.current.add(msg.id.toString());
         
-        // Mark messages from current user
-        const isFromCurrentUser = currentUser && msg.sender && 
-          msg.sender.id === currentUser.id;
+        // More robust check for messages from current user
+        const isFromCurrentUser = 
+          // Check if already marked
+          msg.fromCurrentUser || 
+          // Check sender ID against current user ID
+          (currentUser && msg.sender && msg.sender.id === currentUser.id) ||
+          // Check senderId property
+          (currentUser && msg.senderId && msg.senderId === currentUser.id) ||
+          // Check sender username
+          (currentUser && msg.sender && currentUser.username && 
+           msg.sender.username === currentUser.username);
         
         return {
           ...msg,
@@ -104,67 +112,74 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
         return;
       }
       
-      // Is message from current user?
+      // More robust check to determine if message is from current user
       const isFromCurrentUser = 
         // Check if marked as fromCurrentUser by the service
         data.fromCurrentUser || 
         // Check sender ID
         (data.sender && currentUser && data.sender.id === currentUser.id) ||
         // Check senderId from our enhanced service
-        (data.senderId && currentUser && data.senderId === currentUser.id);
+        (data.senderId && currentUser && data.senderId === currentUser.id) ||
+        // Check sender username
+        (data.sender && currentUser && data.sender.username === currentUser.username);
+      
+      console.log(`Message from ${data.sender?.username}, isFromCurrentUser: ${isFromCurrentUser}`);
+
+      // If we've already seen this message ID, ignore it
+      if (data.id && messageSeenRef.current.has(data.id.toString())) {
+        console.log('Skipping already seen message:', data.id);
+        return;
+      }
+      
+      // Add to seen set to prevent duplication
+      if (data.id) {
+        messageSeenRef.current.add(data.id.toString());
+      }
 
       // For messages from current user - either replace the optimistic message
-      // or ignore if we already have a non-optimistic version
+      // or add as a new message with the correct styling
       if (isFromCurrentUser) {
-        // If we've already seen this message ID, ignore it
-        if (data.id && messageSeenRef.current.has(data.id.toString())) {
-          console.log('Ignoring already seen message from current user:', data.id);
-          return;
-        }
-        
-        // If it's a new message, add it to seen set
-        if (data.id) {
-          messageSeenRef.current.add(data.id.toString());
-        }
-        
         setLocalMessages(prevMessages => {
-          // Check if we already have a non-optimistic version of this message
-          const existingMessageIndex = prevMessages.findIndex(m => 
-            !m.isOptimistic && 
-            m.content === data.content && 
-            m.sender?.id === data.sender?.id
-          );
-          
-          if (existingMessageIndex !== -1) {
-            console.log('Already have a non-optimistic version of this message, ignoring', data);
-            return prevMessages;
-          }
-          
           // Look for a matching optimistic message to replace
           const optimisticIndex = prevMessages.findIndex(m => 
             m.isOptimistic && 
             m.content === data.content && 
-            m.sender?.id === data.sender?.id
+            (m.sender?.id === data.sender?.id || 
+             m.sender?.username === data.sender?.username)
           );
           
           if (optimisticIndex !== -1) {
-            console.log(`Replacing optimistic message at index ${optimisticIndex}:`, data);
+            console.log(`Replacing optimistic message at index ${optimisticIndex} with confirmed message:`, data.id);
             
             // Replace the optimistic message with the confirmed one
             const newMessages = [...prevMessages];
             newMessages[optimisticIndex] = {
               ...data,
-              fromCurrentUser: true
+              fromCurrentUser: true // Ensure it's marked as from current user
             };
             
             return newMessages;
           }
           
-          // If we don't have this message at all, add it
-          console.log('Adding new message from current user:', data);
+          // Check for any exact duplicate (even without being optimistic)
+          const isDuplicate = prevMessages.some(m => 
+            (data.id && m.id === data.id) || 
+            (m.content === data.content && 
+             ((m.sender?.id && data.sender?.id && m.sender.id === data.sender.id) ||
+              (m.sender?.username && data.sender?.username && m.sender.username === data.sender.username)) &&
+             Math.abs(new Date(m.timestamp || 0) - new Date(data.timestamp || 0)) < 3000)
+          );
+          
+          if (isDuplicate) {
+            console.log('Duplicate message from current user detected and skipped:', data);
+            return prevMessages;
+          }
+          
+          // If we don't have this message at all, add it with the correct fromCurrentUser flag
+          console.log('Adding new message from current user:', data.id);
           const updatedMessages = [...prevMessages, {
             ...data,
-            fromCurrentUser: true
+            fromCurrentUser: true // Crucial for correct styling
           }];
           
           return updatedMessages.sort((a, b) => {
@@ -174,29 +189,14 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
           });
         });
         
-        return; // Skip rest of processing for current user's messages
+        return; // Skip the rest of processing
       }
       
       // For messages from other users
-      
-      // Skip if we've already seen this message ID
-      if (data.id && messageSeenRef.current.has(data.id.toString())) {
-        console.log('Skipping already seen message:', data.id);
-        return;
-      }
-      
-      // Add to seen messages to avoid future duplicates
-      if (data.id) {
-        messageSeenRef.current.add(data.id.toString());
-      }
-      
-      // Process message from other users
       setLocalMessages(prevMessages => {
-        // Check if we already have this exact message (even without ID match)
+        // Check if we already have this message
         const isDuplicate = prevMessages.some(m => 
-          // Perfect ID match if both have IDs
-          (data.id && m.id && m.id === data.id) ||
-          // Same content, same sender, and timestamp within 3 seconds
+          (data.id && m.id === data.id) ||
           (m.content === data.content && 
            m.sender?.id === data.sender?.id && 
            Math.abs(new Date(m.timestamp || 0) - new Date(data.timestamp || 0)) < 3000)
@@ -207,10 +207,10 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
           return prevMessages;
         }
         
-        // Add the new message
+        // Add the new message from another user
         const newMessage = {
           ...data,
-          fromCurrentUser: false,
+          fromCurrentUser: false, // Ensure it's marked as NOT from current user
           roomId: data.roomId || roomId
         };
         
@@ -489,10 +489,8 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
                 <div 
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     isCurrentUserMessage 
-                      ? message.isOptimistic
-                        ? 'bg-purple-400 text-white' // Lighter color for optimistic messages
-                        : 'bg-purple-600 text-white'
-                      : 'bg-gray-200 dark:bg-[#3a3464] text-black dark:text-white'
+                      ? 'bg-purple-600 text-white' // Consistent purple for current user's messages
+                      : 'bg-gray-200 dark:bg-[#3a3464] text-black dark:text-white' // Different style for other users' messages
                   }`}
                 >
                   {!isCurrentUserMessage && (
