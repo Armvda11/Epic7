@@ -38,6 +38,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/chat/rooms/global").authenticated() // allow accessing global chat without auth
                 .requestMatchers("/api/combat/**").authenticated() // les combats sont ouverts
                 .requestMatchers("/api/user/me").permitAll() // Allow checking user status without authentication
+                // WebSocket endpoints - allow all for development (important for chat functionality)
+                .requestMatchers("/ws-chat/**").permitAll()
+                .requestMatchers("/topic/**").permitAll()
+                .requestMatchers("/app/**").permitAll()
                 .anyRequest().authenticated()               // tout le reste est protégé
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

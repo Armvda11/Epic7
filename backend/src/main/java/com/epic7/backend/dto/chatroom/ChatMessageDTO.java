@@ -1,5 +1,6 @@
-package com.epic7.backend.dto;
+package com.epic7.backend.dto.chatroom;
 
+import com.epic7.backend.dto.UserInfoDTO;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import lombok.AllArgsConstructor;

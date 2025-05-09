@@ -1,510 +1,443 @@
 package com.epic7.backend.controller;
 
-import com.epic7.backend.dto.ApiResponse;
-import com.epic7.backend.dto.ChatMessageBatchDTO;
-import com.epic7.backend.dto.ChatMessageDTO;
-import com.epic7.backend.dto.ChatRoomDTO;
-import com.epic7.backend.dto.ResponseDTO;
-import com.epic7.backend.event.ChatMessageEvent;
+import com.epic7.backend.dto.ApiResponseDTO;
+import com.epic7.backend.dto.chatroom.ChatMessageDTO;
+import com.epic7.backend.dto.chatroom.ChatRoomDTO;
+import com.epic7.backend.dto.chatroom.DeleteMessageDTO;
+import com.epic7.backend.dto.chatroom.TypingDTO;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import com.epic7.backend.model.chat.ChatRoom;
-import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ChatService;
-import com.epic7.backend.service.UserService;
 import com.epic7.backend.utils.JwtUtil;
-import com.epic7.backend.websocket.ChatWebSocketHandler;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.constraints.Null;
+import com.epic7.backend.model.enums.ChatType;
+
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.security.Principal;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.stream.Collectors;
 
 /**
- * Controller for chat-related endpoints
+ * Controller for handling WebSocket chat messages using STOMP.
+ * Handles global chat, guild chat, and duel chat.
  */
 @RestController
 @RequestMapping("/api/chat")
+@RequiredArgsConstructor
 @Slf4j
 public class ChatController {
 
-    private final JwtUtil jwtUtil;
-    private final AuthService authService;
+    private final SimpMessagingTemplate messagingTemplate;
     private final ChatService chatService;
-    private final UserService userService;
-    private final ApplicationEventPublisher eventPublisher;
-    private final ChatWebSocketHandler webSocketHandler;
+    private final AuthService authService;
+    private final JwtUtil jwtUtil;
     
     // Error codes constants
-    private static final String ERROR_INVALID_INPUT = "CHAT_INVALID_INPUT";
-    private static final String ERROR_NOT_FOUND = "CHAT_NOT_FOUND";
-    private static final String ERROR_PERMISSION_DENIED = "CHAT_PERMISSION_DENIED";
+    private static final String ERROR_CHAT_ROOM_NOT_FOUND = "CHAT_ROOM_NOT_FOUND";
+    private static final String ERROR_CHAT_ROOM_ERROR = "CHAT_ROOM_ERROR";
+    private static final String ERROR_MISSING_GROUP_ID = "MISSING_GROUP_ID";
+    private static final String ERROR_INVALID_ROOM_TYPE = "INVALID_ROOM_TYPE";
+    private static final String ERROR_MESSAGE_NOT_FOUND = "MESSAGE_NOT_FOUND";
+    private static final String ERROR_DELETE_FAILED = "DELETE_FAILED";
     private static final String ERROR_SERVER = "INTERNAL_SERVER_ERROR";
     
     // Success code constants
-    private static final String SUCCESS_CREATED = "CHAT_CREATED";
-    private static final String SUCCESS_SENT = "MESSAGE_SENT";
-    private static final String SUCCESS_DELETED = "MESSAGE_DELETED";
-    private static final String SUCCESS_DATA_RETRIEVED = "CHAT_DATA_RETRIEVED";
+    private static final String SUCCESS_CHAT_ROOM_FOUND = "CHAT_ROOM_FOUND";
+    private static final String SUCCESS_MESSAGES_FOUND = "MESSAGES_FOUND";
+    private static final String SUCCESS_MESSAGE_SENT = "MESSAGE_SENT";
+    private static final String SUCCESS_MESSAGE_DELETED = "MESSAGE_DELETED";
+    private static final String SUCCESS_CHAT_ROOMS_FOUND = "CHAT_ROOMS_FOUND";
 
-    public ChatController(JwtUtil jwtUtil, AuthService authService, ChatService chatService, UserService userService,
-                         ApplicationEventPublisher eventPublisher, ChatWebSocketHandler webSocketHandler) {
-        this.jwtUtil = jwtUtil;
-        this.authService = authService;
-        this.chatService = chatService;
-        this.userService = userService;
-        this.eventPublisher = eventPublisher;
-        this.webSocketHandler = webSocketHandler;
-    }
-    
-    /**
-     * Extracts user from JWT token
-     */
-    private User getCurrentUser(HttpServletRequest request) {
-        String token = jwtUtil.extractTokenFromHeader(request);
-        String email = jwtUtil.extractEmail(token);
-        return authService.getUserByEmail(email);
-    }
-    
-    /**
-     * Get all chat rooms the current user has access to
-     */
-    @GetMapping("/rooms")
-    public ResponseEntity<ResponseDTO> getUserChatRooms(HttpServletRequest request) {
-        try {
-            User user = getCurrentUser(request);
-            List<ChatRoom> rooms = chatService.getUserChatRooms(user.getId());
-            
-            // Convert to DTOs with user context
-            List<ChatRoomDTO> roomDTOs = rooms.stream()
-                .map(room -> ChatRoomDTO.fromEntity(room, user.getId()))
-                .collect(Collectors.toList());
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Chat rooms retrieved successfully",
-                roomDTOs
-            ));
-        } catch (Exception e) {
-            log.error("Error getting chat rooms", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while retrieving chat rooms"));
-        }
-    }
-    
-    /**
-     * Get recent messages for a chat room
-     */
-    @GetMapping("/messages/{roomId}")
-    public ResponseEntity<ResponseDTO> getRecentMessages(
-            HttpServletRequest request,
-            @PathVariable Long roomId,
-            @RequestParam(defaultValue = "20") int limit) {
-        
-        try {
-            User user = getCurrentUser(request);
-            List<ChatMessage> messages = chatService.getRecentMessages(roomId, user.getId(), limit);
-            
-            // Convert to DTOs with user context
-            List<ChatMessageDTO> messageDTOs = messages.stream()
-                .map(message -> ChatMessageDTO.fromEntity(message, user.getId()))
-                .collect(Collectors.toList());
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Messages retrieved successfully",
-                messageDTOs
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error getting chat messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while retrieving messages"));
-        }
-    }
-    
-    /**
-     * Get recent messages for a chat room - ADDED TO MATCH FRONTEND URL PATTERN
-     */
-    @GetMapping("/rooms/{roomId}/messages")
-    public ResponseEntity<ResponseDTO> getRoomMessages(
-            HttpServletRequest request,
-            @PathVariable Long roomId,
-            @RequestParam(defaultValue = "20") int limit) {
-        
-        try {
-            User user = getCurrentUser(request);
-            List<ChatMessage> messages = chatService.getRecentMessages(roomId, user.getId(), limit);
-            
-            // Convert to DTOs with user context
-            List<ChatMessageDTO> messageDTOs = messages.stream()
-                .map(message -> ChatMessageDTO.fromEntity(message, user.getId()))
-                .collect(Collectors.toList());
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Messages retrieved successfully",
-                messageDTOs
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error getting chat messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while retrieving messages"));
-        }
-    }
-    
-    /**
-     * Check if the current user is an admin of a chat room
-     */
-    @GetMapping("/rooms/{roomId}/isAdmin")
-    public ResponseEntity<ResponseDTO> isUserAdmin(
-            HttpServletRequest request,
-            @PathVariable Long roomId) {
-        
-        try {
-            User user = getCurrentUser(request);
-            boolean isAdmin = chatService.isUserChatRoomAdmin(roomId, user.getId());
-            
-            Map<String, Boolean> result = new HashMap<>();
-            result.put("isAdmin", isAdmin);
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Admin status retrieved successfully",
-                result
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error checking admin status", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while checking admin status"));
-        }
-    }
-    
-    /**
-     * Get paginated messages for a chat room with efficient batching
-     */
-    @GetMapping("/messages/{roomId}/paged")
-    public ResponseEntity<ResponseDTO> getPagedMessages(
-            HttpServletRequest request,
-            @PathVariable Long roomId,
-            @RequestParam(required = false) Long lastMessageId,
-            @RequestParam(defaultValue = "20") int pageSize) {
-        
-        try {
-            User user = getCurrentUser(request);
-            
-            // Get messages using pagination parameters
-            List<ChatMessage> messages = lastMessageId != null 
-                ? chatService.getRecentMessages(roomId, user.getId(), pageSize) : null;
-            
-            // Check if there are more messages available
-            boolean hasMore = messages.size() >= pageSize;
-            
-            // Convert to batch DTO with user context
-            ChatMessageBatchDTO batchDTO = ChatMessageBatchDTO.fromEntities(messages, hasMore);
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Messages retrieved successfully",
-                batchDTO
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error getting paged chat messages", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while retrieving messages"));
-        }
-    }
-    
-    /**
-     * Send a message to a chat room (REST endpoint for non-websocket clients)
-     */
-    @PostMapping("/send")
-    public ResponseEntity<ApiResponse<ChatMessageDTO>> sendMessage(
-            Authentication authentication,
-            @RequestParam Long roomId,
-            @RequestParam String content) {
-        
-        try {
-            String email = authentication.getName();
-            User sender = userService.getUserByEmail(email);
-            
-            if (sender == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("USER_NOT_FOUND", "User not found"));
-            }
-            
-            // Save the message using the service
-            ChatMessage message = chatService.sendMessage(sender, roomId, content);
-            
-            if (message == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("MESSAGE_SEND_FAILED", "Failed to send message"));
-            }
-            
-            // Create response DTO
-            ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(message, sender.getId());
-            
-            // Publish event for real-time notification via WebSocket
-            eventPublisher.publishEvent(new ChatMessageEvent(roomId, message));
-            
-            // Also directly broadcast the message via WebSocketHandler for immediate delivery
-            log.info("Broadcasting message via WebSocketHandler");
-            webSocketHandler.broadcastChatMessage(roomId, message);
-            
-            return ResponseEntity.ok(ApiResponse.success("MESSAGE_SENT", "Message sent successfully", messageDTO));
-        } catch (Exception e) {
-            log.error("Error sending message", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("SERVER_ERROR", "An error occurred while sending the message"));
-        }
-    }
-    
-    /**
-     * Send a batch of messages at once (useful for initial load after offline period)
-     */
-    @PostMapping("/send/batch")
-    public ResponseEntity<ResponseDTO> sendMessageBatch(
-            HttpServletRequest request,
-            @RequestBody List<ChatMessageDTO> messageDTOs) {
-        
-        try {
-            User user = getCurrentUser(request);
-            
-            // Process each message in the batch
-            List<ChatMessage> processedMessages = chatService.processBatchMessages(user, messageDTOs);
-            
-            // Convert back to DTOs
-            List<ChatMessageDTO> responseMessages = processedMessages.stream()
-                .map(message -> ChatMessageDTO.fromEntity(message, user.getId()))
-                .collect(Collectors.toList());
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_SENT,
-                String.format("%d messages processed successfully", responseMessages.size()),
-                responseMessages
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_INVALID_INPUT, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error processing message batch", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while processing message batch"));
-        }
-    }
-    
-    /**
-     * Mark messages as read up to a specific message ID
-     */
-    @PostMapping("/messages/{roomId}/read")
-    public ResponseEntity<ResponseDTO> markMessagesAsRead(
-            HttpServletRequest request,
-            @PathVariable Long roomId,
-            @RequestParam Long lastReadMessageId) {
-        
-        try {
-            User user = getCurrentUser(request);
-            int updatedCount = chatService.markMessagesAsRead(roomId, user.getId(), lastReadMessageId);
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                String.format("%d messages marked as read", updatedCount),
-                updatedCount
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error marking messages as read", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while marking messages as read"));
-        }
-    }
-    
-    /**
-     * Delete a message
-     */
-    @DeleteMapping("/messages/{messageId}")
-    public ResponseEntity<ApiResponse<?>> deleteMessage(
-            Authentication authentication,
-            @PathVariable Long messageId) {
-        
-        try {
-            String email = authentication.getName();
-            User user = userService.getUserByEmail(email);
-            
-            if (user == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("USER_NOT_FOUND", "User not found"));
-            }
-            
-            // Get the message to be deleted (for room ID)
-            ChatMessage message = chatService.getMessageById(messageId);
-            if (message == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("MESSAGE_NOT_FOUND", "Message not found"));
-            }
-            
-            // Check if the user is authorized to delete the message
-            boolean isAdmin = chatService.isUserChatAdmin(user.getId(), message.getRoom().getId());
-            boolean isAuthor = message.getSender().getId().equals(user.getId());
-            
-            if (!isAdmin && !isAuthor) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ApiResponse.error("UNAUTHORIZED", "You are not authorized to delete this message"));
-            }
-            
-            // Store the room ID before deletion
-            Long roomId = message.getRoom().getId();
-            
-            // Delete the message
-            boolean deleted = chatService.deleteMessage(messageId);
-            
-            if (!deleted) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error("DELETE_FAILED", "Failed to delete message"));
-            }
-            
-            // Publish WebSocket event for real-time notification
-            log.info("Broadcasting message deletion via WebSocket");
-            // Use the webSocketHandler to broadcast the deletion to all clients
-            // Create message payload for deletion
-            broadcastMessageDeletion(roomId, messageId);
-            
-            return ResponseEntity.ok(ApiResponse.success("MESSAGE_DELETED", "Message deleted successfully"));
-        } catch (Exception e) {
-            log.error("Error deleting message", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("SERVER_ERROR", "An error occurred while deleting the message"));
-        }
-    }
-
-    /**
-     * Helper method to broadcast message deletion to all clients
-     */
-    private void broadcastMessageDeletion(Long roomId, Long messageId) {
-        try {
-            log.info("Broadcasting message deletion for message {} in room {}", messageId, roomId);
-            
-            // Create deletion event for WebSocket clients
-            org.springframework.web.socket.TextMessage deleteNotification = new org.springframework.web.socket.TextMessage(
-                "{\"type\":\"MESSAGE_DELETED\",\"messageId\":" + messageId + ",\"roomId\":" + roomId + "}"
-            );
-            
-            // Broadcast the deletion to all clients in the room
-            webSocketHandler.broadcastToRoom(roomId, deleteNotification, null);
-        } catch (Exception e) {
-            log.error("Error broadcasting message deletion", e);
-        }
-    }
-    
-    /**
-     * Connect to a chat room
-     */
-    @PostMapping("/rooms/{roomId}/connect")
-    public ResponseEntity<ResponseDTO> connectToRoom(
-            HttpServletRequest request,
-            @PathVariable Long roomId) {
-        
-        try {
-            User user = getCurrentUser(request);
-            boolean connected = chatService.connectUserToChatRoom(roomId, user.getId());
-            
-            if (connected) {
-                ChatRoom room = chatService.getChatRoomById(roomId);
-                ChatRoomDTO roomDTO = ChatRoomDTO.fromEntity(room, user.getId());
-                
-                return ResponseEntity.ok(ResponseDTO.success(
-                    SUCCESS_DATA_RETRIEVED,
-                    "Connected to chat room successfully",
-                    roomDTO
-                ));
-            } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ResponseDTO.error(ERROR_PERMISSION_DENIED, "You do not have permission to access this chat room"));
-            }
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ResponseDTO.error(ERROR_NOT_FOUND, e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error connecting to chat room", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while connecting to the chat room"));
-        }
-    }
+    // ========== REST API ENDPOINTS ==========
 
     /**
      * Get the global chat room (creates it if it doesn't exist)
      */
     @GetMapping("/rooms/global")
-    public ResponseEntity<ResponseDTO> getGlobalChatRoom(HttpServletRequest request) {
+    public ResponseEntity<ApiResponseDTO> getGlobalChatRoom(HttpServletRequest request) {
+        log.info("Getting global chat room");
+        User user = getUserFromRequest(request);
+        
+        // Get or create the global chat room
+        ChatRoom globalRoom = chatService.getOrCreateGlobalChatRoom();
+        
+        if (globalRoom == null) {
+            return ResponseEntity.badRequest().body(
+                ApiResponseDTO.error(ERROR_CHAT_ROOM_ERROR, "Could not retrieve global chat room")
+            );
+        }
+        
+        return ResponseEntity.ok(
+            ApiResponseDTO.success(SUCCESS_CHAT_ROOM_FOUND, "Global chat room retrieved successfully", 
+                ChatRoomDTO.fromEntity(globalRoom))
+        );
+    }
+    
+    /**
+     * Get a chat room by type and optional group ID
+     */
+    @GetMapping("/rooms/by-type")
+    public ResponseEntity<ApiResponseDTO> getChatRoomByType(
+            @RequestParam("type") String type,
+            @RequestParam(value = "groupId", required = false) Long groupId,
+            HttpServletRequest request) {
+        
+        log.info("Getting chat room by type: {} and groupId: {}", type, groupId);
+        User user = getUserFromRequest(request);
+        
+        ChatRoom chatRoom;
         try {
-            User user = getCurrentUser(request);
+            ChatType roomType = ChatType.valueOf(type.toUpperCase());
             
-            // Find global chat room or create one if it doesn't exist
-            List<ChatRoom> globalRooms = chatService.findChatRoomsByType(ChatType.GLOBAL);
-            ChatRoom globalRoom = null;
-            
-            if (globalRooms.isEmpty()) {
-                // Create global chat room if it doesn't exist
-                globalRoom = chatService.createGlobalChatRoom("Global Chat");
-                log.info("Created new global chat room with ID: {}", globalRoom.getId());
+            if (roomType == ChatType.GLOBAL) {
+                chatRoom = chatService.getOrCreateGlobalChatRoom();
             } else {
-                // Use the first global room found
-                globalRoom = globalRooms.get(0);
-                log.debug("Found existing global chat room with ID: {}", globalRoom.getId());
+                if (groupId == null) {
+                    return ResponseEntity.badRequest().body(
+                        ApiResponseDTO.error(ERROR_MISSING_GROUP_ID, "Group ID is required for non-global chat rooms")
+                    );
+                }
+                
+                chatRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(roomType, groupId);
             }
             
-            // Connect user to chat room
-            chatService.connectUserToChatRoom(globalRoom.getId(), user.getId());
+            if (chatRoom == null) {
+                return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(ERROR_CHAT_ROOM_ERROR, "Could not retrieve chat room")
+                );
+            }
             
-            // Convert to DTO with user context
-            ChatRoomDTO roomDTO = ChatRoomDTO.fromEntity(globalRoom, user.getId());
-            
-            return ResponseEntity.ok(ResponseDTO.success(
-                SUCCESS_DATA_RETRIEVED,
-                "Global chat room retrieved successfully",
-                roomDTO
-            ));
+            return ResponseEntity.ok(
+                ApiResponseDTO.success(SUCCESS_CHAT_ROOM_FOUND, "Chat room retrieved successfully", 
+                    ChatRoomDTO.fromEntity(chatRoom))
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(
+                ApiResponseDTO.error(ERROR_INVALID_ROOM_TYPE, "Invalid chat room type: " + type)
+            );
         } catch (Exception e) {
-            log.error("Error getting global chat room", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ResponseDTO.error(ERROR_SERVER, "An error occurred while retrieving global chat room"));
+            log.error("Error retrieving chat room", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération du salon de discussion."));
+        }
+    }
+    
+    /**
+     * Get messages for a specific chat room
+     */
+    @GetMapping("/rooms/{roomId}/messages")
+    public ResponseEntity<ApiResponseDTO> getChatMessages(
+            @PathVariable("roomId") Long roomId,
+            @RequestParam(value = "limit", defaultValue = "50") int limit,
+            HttpServletRequest request) {
+        
+        log.info("Getting messages for room ID: {} with limit: {}", roomId, limit);
+        User user = getUserFromRequest(request);
+        
+        try {
+            ChatRoom chatRoom = chatService.getChatRoomById(roomId);
+            if (chatRoom == null) {
+                return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(ERROR_CHAT_ROOM_NOT_FOUND, "Chat room not found")
+                );
+            }
+            
+            List<ChatMessage> messages = chatService.getChatRoomMessages(roomId, limit);
+            List<ChatMessageDTO> messageDTOs = messages.stream()
+                    .map(ChatMessageDTO::fromEntity)
+                    .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(
+                ApiResponseDTO.success(SUCCESS_MESSAGES_FOUND, "Messages retrieved successfully", messageDTOs)
+            );
+        } catch (Exception e) {
+            log.error("Error retrieving chat messages", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération des messages."));
+        }
+    }
+    
+    /**
+     * Send a message via REST API (fallback for when WebSocket is not available)
+     */
+    @PostMapping("/send")
+    public ResponseEntity<ApiResponseDTO> sendMessageRest(
+            @RequestParam("roomId") Long roomId,
+            @RequestParam("content") String content,
+            HttpServletRequest request) {
+        
+        log.info("Sending message via REST API to room: {}", roomId);
+        User user = getUserFromRequest(request);
+        
+        try {
+            ChatRoom chatRoom = chatService.getChatRoomById(roomId);
+            if (chatRoom == null) {
+                return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(ERROR_CHAT_ROOM_NOT_FOUND, "Chat room not found")
+                );
+            }
+            
+            // Save message
+            ChatMessage savedMessage = chatService.sendMessage(user, roomId, content);
+            ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(savedMessage);
+            
+            // Also broadcast via WebSocket if possible - Important for real-time updates!
+            try {
+                String destination = getDestinationByRoomType(chatRoom);
+                log.info("Broadcasting message to destination: {}", destination);
+                messagingTemplate.convertAndSend(destination, messageDTO);
+                
+                // Also broadcast to global topic as a fallback to ensure all clients receive it
+                // This is an additional safety measure
+                if (!destination.equals("/topic/chat/global")) {
+                    log.info("Also broadcasting to global as fallback");
+                    messagingTemplate.convertAndSend("/topic/chat/global", messageDTO);
+                }
+            } catch (Exception e) {
+                log.warn("Could not broadcast message via WebSocket: {}", e.getMessage(), e);
+            }
+            
+            return ResponseEntity.ok(
+                ApiResponseDTO.success(SUCCESS_MESSAGE_SENT, "Message sent successfully", messageDTO)
+            );
+        } catch (Exception e) {
+            log.error("Error sending message", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de l'envoi du message."));
+        }
+    }
+    
+    /**
+     * Delete a message via REST API (fallback for when WebSocket is not available)
+     */
+    @DeleteMapping("/messages/{messageId}")
+    public ResponseEntity<ApiResponseDTO> deleteMessageRest(
+            @PathVariable("messageId") Long messageId,
+            HttpServletRequest request) {
+        
+        log.info("Deleting message via REST API: {}", messageId);
+        User user = getUserFromRequest(request);
+        
+        try {
+            boolean deleted = chatService.deleteMessage(messageId, user.getId());
+            
+            if (deleted) {
+                // Try to broadcast deletion via WebSocket if possible
+                ChatMessage message = chatService.getChatMessageById(messageId);
+                if (message != null) {
+                    ChatRoom chatRoom = chatService.getChatRoomById(message.getChatRoom().getId());
+                    if (chatRoom != null) {
+                        try {
+                            String destination = getDestinationByRoomType(chatRoom) + "/delete";
+                            // Include user who performed the delete operation along with the message's original sender info
+                            DeleteMessageDTO deleteDTO = new DeleteMessageDTO(
+                                messageId, 
+                                chatRoom.getId(),
+                                user.getUsername(),
+                                user.getId()
+                            );
+                            messagingTemplate.convertAndSend(destination, deleteDTO);
+                        } catch (Exception e) {
+                            log.warn("Could not broadcast message deletion via WebSocket: {}", e.getMessage());
+                        }
+                    }
+                }
+                
+                return ResponseEntity.ok(
+                    ApiResponseDTO.success(SUCCESS_MESSAGE_DELETED, "Message deleted successfully", true)
+                );
+            } else {
+                return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(ERROR_DELETE_FAILED, "Could not delete message")
+                );
+            }
+        } catch (Exception e) {
+            log.error("Error deleting message", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la suppression du message."));
+        }
+    }
+    
+    /**
+     * Get all available chat rooms for the authenticated user
+     */
+    @GetMapping("/rooms")
+    public ResponseEntity<ApiResponseDTO> getAllChatRooms(HttpServletRequest request) {
+        log.info("Getting all chat rooms");
+        User user = getUserFromRequest(request);
+        
+        try {
+            List<ChatRoom> chatRooms = chatService.getAllChatRoomsForUser(user.getId());
+            List<ChatRoomDTO> chatRoomDTOs = chatRooms.stream()
+                    .map(ChatRoomDTO::fromEntity)
+                    .collect(Collectors.toList());
+            
+            return ResponseEntity.ok(
+                ApiResponseDTO.success(SUCCESS_CHAT_ROOMS_FOUND, "Chat rooms retrieved successfully", chatRoomDTOs)
+            );
+        } catch (Exception e) {
+            log.error("Error retrieving chat rooms", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération des salons de discussion."));
+        }
+    }
+    
+    /**
+     * Helper method to extract the authenticated user from the request
+     */
+    private User getUserFromRequest(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromHeader(request);
+        String email = jwtUtil.extractEmail(token);
+        return authService.getUserByEmail(email);
+    }
+
+    // ========== WEBSOCKET MESSAGE HANDLERS ==========
+
+    /**
+     * Handles sending chat messages to the appropriate chat room.
+     * 
+     * @param message The chat message
+     * @param principal The authenticated user (can be null when sent from REST API)
+     */
+    @MessageMapping("/chat.sendMessage")
+    public void sendMessage(@Payload ChatMessageDTO message, Principal principal) {
+        // Handle the case where principal is null (message from REST API or unauthenticated)
+        if (principal == null) {
+            log.warn("Received message without principal (possibly from REST API): {}", message);
+            return; // Skip processing WebSocket messages without authentication
+        }
+        
+        log.info("Received message from {}: {}", principal.getName(), message);
+        
+        User user = authService.getUserByEmail(principal.getName());
+        if (user == null) {
+            log.error("Unable to find user for principal: {}", principal.getName());
+            return;
+        }
+        
+        Long roomId = message.getRoomId();
+        ChatRoom chatRoom = chatService.getChatRoomById(roomId);
+        
+        if (chatRoom == null) {
+            log.error("Chat room with ID {} not found", roomId);
+            return;
+        }
+        
+        // Save message to database
+        ChatMessage savedMessage = chatService.sendMessage(user, roomId, message.getContent());
+        
+        // Convert to DTO for sending back to clients
+        ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(savedMessage);
+        
+        // Send to the appropriate destination based on chat room type
+        String destination = getDestinationByRoomType(chatRoom);
+        messagingTemplate.convertAndSend(destination, messageDTO);
+    }
+
+    /**
+     * Handles typing status updates.
+     * 
+     * @param typing The typing status
+     * @param principal The authenticated user (can be null in some cases)
+     */
+    @MessageMapping("/chat.typing")
+    public void typing(@Payload TypingDTO typing, Principal principal) {
+        // Handle the case where principal is null
+        if (principal == null) {
+            log.warn("Received typing status without principal: {}", typing);
+            return; // Skip processing typing updates without authentication
+        }
+        
+        log.debug("User {} typing status: {}", principal.getName(), typing.isTyping());
+        
+        User user = authService.getUserByEmail(principal.getName());
+        if (user == null) {
+            return;
+        }
+        
+        // Create a typing DTO with the username
+        TypingDTO typingStatus = new TypingDTO(user.getUsername(), typing.isTyping(), typing.getRoomId());
+        
+        // Broadcast typing status to all users in the appropriate chat room
+        Long roomId = typing.getRoomId();
+        if (roomId != null) {
+            ChatRoom chatRoom = chatService.getChatRoomById(roomId);
+            if (chatRoom != null) {
+                String destination = getDestinationByRoomType(chatRoom) + "/typing";
+                messagingTemplate.convertAndSend(destination, typingStatus);
+            }
+        }
+    }
+
+    /**
+     * Handles message deletion.
+     * 
+     * @param deleteMessage The delete message request
+     * @param principal The authenticated user (can be null in some cases)
+     */
+    @MessageMapping("/chat.deleteMessage")
+    public void deleteMessage(@Payload DeleteMessageDTO deleteMessage, Principal principal) {
+        // Handle the case where principal is null
+        if (principal == null) {
+            log.warn("Received delete request without principal: {}", deleteMessage);
+            return; // Skip processing delete updates without authentication
+        }
+        
+        log.info("Delete message request from {}: message ID {}", principal.getName(), deleteMessage.getMessageId());
+        
+        User user = authService.getUserByEmail(principal.getName());
+        if (user == null) {
+            return;
+        }
+        
+        // Try to delete the message
+        boolean deleted = chatService.deleteMessage(deleteMessage.getMessageId(), user.getId());
+        
+        if (deleted) {
+            // If deletion was successful, broadcast to all users in the chat room
+            Long roomId = deleteMessage.getRoomId();
+            ChatRoom chatRoom = chatService.getChatRoomById(roomId);
+            
+            if (chatRoom != null) {
+                String destination = getDestinationByRoomType(chatRoom) + "/delete";
+                messagingTemplate.convertAndSend(destination, deleteMessage);
+            }
+        }
+    }
+    
+    /**
+     * Determines the appropriate destination topic based on the chat room type.
+     * 
+     * @param chatRoom The chat room
+     * @return The destination topic
+     */
+    private String getDestinationByRoomType(ChatRoom chatRoom) {
+        switch (chatRoom.getType()) {
+            case GLOBAL:
+                return "/topic/chat/global";
+            case GUILD:
+                return "/topic/chat/guild." + chatRoom.getGroupId();
+            case FIGHT:
+                return "/topic/chat/duel." + chatRoom.getGroupId();
+            default:
+                return "/topic/chat/global";
         }
     }
 }
+

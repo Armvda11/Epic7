@@ -1,504 +1,891 @@
-// Utilitaire WebSocket pour le chat
-import { fetchUserProfile } from './userService';
-import API from "../api/axiosInstance.jsx";
+import SockJS from 'sockjs-client';
+import { Stomp } from '@stomp/stompjs';
+import { getToken, isAuthenticated } from './authService';
 
-/**
- * Service to handle WebSocket connections for chat functionality
- */
 class ChatWebSocketService {
   constructor() {
-    this.socket = null;
+    this.stompClient = null;
     this.connected = false;
+    this.subscribers = {
+      global: [],
+      guild: {},
+      duel: {},
+      typing: {},
+      delete: {}
+    };
+    this.reconnectInterval = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectTimeout = null;
-    this.handlers = {};
-    this.handlerIdCounter = 0;
-    this.roomId = null;
-    this.pendingMessages = []; // Store messages that failed to send due to connection issues
-    this.pendingDeletes = []; // Store message deletions that failed due to connection issues
+    this.maxReconnectAttempts = 10;
+    this.isAttemptingConnection = false;
   }
 
   /**
-   * Initialize the WebSocket service
+   * Connect to the WebSocket server
+   * @returns {Promise} A promise that resolves when the connection is established
    */
-  init(userId) {
-    // Get authentication token from localStorage
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('No authentication token found for WebSocket connection');
-      return false;
+  connect() {
+    // If already connected, just resolve immediately
+    if (this.connected && this.stompClient) {
+      console.log('Already connected to WebSocket chat server');
+      return Promise.resolve();
     }
-    if (!this.roomId || !userId) {
-      console.error('Room ID and user ID are required for WebSocket connection');
-      return false;
+    
+    // If we're already attempting a connection, return a promise that resolves
+    // when the current connection attempt completes
+    if (this.isAttemptingConnection) {
+      console.log('Connection attempt already in progress, waiting for it to complete');
+      return new Promise((resolve, reject) => {
+        const checkConnection = setInterval(() => {
+          if (this.connected) {
+            clearInterval(checkConnection);
+            resolve();
+          } else if (!this.isAttemptingConnection) {
+            // If the attempt completed but we're not connected, it failed
+            clearInterval(checkConnection);
+            reject(new Error('Connection attempt failed'));
+          }
+          // Otherwise keep waiting
+        }, 100);
+        
+        // Set a timeout to avoid waiting forever
+        setTimeout(() => {
+          clearInterval(checkConnection);
+          this.isAttemptingConnection = false;
+          if (!this.connected) {
+            console.warn('Connection attempt timed out, will operate in fallback mode');
+            reject(new Error('Connection attempt timed out'));
+          }
+        }, 3000); // Reduced timeout from 5000ms to 3000ms
+      });
     }
-    try {
-      // Determine WebSocket URL - using secure WebSocket if on HTTPS
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      
-      // Use API base URL from environment or current host
-      let host = process.env.REACT_APP_API_URL;
-      if (!host) {
-        // If no API URL is specified, use current host but ensure correct port for development
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          host = `${window.location.hostname}:8080`;  // Backend typically runs on 8080
-        } else {
-          host = window.location.host;
+    
+    // Set connection attempt flag
+    this.isAttemptingConnection = true;
+    
+    return new Promise((resolve, reject) => {
+      try {
+        // Check if user is authenticated
+        if (!isAuthenticated()) {
+          console.log('Not attempting WebSocket connection - user not authenticated');
+          this.isAttemptingConnection = false;
+          reject(new Error('User not authenticated'));
+          return;
         }
+
+        const token = getToken();
+        if (!token) {
+          console.log('Not attempting WebSocket connection - no token available');
+          this.isAttemptingConnection = false;
+          reject(new Error('No authentication token found'));
+          return;
+        }
+
+        // Create a function that returns a new SockJS instance
+        // This allows Stomp to reconnect properly
+        const socketFactory = () => {
+          // Create proper backend URL - important to use absolute URL instead of relative
+          const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+          const wsEndpoint = `${backendUrl}/ws-chat`;
+          
+          console.log(`Connecting to WebSocket endpoint: ${wsEndpoint} with token`);
+          
+          // Add a query parameter with the token to avoid CORS preflight issues
+          // This is more reliable than headers for WebSocket connections across browsers
+          const sockJsUrl = `${wsEndpoint}?token=${encodeURIComponent(token)}`;
+          
+          // Create SockJS instance with additional options for better connection handling
+          return new SockJS(sockJsUrl, null, {
+            transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+            timeout: 5000, // Shorter timeout for faster fallback
+            debug: true
+          });
+        };
+
+        // Use the factory function with Stomp.over
+        this.stompClient = Stomp.over(socketFactory);
+        
+        // Properly configure debug - empty function prevents "debug is not a function" error
+        this.stompClient.debug = () => {};
+
+        // Connect with JWT token in headers
+        const connectHeaders = { 
+          // Include token in headers as well for redundancy
+          'Authorization': `Bearer ${token}`,
+          'X-Auth-Token': token
+        };
+        
+        console.log('Connecting to WebSocket with auth token');
+        
+        this.stompClient.connect(
+          connectHeaders,
+          () => {
+            console.log('Connected to WebSocket chat server');
+            this.connected = true;
+            this.reconnectAttempts = 0;
+            this.isAttemptingConnection = false;
+            clearInterval(this.reconnectInterval);
+            
+            // Dispatch a connection open event
+            window.dispatchEvent(new Event('ws:open'));
+            
+            // Set up all pending subscriptions
+            this.setupPendingSubscriptions();
+            
+            resolve();
+          },
+          (error) => {
+            console.error('Error connecting to WebSocket server:', error);
+            this.connected = false;
+            this.isAttemptingConnection = false;
+            
+            // Dispatch a connection error event
+            window.dispatchEvent(new Event('ws:error'));
+            
+            this.scheduleReconnect();
+            reject(error);
+          }
+        );
+      } catch (error) {
+        console.error('Exception during WebSocket connection setup:', error);
+        this.connected = false;
+        this.isAttemptingConnection = false;
+        
+        // Dispatch a connection error event
+        window.dispatchEvent(new Event('ws:error'));
+        
+        reject(error);
       }
+    });
+  }
+  
+  /**
+   * Set up all pending subscriptions when connection is established
+   */
+  setupPendingSubscriptions() {
+    // Set up global chat subscriptions
+    if (this.subscribers.global.length > 0) {
+      console.log(`Setting up ${this.subscribers.global.length} pending global chat subscriptions`);
+      const globalSubscription = this.stompClient.subscribe('/topic/chat/global', (message) => {
+        try {
+          const data = JSON.parse(message.body);
+          // Notify all global chat subscribers
+          this.subscribers.global.forEach(sub => {
+            if (sub.callback) sub.callback(data);
+          });
+        } catch (err) {
+          console.error('Error processing global message:', err);
+        }
+      });
       
-      // Use backend-expected URL format
-      const wsUrl = `${wsProtocol}//${host}/ws/chat/${this.roomId}?userId=${userId}&token=${token}`;
-      console.log('Initializing WebSocket connection to:', wsUrl.replace(/token=.*/, 'token=HIDDEN'));
-      
-      // Create new WebSocket with proper URL
-      this.socket = new WebSocket(wsUrl);
-      this.socket.onopen = this.handleOpen.bind(this);
-      this.socket.onmessage = this.handleMessage.bind(this);
-      this.socket.onclose = this.handleClose.bind(this);
-      this.socket.onerror = this.handleError.bind(this);
-      return true;
-    } catch (error) {
-      console.error('Failed to initialize WebSocket connection:', error);
-      return false;
+      // Update all global subscriptions
+      this.subscribers.global.forEach(sub => {
+        if (sub.subscription && sub.subscription.isPending) {
+          sub.subscription = globalSubscription;
+        }
+      });
+    }
+    
+    // Set up guild chat subscriptions
+    Object.keys(this.subscribers.guild).forEach(guildId => {
+      const subs = this.subscribers.guild[guildId];
+      if (subs && subs.length > 0) {
+        console.log(`Setting up ${subs.length} pending guild chat subscriptions for guild ${guildId}`);
+        const guildSubscription = this.stompClient.subscribe(`/topic/chat/guild.${guildId}`, (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            // Notify all subscribers for this guild
+            subs.forEach(sub => {
+              if (sub.callback) sub.callback(data);
+            });
+          } catch (err) {
+            console.error(`Error processing guild message for guild ${guildId}:`, err);
+          }
+        });
+        
+        // Update all subscriptions for this guild
+        subs.forEach(sub => {
+          if (sub.subscription && sub.subscription.isPending) {
+            sub.subscription = guildSubscription;
+          }
+        });
+      }
+    });
+    
+    // Set up duel chat subscriptions
+    Object.keys(this.subscribers.duel).forEach(battleId => {
+      const subs = this.subscribers.duel[battleId];
+      if (subs && subs.length > 0) {
+        console.log(`Setting up ${subs.length} pending duel chat subscriptions for battle ${battleId}`);
+        const duelSubscription = this.stompClient.subscribe(`/topic/chat/duel.${battleId}`, (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            // Notify all subscribers for this duel
+            subs.forEach(sub => {
+              if (sub.callback) sub.callback(data);
+            });
+          } catch (err) {
+            console.error(`Error processing duel message for battle ${battleId}:`, err);
+          }
+        });
+        
+        // Update all subscriptions for this duel
+        subs.forEach(sub => {
+          if (sub.subscription && sub.subscription.isPending) {
+            sub.subscription = duelSubscription;
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Disconnect from the WebSocket server
+   */
+  disconnect() {
+    if (this.stompClient && this.connected) {
+      this.stompClient.disconnect(() => {
+        this.connected = false;
+        clearInterval(this.reconnectInterval);
+        console.log('Disconnected from WebSocket chat server');
+        
+        // Dispatch a connection close event
+        window.dispatchEvent(new Event('ws:close'));
+      });
     }
   }
 
   /**
-   * Connect to a specific chat room
-   * @param {string|number} roomId - The ID of the chat room to connect to
+   * Schedule a reconnect attempt
    */
-  async connect(roomId) {
-    if (!roomId) {
-      console.error('Room ID is required to connect');
-      return false;
+  scheduleReconnect() {
+    clearInterval(this.reconnectInterval);
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectInterval = setInterval(() => {
+        console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+        this.reconnectAttempts++;
+        this.connect().catch(() => {
+          if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('Maximum reconnect attempts reached');
+            clearInterval(this.reconnectInterval);
+          }
+        });
+      }, 5000);
     }
-    this.roomId = roomId;
-    // Get userId from localStorage (set by chat components)
-    let userId = null;
-    try {
-      const userData = JSON.parse(localStorage.getItem('userData'));
-      userId = userData?.id;
-    } catch (e) {}
-    if (!userId) {
-      console.error('User ID not found in localStorage for WebSocket connection');
-      return false;
-    }
-    // If already connected to the correct room, do nothing
-    if (this.isConnected()) {
-      return true;
-    }
-    // Otherwise initialize connection
-    return this.init(userId);
   }
 
-  // Remove joinRoom and leaveRoom methods (handled by connection itself)
-
   /**
-   * Send a message to the current room
-   * @param {string} content - The message content
-   * @param {string|number} roomId - The room ID (defaults to current room)
+   * Subscribe to global chat
+   * @param {Function} callback Function to call when a message is received
+   * @returns {Object} Subscription object with an unsubscribe method
    */
-  sendMessage(content, roomId = this.roomId) {
-    if (!this.isConnected()) {
-      console.warn('Cannot send message: WebSocket not connected. Adding to pending queue.');
-      // Store message to send when connection is restored
-      this.pendingMessages.push({ content, roomId });
-      this.reconnect();
-      return false;
-    }
-
-    if (!roomId) {
-      console.error('Cannot send message: No room ID specified');
-      return false;
-    }
-
-    // Use backend-expected message format
-    const chatMessage = {
-      type: 'CHAT_MESSAGE',
-      roomId: roomId,
-      content: content,
-      timestamp: new Date().toISOString()
+  subscribeToGlobalChat(callback) {
+    // Create a dummy subscription object that will be replaced when connected
+    const dummySubscription = {
+      unsubscribe: () => {},
+      isPending: true
     };
 
-    try {
-      this.socket.send(JSON.stringify(chatMessage));
-      console.log(`Message sent to room ${roomId} via WebSocket`);
-      return true;
-    } catch (error) {
-      console.error('Failed to send message via WebSocket:', error);
-      // Store message to send when connection is restored
-      this.pendingMessages.push({ content, roomId });
-      return false;
-    }
-  }
-
-  /**
-   * Add a message handler
-   * @param {string} event - The event type to handle
-   * @param {function} callback - The callback function to execute when the event occurs
-   * @returns {number} - A unique handler ID that can be used to remove the handler
-   */
-  addHandler(event, callback) {
-    if (!event || typeof callback !== 'function') {
-      return -1;
+    // Store the callback even if not connected - we'll use it for manual notifications
+    if (callback) {
+      this.subscribers.global.push({
+        callback,
+        subscription: dummySubscription
+      });
     }
 
-    const handlerId = ++this.handlerIdCounter;
-    
-    if (!this.handlers[event]) {
-      this.handlers[event] = [];
-    }
-    
-    this.handlers[event].push({
-      id: handlerId,
-      callback: callback
-    });
-    
-    return handlerId;
-  }
-
-  /**
-   * Remove a specific message handler
-   * @param {number} handlerId - The ID of the handler to remove
-   */
-  removeHandler(handlerId) {
-    if (!handlerId || handlerId < 0) {
-      return false;
-    }
-
-    // Find and remove the handler from all event types
-    Object.keys(this.handlers).forEach(event => {
-      this.handlers[event] = this.handlers[event].filter(handler => handler.id !== handlerId);
+    if (!this.connected) {
+      console.warn('Not connected to WebSocket server - subscription will be pending until connected');
       
-      // Clean up empty arrays
-      if (this.handlers[event].length === 0) {
-        delete this.handlers[event];
+      // Try to connect if not already trying
+      if (!this.isAttemptingConnection) {
+        console.log('Attempting to connect before subscribing...');
+        this.connect()
+          .then(() => {
+            console.log('Connected successfully, now subscribing properly');
+            // Replace dummy subscription with real one for all callbacks
+            if (this.stompClient) {
+              const realSubscription = this.stompClient.subscribe('/topic/chat/global', (message) => {
+                try {
+                  const data = JSON.parse(message.body);
+                  // Broadcast to all callbacks matching this destination
+                  this.subscribers.global.forEach(sub => {
+                    if (sub.callback) sub.callback(data);
+                  });
+                } catch (err) {
+                  console.error('Error processing message:', err);
+                }
+              });
+              
+              // Update all subscriptions for this destination
+              this.subscribers.global.forEach(sub => {
+                sub.subscription = realSubscription;
+                delete sub.subscription.isPending;
+              });
+            }
+          })
+          .catch(err => {
+            console.warn('Failed to connect for subscription:', err);
+          });
+      }
+      
+      // Also subscribe to typing and delete events when connected
+      return {
+        unsubscribe: () => {
+          this.subscribers.global = this.subscribers.global.filter(
+            (sub) => sub.callback !== callback
+          );
+        },
+        isPending: true
+      };
+    }
+
+    // If connected, create a real subscription
+    const subscription = this.stompClient.subscribe('/topic/chat/global', (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        if (callback) callback(data);
+      } catch (err) {
+        console.error('Error processing message:', err);
       }
     });
-    
-    return true;
+
+    // Also subscribe to typing and delete events
+    this.subscribeToTypingEvents('global', null, callback);
+    this.subscribeToDeleteEvents('global', null, callback);
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+        this.subscribers.global = this.subscribers.global.filter(
+          (sub) => sub.callback !== callback
+        );
+      }
+    };
   }
 
   /**
-   * Check if the WebSocket is connected
-   * @returns {boolean} - True if connected, false otherwise
+   * Subscribe to guild chat
+   * @param {Number} guildId Guild ID
+   * @param {Function} callback Function to call when a message is received
+   * @returns {Object} Subscription object with an unsubscribe method
+   */
+  subscribeToGuildChat(guildId, callback) {
+    // Create a dummy subscription object that will be replaced when connected
+    const dummySubscription = {
+      unsubscribe: () => {},
+      isPending: true
+    };
+
+    // Store the callback even if not connected
+    if (callback) {
+      if (!this.subscribers.guild[guildId]) {
+        this.subscribers.guild[guildId] = [];
+      }
+      this.subscribers.guild[guildId].push({
+        callback,
+        subscription: dummySubscription
+      });
+    }
+
+    if (!this.connected) {
+      console.warn(`Not connected to WebSocket server - guild chat subscription for guild ${guildId} will be pending until connected`);
+      
+      // Try to connect if not already trying
+      if (!this.isAttemptingConnection) {
+        console.log('Attempting to connect before subscribing to guild chat...');
+        this.connect()
+          .then(() => {
+            console.log(`Connected successfully, now subscribing properly to guild ${guildId}`);
+            // Replace dummy subscription with real one for all callbacks
+            if (this.stompClient) {
+              const destination = `/topic/chat/guild.${guildId}`;
+              const realSubscription = this.stompClient.subscribe(destination, (message) => {
+                try {
+                  const data = JSON.parse(message.body);
+                  // Broadcast to all callbacks matching this destination
+                  if (this.subscribers.guild[guildId]) {
+                    this.subscribers.guild[guildId].forEach(sub => {
+                      if (sub.callback) sub.callback(data);
+                    });
+                  }
+                } catch (err) {
+                  console.error('Error processing guild message:', err);
+                }
+              });
+              
+              // Update all subscriptions for this destination
+              if (this.subscribers.guild[guildId]) {
+                this.subscribers.guild[guildId].forEach(sub => {
+                  sub.subscription = realSubscription;
+                  delete sub.subscription.isPending;
+                });
+              }
+              
+              // Also subscribe to typing and delete events
+              this.subscribeToTypingEvents('guild', guildId, callback);
+              this.subscribeToDeleteEvents('guild', guildId, callback);
+            }
+          })
+          .catch(err => {
+            console.warn(`Failed to connect for guild subscription ${guildId}:`, err);
+          });
+      }
+      
+      return {
+        unsubscribe: () => {
+          if (this.subscribers.guild[guildId]) {
+            this.subscribers.guild[guildId] = this.subscribers.guild[guildId].filter(
+              (sub) => sub.callback !== callback
+            );
+          }
+        },
+        isPending: true
+      };
+    }
+
+    // If connected, create a real subscription
+    const destination = `/topic/chat/guild.${guildId}`;
+    const subscription = this.stompClient.subscribe(destination, (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        if (callback) callback(data);
+      } catch (err) {
+        console.error('Error processing guild message:', err);
+      }
+    });
+
+    // Also subscribe to typing and delete events
+    this.subscribeToTypingEvents('guild', guildId, callback);
+    this.subscribeToDeleteEvents('guild', guildId, callback);
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+        if (this.subscribers.guild[guildId]) {
+          this.subscribers.guild[guildId] = this.subscribers.guild[guildId].filter(
+            (sub) => sub.callback !== callback
+          );
+        }
+      }
+    };
+  }
+
+  /**
+   * Subscribe to duel chat
+   * @param {Number} battleId Battle ID
+   * @param {Function} callback Function to call when a message is received
+   * @returns {Object} Subscription object with an unsubscribe method
+   */
+  subscribeToDuelChat(battleId, callback) {
+    // Create a dummy subscription object that will be replaced when connected
+    const dummySubscription = {
+      unsubscribe: () => {},
+      isPending: true
+    };
+
+    // Store the callback even if not connected
+    if (callback) {
+      if (!this.subscribers.duel[battleId]) {
+        this.subscribers.duel[battleId] = [];
+      }
+      this.subscribers.duel[battleId].push({
+        callback,
+        subscription: dummySubscription
+      });
+    }
+
+    if (!this.connected) {
+      console.warn(`Not connected to WebSocket server - duel chat subscription for battle ${battleId} will be pending until connected`);
+      
+      // Try to connect if not already trying
+      if (!this.isAttemptingConnection) {
+        console.log('Attempting to connect before subscribing to duel chat...');
+        this.connect()
+          .then(() => {
+            console.log(`Connected successfully, now subscribing properly to duel ${battleId}`);
+            // Replace dummy subscription with real one for all callbacks
+            if (this.stompClient) {
+              const destination = `/topic/chat/duel.${battleId}`;
+              const realSubscription = this.stompClient.subscribe(destination, (message) => {
+                try {
+                  const data = JSON.parse(message.body);
+                  // Broadcast to all callbacks matching this destination
+                  if (this.subscribers.duel[battleId]) {
+                    this.subscribers.duel[battleId].forEach(sub => {
+                      if (sub.callback) sub.callback(data);
+                    });
+                  }
+                } catch (err) {
+                  console.error('Error processing duel message:', err);
+                }
+              });
+              
+              // Update all subscriptions for this destination
+              if (this.subscribers.duel[battleId]) {
+                this.subscribers.duel[battleId].forEach(sub => {
+                  sub.subscription = realSubscription;
+                  delete sub.subscription.isPending;
+                });
+              }
+              
+              // Also subscribe to typing and delete events
+              this.subscribeToTypingEvents('duel', battleId, callback);
+              this.subscribeToDeleteEvents('duel', battleId, callback);
+            }
+          })
+          .catch(err => {
+            console.warn(`Failed to connect for duel subscription ${battleId}:`, err);
+          });
+      }
+      
+      return {
+        unsubscribe: () => {
+          if (this.subscribers.duel[battleId]) {
+            this.subscribers.duel[battleId] = this.subscribers.duel[battleId].filter(
+              (sub) => sub.callback !== callback
+            );
+          }
+        },
+        isPending: true
+      };
+    }
+
+    // If connected, create a real subscription
+    const destination = `/topic/chat/duel.${battleId}`;
+    const subscription = this.stompClient.subscribe(destination, (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        if (callback) callback(data);
+      } catch (err) {
+        console.error('Error processing duel message:', err);
+      }
+    });
+
+    // Also subscribe to typing and delete events
+    this.subscribeToTypingEvents('duel', battleId, callback);
+    this.subscribeToDeleteEvents('duel', battleId, callback);
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+        if (this.subscribers.duel[battleId]) {
+          this.subscribers.duel[battleId] = this.subscribers.duel[battleId].filter(
+            (sub) => sub.callback !== callback
+          );
+        }
+      }
+    };
+  }
+
+  /**
+   * Subscribe to typing events for a specific chat type
+   * @param {String} chatType Type of chat ('global', 'guild', or 'duel')
+   * @param {Number} id Guild ID or Battle ID (null for global)
+   * @param {Function} callback Function to call when a typing event is received
+   * @returns {Object} Subscription object with an unsubscribe method
+   */
+  subscribeToTypingEvents(chatType, id, callback) {
+    if (!this.connected) {
+      return { unsubscribe: () => {} };
+    }
+
+    let destination;
+    if (chatType === 'global') {
+      destination = '/topic/chat/global/typing';
+    } else if (chatType === 'guild') {
+      destination = `/topic/chat/guild.${id}/typing`;
+    } else if (chatType === 'duel') {
+      destination = `/topic/chat/duel.${id}/typing`;
+    } else {
+      return { unsubscribe: () => {} };
+    }
+
+    const subscription = this.stompClient.subscribe(destination, (message) => {
+      const data = JSON.parse(message.body);
+      if (callback) callback({ type: 'typing', user: data.user, typing: data.typing });
+    });
+
+    const key = chatType === 'global' ? 'global' : `${chatType}_${id}`;
+    if (!this.subscribers.typing[key]) {
+      this.subscribers.typing[key] = [];
+    }
+    this.subscribers.typing[key].push({
+      callback,
+      subscription
+    });
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+        if (this.subscribers.typing[key]) {
+          this.subscribers.typing[key] = this.subscribers.typing[key].filter(
+            (sub) => sub.callback !== callback
+          );
+        }
+      }
+    };
+  }
+
+  /**
+   * Subscribe to delete events for a specific chat type
+   * @param {String} chatType Type of chat ('global', 'guild', or 'duel')
+   * @param {Number} id Guild ID or Battle ID (null for global)
+   * @param {Function} callback Function to call when a delete event is received
+   * @returns {Object} Subscription object with an unsubscribe method
+   */
+  subscribeToDeleteEvents(chatType, id, callback) {
+    if (!this.connected) {
+      return { unsubscribe: () => {} };
+    }
+
+    let destination;
+    if (chatType === 'global') {
+      destination = '/topic/chat/global/delete';
+    } else if (chatType === 'guild') {
+      destination = `/topic/chat/guild.${id}/delete`;
+    } else if (chatType === 'duel') {
+      destination = `/topic/chat/duel.${id}/delete`;
+    } else {
+      return { unsubscribe: () => {} };
+    }
+
+    const subscription = this.stompClient.subscribe(destination, (message) => {
+      const data = JSON.parse(message.body);
+      if (callback) callback({ type: 'delete', messageId: data.messageId });
+    });
+
+    const key = chatType === 'global' ? 'global' : `${chatType}_${id}`;
+    if (!this.subscribers.delete[key]) {
+      this.subscribers.delete[key] = [];
+    }
+    this.subscribers.delete[key].push({
+      callback,
+      subscription
+    });
+
+    return {
+      unsubscribe: () => {
+        subscription.unsubscribe();
+        if (this.subscribers.delete[key]) {
+          this.subscribers.delete[key] = this.subscribers.delete[key].filter(
+            (sub) => sub.callback !== callback
+          );
+        }
+      }
+    };
+  }
+
+  /**
+   * Send a message to a chat room
+   * @param {Object} message Message object with roomId and content
+   */
+  sendMessage(message) {
+    // Don't attempt to send messages via WebSocket if not connected
+    if (!this.connected) {
+      console.error('Not connected to WebSocket server');
+      return Promise.reject(new Error('Not connected to WebSocket server'));
+    }
+
+    // Add a unique ID to prevent duplicates and help with tracking
+    const messageWithId = {
+      ...message,
+      clientId: `client-${Date.now()}-${Math.floor(Math.random() * 10000)}`
+    };
+
+    return new Promise((resolve, reject) => {
+      try {
+        // Send the message through the STOMP client
+        this.stompClient.send(
+          '/app/chat.sendMessage',
+          { 'content-type': 'application/json' },
+          JSON.stringify(messageWithId)
+        );
+        resolve(messageWithId);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Send typing status to a chat room
+   * @param {Number} roomId Chat room ID
+   * @param {Boolean} isTyping Whether the user is typing
+   */
+  sendTypingStatus(roomId, isTyping) {
+    if (!this.connected) {
+      return;
+    }
+
+    try {
+      this.stompClient.send(
+        '/app/chat.typing',
+        {},
+        JSON.stringify({ roomId, typing: isTyping })
+      );
+    } catch (error) {
+      console.error('Error sending typing status:', error);
+    }
+  }
+
+  /**
+   * Delete a message
+   * @param {Object} deleteMessage Object with messageId and roomId
+   */
+  deleteMessage(deleteMessage) {
+    if (!this.connected) {
+      console.error('Not connected to WebSocket server');
+      return Promise.reject(new Error('Not connected to WebSocket server'));
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        this.stompClient.send(
+          '/app/chat.deleteMessage',
+          {},
+          JSON.stringify(deleteMessage)
+        );
+        resolve();
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Check if the connection is established
+   * @returns {Boolean} True if connected, false otherwise
    */
   isConnected() {
-    return this.socket && this.socket.readyState === WebSocket.OPEN;
+    return this.connected;
   }
 
   /**
-   * Handle WebSocket open event
-   * @param {Event} event - The open event
-   */
-  handleOpen(event) {
-    console.log('WebSocket connection established');
-    this.connected = true;
-    this.reconnectAttempts = 0;
-
-    // Send any pending messages that failed due to connection issues
-    this.sendPendingMessages();
-
-    // Notify any open handlers
-    this.notifyHandlers('onOpen', event);
-  }
-
-  /**
-   * Handle WebSocket message event
-   * @param {MessageEvent} event - The message event
-   */
-  handleMessage(event) {
-    try {
-      const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data);
-      
-      // Handle various message types from the backend
-      if (data.type === 'CHAT_MESSAGE' && data.message) {
-        console.log('Processing CHAT_MESSAGE with message property:', data.message);
-        this.notifyHandlers('onChatMessage', data.message);
-        this.notifyHandlers('CHAT_MESSAGE', data.message);
-      } else if (data.type === 'CHAT_MESSAGE') {
-        console.log('Processing CHAT_MESSAGE direct:', data);
-        this.notifyHandlers('onChatMessage', data);
-        this.notifyHandlers('CHAT_MESSAGE', data);
-      } else if (data.code === 'MESSAGE_SENT' && data.data) {
-        console.log('Processing MESSAGE_SENT with code and data:', data.data);
-        this.notifyHandlers('onChatMessage', data.data);
-        this.notifyHandlers('MESSAGE_SENT', data.data);
-      } else if (data.type === 'MESSAGE_SENT' && data.data) {
-        console.log('Processing MESSAGE_SENT with type and data:', data.data);
-        this.notifyHandlers('onChatMessage', data.data);
-        this.notifyHandlers('MESSAGE_SENT', data.data);
-      } else if (data.type === 'MESSAGE_DELETED' && data.messageId) {
-        console.log('Processing MESSAGE_DELETED with messageId:', data.messageId);
-        this.notifyHandlers('onMessageDeleted', data.messageId);
-      } else if (data.code === 'MESSAGE_DELETED' && data.data && data.data.messageId) {
-        console.log('Processing MESSAGE_DELETED with code and data.messageId:', data.data.messageId);
-        this.notifyHandlers('onMessageDeleted', data.data.messageId);
-      } else if (data.type === 'MESSAGE_DELETED' && data.data) {
-        console.log('Processing MESSAGE_DELETED with type and data:', data.data);
-        const messageId = data.data.messageId || data.data.id || data.data;
-        if (messageId) {
-          this.notifyHandlers('onMessageDeleted', messageId);
-        }
-      } else if (data.type === 'USER_JOINED') {
-        console.log('User joined the chat:', data.user?.username);
-        this.notifyHandlers('onUserJoin', data);
-      } else if (data.type === 'USER_LEFT') {
-        console.log('User left the chat:', data.user?.username);
-        this.notifyHandlers('onUserLeave', data);
-      } else if (data.type === 'TYPING') {
-        this.notifyHandlers('onTyping', data);
-      } else if (data.type === 'ERROR' || data.code === 'ERROR') {
-        console.error('Error from WebSocket:', data);
-        this.notifyHandlers('onError', data);
-      } else {
-        // Handle unrecognized formats
-        console.warn('Unrecognized WebSocket message format:', data);
-        
-        // Try to extract chat message data if possible
-        if (data.content && (data.roomId || data.sender)) {
-          console.log('Appears to be a chat message:', data);
-          this.notifyHandlers('onChatMessage', data);
-        } else if (data.data && data.data.content && (data.data.roomId || data.data.sender)) {
-          console.log('Data property appears to be a chat message:', data.data);
-          this.notifyHandlers('onChatMessage', data.data);
-        }
-      }
-      
-      // Always notify general message handlers
-      this.notifyHandlers('onMessage', data);
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error, event.data);
-    }
-  }
-
-  /**
-   * Handle WebSocket close event
-   * @param {CloseEvent} event - The close event
-   */
-  handleClose(event) {
-    this.connected = false;
-    
-    const reason = event.reason || 'No reason provided';
-    const wasClean = event.wasClean ? 'clean' : 'unclean';
-    console.log(`WebSocket connection closed (${wasClean}): Code ${event.code}, Reason: ${reason}`);
-    
-    // Notify any close handlers
-    this.notifyHandlers('onClose', event);
-    
-    // Attempt to reconnect if not a normal closure
-    if (event.code !== 1000 && event.code !== 1001) {
-      this.attemptReconnect();
-    }
-  }
-
-  /**
-   * Handle WebSocket error event
-   * @param {Event} event - The error event
-   */
-  handleError(event) {
-    console.error('WebSocket error:', event);
-    
-    // Notify any error handlers
-    this.notifyHandlers('onError', event);
-  }
-
-  /**
-   * Notify all handlers of a specific event
-   * @param {string} eventType - The type of event
-   * @param {any} data - The event data
+   * Manually notify message handlers about an event
+   * This is a fallback mechanism when WebSocket broadcasts fail
+   * @param {String} eventType The type of event ('onChatMessage', 'onMessageDeleted', etc.)
+   * @param {any} data The data to pass to handlers
    */
   notifyHandlers(eventType, data) {
-    if (!this.handlers[eventType]) {
-      return;
-    }
+    console.log(`Broadcasting ${eventType} to all subscribers:`, data);
     
-    console.log(`Notifying ${this.handlers[eventType].length} handlers for event: ${eventType}`);
-    
-    this.handlers[eventType].forEach(handler => {
-      try {
-        handler.callback(data);
-      } catch (error) {
-        console.error(`Error in ${eventType} handler:`, error);
+    if (eventType === 'onChatMessage' || eventType === 'CHAT_MESSAGE' || eventType === 'MESSAGE_SENT') {
+      // For chat messages, notify all subscribers that might be interested
+      
+      // First determine which chat type this message belongs to
+      const roomId = data.roomId;
+      if (!roomId) {
+        console.warn('Cannot notify handlers: message has no roomId', data);
+        return;
       }
-    });
-  }
-
-  /**
-   * Attempt to reconnect to the WebSocket
-   */
-  attemptReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Maximum reconnection attempts reached');
-      return;
-    }
-    
-    // Clear any existing reconnect timeout
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-    
-    // Exponential backoff for reconnect attempts
-    const backoffTime = Math.min(1000 * (2 ** this.reconnectAttempts), 30000);
-    this.reconnectAttempts++;
-    
-    console.log(`Attempting to reconnect in ${backoffTime}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
-    this.reconnectTimeout = setTimeout(() => {
-      console.log('Reconnecting to WebSocket...');
-      this.init();
-    }, backoffTime);
-  }
-
-  /**
-   * Close the WebSocket connection
-   */
-  close() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-      this.connected = false;
-      this.roomId = null;
-    }
-    
-    // Clear any reconnect timeout
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-  }
-
-  /**
-   * Trigger handlers for a specific event
-   * @param {string} event - The event name
-   * @param {*} data - The data to pass to handlers
-   */
-  triggerHandlers(event, data = null) {
-    if (this.handlers[event]) {
-      this.handlers[event].forEach(handler => {
-        try {
-          handler.callback(data);
-        } catch (error) {
-          console.error(`Error in WebSocket ${event} handler:`, error);
+      
+      // Get the chat room type - try to extract it from various properties
+      const roomType = data.roomType || 
+                      (data.chatRoom && data.chatRoom.type) || 
+                      'GLOBAL'; // Default to GLOBAL if we can't determine
+      
+      console.log(`Broadcasting message to room type: ${roomType}, roomId: ${roomId}`);
+      
+      // Force addition of sender info if missing
+      if (!data.sender && data.username) {
+        data.sender = { username: data.username, id: data.userId };
+      }
+      
+      // Notify all global chat subscribers always
+      // This is important to catch messages across all rooms
+      if (this.subscribers.global.length > 0) {
+        console.log(`Broadcasting to ${this.subscribers.global.length} global subscribers`);
+        this.subscribers.global.forEach(sub => {
+          if (sub.callback) {
+            try {
+              sub.callback(data);
+            } catch (error) {
+              console.error('Error in global subscriber callback:', error);
+            }
+          }
+        });
+      }
+      
+      // Also notify specific room subscribers
+      if (roomType === 'GUILD') {
+        // Notify guild chat subscribers
+        const guildId = data.guildId || (data.chatRoom && data.chatRoom.groupId) || roomId;
+        if (this.subscribers.guild[guildId]) {
+          console.log(`Broadcasting to ${this.subscribers.guild[guildId].length} guild subscribers for guildId ${guildId}`);
+          this.subscribers.guild[guildId].forEach(sub => {
+            if (sub.callback) {
+              try {
+                sub.callback(data);
+              } catch (error) {
+                console.error('Error in guild subscriber callback:', error);
+              }
+            }
+          });
+        }
+      } else if (roomType === 'FIGHT' || roomType === 'DUEL') {
+        // Notify duel chat subscribers
+        const battleId = data.battleId || (data.chatRoom && data.chatRoom.groupId) || roomId;
+        if (this.subscribers.duel[battleId]) {
+          console.log(`Broadcasting to ${this.subscribers.duel[battleId].length} duel subscribers for battleId ${battleId}`);
+          this.subscribers.duel[battleId].forEach(sub => {
+            if (sub.callback) {
+              try {
+                sub.callback(data);
+              } catch (error) {
+                console.error('Error in duel subscriber callback:', error);
+              }
+            }
+          });
+        }
+      }
+    } else if (eventType === 'onMessageDeleted') {
+      // For message deletion, broadcast the messageId to all subscribers
+      // We don't know which room it belongs to, so broadcast to all
+      
+      // Create a delete event object
+      const deleteEvent = { type: 'delete', messageId: data };
+      console.log('Broadcasting delete event to all subscribers:', deleteEvent);
+      
+      // Notify global chat subscribers
+      this.subscribers.global.forEach(sub => {
+        if (sub.callback) {
+          try {
+            sub.callback(deleteEvent);
+          } catch (error) {
+            console.error('Error in global delete callback:', error);
+          }
         }
       });
-    }
-  }
-
-  /**
-   * Attempt to reconnect to WebSocket
-   */
-  reconnect() {
-    // Don't attempt to reconnect if already reconnecting
-    if (this.reconnectTimeout) {
-      return;
-    }
-    
-    // Check if max reconnect attempts reached
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error(`Maximum reconnect attempts (${this.maxReconnectAttempts}) reached, giving up`);
-      this.triggerHandlers('onReconnectFailed');
-      return;
-    }
-    
-    // Calculate delay with exponential backoff: 1s, 2s, 4s, 8s, 16s
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    this.reconnectAttempts++;
-    
-    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
-    // Set timeout for reconnection
-    this.reconnectTimeout = setTimeout(() => {
-      console.log('Reconnecting to WebSocket...');
-      this.reconnectTimeout = null;
-      this.init();
-    }, delay);
-  }
-
-  /**
-   * Clear reconnect timeout
-   */
-  clearReconnectTimeout() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-  }
-
-  /**
-   * Send any pending messages that failed due to connection issues
-   */
-  sendPendingMessages() {
-    // Handle pending regular messages
-    if (this.pendingMessages.length > 0) {
-      console.log(`Sending ${this.pendingMessages.length} pending messages`);
       
-      // Create a copy of the pending messages and clear the original array
-      const messagesToSend = [...this.pendingMessages];
-      this.pendingMessages = [];
-      
-      // Send each message
-      messagesToSend.forEach(msg => {
-        this.sendMessage(msg.content, msg.roomId);
+      // Notify guild chat subscribers (all guilds)
+      Object.values(this.subscribers.guild).forEach(guildSubs => {
+        guildSubs.forEach(sub => {
+          if (sub.callback) {
+            try {
+              sub.callback(deleteEvent);
+            } catch (error) {
+              console.error('Error in guild delete callback:', error);
+            }
+          }
+        });
       });
-    }
-    
-    // Handle pending delete operations
-    if (this.pendingDeletes.length > 0) {
-      console.log(`Processing ${this.pendingDeletes.length} pending message deletions`);
       
-      const deletesToSend = [...this.pendingDeletes];
-      this.pendingDeletes = [];
-      
-      deletesToSend.forEach(del => {
-        this.deleteMessage(del.messageId, del.roomId);
+      // Notify duel chat subscribers (all duels)
+      Object.values(this.subscribers.duel).forEach(duelSubs => {
+        duelSubs.forEach(sub => {
+          if (sub.callback) {
+            try {
+              sub.callback(deleteEvent);
+            } catch (error) {
+              console.error('Error in duel delete callback:', error);
+            }
+          }
+        });
       });
-    }
-  }
-
-  /**
-   * Delete a message from the chat
-   * @param {string|number} messageId - The ID of the message to delete
-   * @param {string|number} roomId - The room ID where the message is
-   */
-  deleteMessage(messageId, roomId = this.roomId) {
-    if (!this.isConnected()) {
-      console.warn('Cannot delete message: WebSocket not connected. Adding to pending queue.');
-      // Store deletion to execute when connection is restored
-      this.pendingDeletes.push({ messageId, roomId });
-      this.reconnect();
-      return false;
-    }
-
-    if (!roomId || !messageId) {
-      console.error('Cannot delete message: Missing room ID or message ID');
-      return false;
-    }
-
-    // Use backend-expected type for message deletion
-    const deleteCommand = {
-      type: 'DELETE_MESSAGE',
-      roomId: roomId,
-      messageId: messageId,
-      timestamp: new Date().toISOString()
-    };
-
-    try {
-      this.socket.send(JSON.stringify(deleteCommand));
-      console.log(`Delete command sent for message ${messageId} in room ${roomId}`);
-      return true;
-    } catch (error) {
-      console.error('Failed to send delete command:', error);
-      // Store delete command to send when connection is restored
-      this.pendingDeletes.push({ messageId, roomId });
-      return false;
     }
   }
 }
 
-// Create and export a singleton instance
-const chatWebSocketService = new ChatWebSocketService();
-export default chatWebSocketService;
+export default new ChatWebSocketService();

@@ -68,12 +68,14 @@ const GlobalChatPage = () => {
         {/* Chat Interface */}
         <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-4">
           {globalChatRoom ? (
-            <ChatRoom 
-              roomId={globalChatRoom.id}
-              roomName={globalChatRoom.name || t('globalChat', language)}
-              chatType="GLOBAL"
-              onBack={handleBack}
-            />
+            <>
+              <ChatRoom 
+                roomId={globalChatRoom.id}
+                roomName={globalChatRoom.name || t('globalChat', language)}
+                chatType="GLOBAL"
+                onBack={handleBack}
+              />
+            </>
           ) : (
             <div className="text-center py-10">
               <div className="animate-pulse">

@@ -1,4 +1,4 @@
-package com.epic7.backend.dto;
+package com.epic7.backend.dto.chatroom;
 
 import com.epic7.backend.model.chat.ChatRoom;
 import com.epic7.backend.model.enums.ChatType;
@@ -47,7 +47,7 @@ public class ChatRoomDTO {
         
         // Check if user is admin
         boolean isAdmin = chatRoom.getAdminUserIds() != null && 
-                         chatRoom.getAdminUserIds().contains(userId);
+                        chatRoom.getAdminUserIds().contains(userId);
         dto.setAdmin(isAdmin);
         
         return dto;

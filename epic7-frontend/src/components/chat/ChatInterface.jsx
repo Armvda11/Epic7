@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { FaTrash, FaPaperPlane, FaSmile } from 'react-icons/fa';
+import { FaTrash, FaPaperPlane, FaSmile, FaCircle } from 'react-icons/fa';
 import { useSettings } from '../../context/SettingsContext';
 import Emoji from 'emoji-picker-react';
+import ChatWebSocketService from '../../services/ChatWebSocketService';
 
 // Memoized message component to prevent unnecessary re-renders
 const ChatMessage = memo(({ message, currentUser, canDelete, onDeleteMessage, formatTimestamp, t, language }) => {
@@ -80,6 +81,7 @@ const ChatInterface = ({
   const lastMessageCountRef = useRef(0);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
   const [sortedMessages, setSortedMessages] = useState([]);
+  const [wsStatus, setWsStatus] = useState('disconnected'); // 'connected', 'disconnected', 'connecting'
   
   // Sort messages when they arrive
   useEffect(() => {
@@ -161,6 +163,43 @@ const ChatInterface = ({
     container.addEventListener('scroll', handleScroll);
     return () => {
       container.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // Monitor WebSocket connection status
+  useEffect(() => {
+    const checkConnectionStatus = () => {
+      const isConnected = ChatWebSocketService.isConnected();
+      setWsStatus(isConnected ? 'connected' : 'disconnected');
+    };
+
+    // Initial check
+    checkConnectionStatus();
+    
+    // Check periodically
+    const intervalId = setInterval(checkConnectionStatus, 5000);
+    
+    // Set up connection status handlers
+    const onOpenHandler = ChatWebSocketService.addHandler('onOpen', () => {
+      console.log('ChatInterface detected WebSocket connection open');
+      setWsStatus('connected');
+    });
+    
+    const onCloseHandler = ChatWebSocketService.addHandler('onClose', () => {
+      console.log('ChatInterface detected WebSocket connection closed');
+      setWsStatus('disconnected');
+    });
+    
+    const onErrorHandler = ChatWebSocketService.addHandler('onError', () => {
+      console.log('ChatInterface detected WebSocket error');
+      setWsStatus('disconnected');
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      ChatWebSocketService.removeHandler(onOpenHandler);
+      ChatWebSocketService.removeHandler(onCloseHandler);
+      ChatWebSocketService.removeHandler(onErrorHandler);
     };
   }, []);
 
@@ -263,9 +302,23 @@ const ChatInterface = ({
   return (
     <div className="flex flex-col h-[600px] rounded-xl overflow-hidden">
       {/* Chat Header */}
-      <div className="bg-purple-600 dark:bg-purple-800 text-white p-4">
-        <h3 className="text-xl font-bold">{roomName || t('chatRoom', language)}</h3>
-        <p className="text-sm opacity-80">{chatType === 'GUILD' ? t('guildChat', language) : t('globalChat', language)}</p>
+      <div className="bg-purple-600 dark:bg-purple-800 text-white p-4 flex justify-between items-center">
+        <div>
+          <h3 className="text-xl font-bold">{roomName || t('chatRoom', language)}</h3>
+          <p className="text-sm opacity-80">{chatType === 'GUILD' ? t('guildChat', language) : t('globalChat', language)}</p>
+        </div>
+        <div className="flex items-center text-xs">
+          <FaCircle 
+            className={`mr-2 ${
+              wsStatus === 'connected' ? 'text-green-400' : 
+              wsStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
+            }`} 
+            size={10} 
+          />
+          {wsStatus === 'connected' ? t('wsConnected', language) || 'Connected' : 
+           wsStatus === 'connecting' ? t('wsConnecting', language) || 'Connecting...' : 
+           t('wsDisconnected', language) || 'Disconnected'}
+        </div>
       </div>
 
       {/* Messages Container */}

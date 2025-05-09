@@ -1,10 +1,10 @@
 package com.epic7.backend.config;
 
-import com.epic7.backend.websocket.ChatWebSocketHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.config.annotation.*;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -25,19 +25,14 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final ObjectMapper objectMapper;
     private final Map<String, Map<String, WebSocketSession>> battleSessions = new ConcurrentHashMap<>();
-    private final ChatWebSocketHandler chatWebSocketHandler;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         // Register battle WebSocket handler
         registry
-          .addHandler(battleWebSocketHandler(), "/socket/battle")
-          .setAllowedOriginPatterns("*")
-          .addInterceptors(new HttpSessionHandshakeInterceptor());
-
-        // Register chat WebSocket handler
-        registry.addHandler(chatWebSocketHandler, "/ws/chat/{roomId}")
-                .setAllowedOrigins("*"); // Consider restricting this in production
+        .addHandler(battleWebSocketHandler(), "/socket/battle")
+        .setAllowedOriginPatterns("*")
+        .addInterceptors(new HttpSessionHandshakeInterceptor());
     }
 
     public WebSocketHandler battleWebSocketHandler() {
@@ -79,8 +74,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
                     return;
                 }
                 battleSessions
-                  .computeIfAbsent(battleId, k->new ConcurrentHashMap<>())
-                  .put(userId, session);
+                .computeIfAbsent(battleId, k->new ConcurrentHashMap<>())
+                .put(userId, session);
                 send(session, Map.of("type","JOINED","battleId",battleId));
                 broadcast(battleId, Map.of("type","USER_JOINED","userId",userId), userId);
             }
@@ -94,10 +89,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 // et vous récupérez le nouvel état => newState
                 // pour l’exemple on rebroadcast :
                 broadcast(battleId, Map.of(
-                  "type","BATTLE_UPDATE",
-                  "userId",userId,
-                  "skillId",skillId,
-                  "targetId",targetId
+                "type","BATTLE_UPDATE",
+                "userId",userId,
+                "skillId",skillId,
+                "targetId",targetId
                 ), null);
             }
 

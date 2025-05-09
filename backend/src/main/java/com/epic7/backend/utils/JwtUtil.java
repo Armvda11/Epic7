@@ -56,14 +56,14 @@ public class JwtUtil {
     /**
      * Extrait le token JWT du header Authorization 
      * @param request
-     * @return
+     * @return The extracted token or null if no valid token is found
      */
     public String extractTokenFromHeader(HttpServletRequest request) {
-    String bearer = request.getHeader("Authorization");
-    if (bearer != null && bearer.startsWith("Bearer ")) {
-        return bearer.substring(7);
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        return null; // Return null instead of throwing an exception
     }
-    throw new RuntimeException("Token JWT manquant ou invalide");
-}
 
 }

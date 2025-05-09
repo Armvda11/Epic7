@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResponseDTO {
+public class ApiResponseDTO {
     private String code;
     private String message;
     private Object data;
@@ -24,7 +24,7 @@ public class ResponseDTO {
      * @param message Le message de la réponse.
      * @param success Indique si c'est un succès ou une erreur.
      */
-    public ResponseDTO(String code, String message, boolean success) {
+    public ApiResponseDTO(String code, String message, boolean success) {
         this.code = code;
         this.message = message;
         this.data = null;
@@ -36,8 +36,8 @@ public class ResponseDTO {
      * @param errorCode Le code d'erreur.
      * @param errorMessage Le message d'erreur.
      */
-    public static ResponseDTO error(String errorCode, String errorMessage) {
-        return new ResponseDTO(errorCode, errorMessage, null, false);
+    public static ApiResponseDTO error(String errorCode, String errorMessage) {
+        return new ApiResponseDTO(errorCode, errorMessage, null, false);
     }
 
     /**
@@ -46,8 +46,8 @@ public class ResponseDTO {
      * @param errorMessage Le message d'erreur.
      * @param data Les données supplémentaires.
      */
-    public static ResponseDTO error(String errorCode, String errorMessage, Object data) {
-        return new ResponseDTO(errorCode, errorMessage, data, false);
+    public static ApiResponseDTO error(String errorCode, String errorMessage, Object data) {
+        return new ApiResponseDTO(errorCode, errorMessage, data, false);
     }
 
     /**
@@ -55,8 +55,8 @@ public class ResponseDTO {
      * @param successCode Le code de succès.
      * @param successMessage Le message de succès.
      */
-    public static ResponseDTO success(String successCode, String successMessage) {
-        return new ResponseDTO(successCode, successMessage, null, true);
+    public static ApiResponseDTO success(String successCode, String successMessage) {
+        return new ApiResponseDTO(successCode, successMessage, null, true);
     }
 
     /**
@@ -65,7 +65,7 @@ public class ResponseDTO {
      * @param successMessage Le message de succès.
      * @param data Les données de la réponse.
      */
-    public static ResponseDTO success(String successCode, String successMessage, Object data) {
-        return new ResponseDTO(successCode, successMessage, data, true);
+    public static ApiResponseDTO success(String successCode, String successMessage, Object data) {
+        return new ApiResponseDTO(successCode, successMessage, data, true);
     }
 }

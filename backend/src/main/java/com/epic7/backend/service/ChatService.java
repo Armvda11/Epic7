@@ -1,6 +1,6 @@
 package com.epic7.backend.service;
 
-import com.epic7.backend.dto.ChatMessageDTO;
+import com.epic7.backend.dto.chatroom.ChatMessageDTO;
 import com.epic7.backend.event.ChatMessageEvent;
 import com.epic7.backend.model.Guild;
 import com.epic7.backend.model.User;
@@ -375,5 +375,90 @@ public class ChatService {
             return null;
         }
         return chatMessageRepository.findById(messageId).orElse(null);
+    }
+
+    /**
+     * Get or create the global chat room
+     */
+    @Transactional
+    public ChatRoom getOrCreateGlobalChatRoom() {
+        // First check if a global chat room already exists
+        List<ChatRoom> globalRooms = chatRoomRepository.findByType(ChatType.GLOBAL);
+        
+        if (!globalRooms.isEmpty()) {
+            // Return the first global chat room found
+            return globalRooms.get(0);
+        } else {
+            // Create a new global chat room
+            log.info("Creating new global chat room");
+            return createGlobalChatRoom("Global Chat");
+        }
+    }
+
+    /**
+     * Get or create a chat room by type and group ID
+     */
+    @Transactional
+    public ChatRoom getOrCreateChatRoomByTypeAndGroupId(ChatType type, Long groupId) {
+        if (type == ChatType.GLOBAL) {
+            return getOrCreateGlobalChatRoom();
+        }
+        
+        // Try to find an existing chat room of this type for this group
+        List<ChatRoom> rooms = chatRoomRepository.findByTypeAndGroupId(type, groupId);
+        
+        if (!rooms.isEmpty()) {
+            return rooms.get(0);
+        } else {
+            // Create a new chat room based on type
+            if (type == ChatType.GUILD) {
+                // Get guild name for the chat room
+                Optional<Guild> guildOptional = guildService.getGuildById(groupId);
+                if (guildOptional.isEmpty()) {
+                    throw new IllegalArgumentException("Guild not found");
+                }
+                Guild guild = guildOptional.get();
+                return createGuildChatRoom(guild.getName() + " Chat", groupId);
+            } else if (type == ChatType.FIGHT) {
+                // For fight chat rooms, we need more info like the list of users
+                // This would typically be handled in a separate method called from a battle service
+                throw new IllegalArgumentException("Fight chat rooms must be created through the battle service");
+            } else {
+                throw new IllegalArgumentException("Unsupported chat room type: " + type);
+            }
+        }
+    }
+
+    /**
+     * Get chat messages for a specific room
+     */
+    public List<ChatMessage> getChatRoomMessages(Long roomId, int limit) {
+        // Verify chat room exists
+        ChatRoom chatRoom = getChatRoomById(roomId);
+        if (chatRoom == null) {
+            throw new IllegalArgumentException("Chat room not found");
+        }
+        
+        // Use existing method for pagination
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
+        return chatMessageRepository.findByChatRoomIdOrderByTimestampDesc(roomId, pageable);
+    }
+
+    /**
+     * Get all chat rooms accessible to a user
+     */
+    public List<ChatRoom> getAllChatRoomsForUser(Long userId) {
+        // This is equivalent to getUserChatRooms but with a name that
+        // better matches the controller endpoint naming
+        return getUserChatRooms(userId);
+    }
+
+    /**
+     * Get a chat message by its ID
+     */
+    public ChatMessage getChatMessageById(Long messageId) {
+        // This is equivalent to getMessageById but with a name that
+        // better matches the controller endpoint naming
+        return getMessageById(messageId);
     }
 }

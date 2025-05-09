@@ -15,7 +15,7 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
-  const handlerIdsRef = useRef([]);
+  const subscriptionsRef = useRef([]); // Track subscriptions for cleanup
   const messageSeenRef = useRef(new Set()); // Track message IDs to avoid duplicates
   const messageContainerRef = useRef(null);
 
@@ -44,13 +44,23 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     if (contextMessages && contextMessages.length > 0) {
       console.log(`Received ${contextMessages.length} messages from context`);
       
-      // Track seen message IDs
-      contextMessages.forEach(msg => {
+      // Process messages to mark which are from the current user
+      const processedMessages = contextMessages.map(msg => {
+        // Track seen message IDs
         if (msg.id) messageSeenRef.current.add(msg.id.toString());
+        
+        // Mark messages from current user
+        const isFromCurrentUser = currentUser && msg.sender && 
+          msg.sender.id === currentUser.id;
+        
+        return {
+          ...msg,
+          fromCurrentUser: isFromCurrentUser
+        };
       });
       
       // Sort messages chronologically
-      const sortedMessages = [...contextMessages].sort((a, b) => {
+      const sortedMessages = [...processedMessages].sort((a, b) => {
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return timeA - timeB;
@@ -58,7 +68,7 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
       
       setLocalMessages(sortedMessages);
     }
-  }, [contextMessages]);
+  }, [contextMessages, currentUser]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -73,62 +83,98 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
     
     console.log(`Setting up WebSocket handlers for room ${roomId}`);
     
-    // Handler for new messages from WebSocket
-    const handleNewMessage = (messageData) => {
-      console.log('WebSocket message received:', messageData);
+    // Handler for messages coming from WebSocket
+    const handleMessage = (data) => {
+      console.log('WebSocket message received:', data);
       
-      if (!messageData) return;
+      // Handle delete messages
+      if (data.type === 'delete' && data.messageId) {
+        console.log('Message deleted notification received:', data.messageId);
+        messageSeenRef.current.delete(data.messageId.toString());
+        setLocalMessages(prev => prev.filter(msg => msg.id !== data.messageId));
+        return;
+      }
+      
+      // Skip if not a regular message
+      if (!data || data.type) return;
       
       // Skip if we've already seen this message
-      if (messageData.id && messageSeenRef.current.has(messageData.id.toString())) {
-        console.log('Skipping already seen message:', messageData.id);
+      if (data.id && messageSeenRef.current.has(data.id.toString())) {
+        console.log('Skipping already seen message:', data.id);
         return;
       }
-      
-      // Add to seen set to avoid duplicates
-      if (messageData.id) messageSeenRef.current.add(messageData.id.toString());
       
       // Check if message belongs to this room
-      if (messageData.roomId && messageData.roomId.toString() !== roomId.toString()) {
-        console.log(`Message for room ${messageData.roomId}, but we're in ${roomId}`);
+      if (data.roomId && data.roomId.toString() !== roomId.toString()) {
+        console.log(`Message for room ${data.roomId}, but we're in ${roomId}`);
         return;
       }
       
-      // Mark message from current user
-      const isFromCurrentUser = messageData.sender && 
-        messageData.sender.id === currentUser.id;
+      // Is message from current user?
+      const isFromCurrentUser = data.sender && 
+        currentUser && data.sender.id === currentUser.id;
+
+      // STRICT DUPLICATE DETECTION
+      // Check for any similar messages already in the state before adding
+      let isDuplicate = false;
       
-      const processedMessage = {
-        ...messageData,
-        fromCurrentUser: isFromCurrentUser,
-        roomId: messageData.roomId || roomId
-      };
-      
-      // Update state with the new message
       setLocalMessages(prevMessages => {
-        // Check for optimistic message replacement
-        const optimisticIndex = prevMessages.findIndex(m => 
-          m.isOptimistic && 
-          m.content === processedMessage.content && 
-          m.sender?.id === processedMessage.sender?.id
-        );
-        
-        if (optimisticIndex !== -1) {
-          // Replace optimistic message with real one
-          const newMessages = [...prevMessages];
-          newMessages[optimisticIndex] = {
-            ...processedMessage,
-            fromCurrentUser: newMessages[optimisticIndex].fromCurrentUser
-          };
-          return newMessages;
+        // First look for optimistic messages to replace
+        if (isFromCurrentUser) {
+          // Try to find an optimistic message from the same user with same content
+          const optimisticIndex = prevMessages.findIndex(m => 
+            m.isOptimistic && 
+            m.content === data.content &&
+            m.sender?.id === data.sender?.id
+          );
+          
+          if (optimisticIndex !== -1) {
+            // Replace optimistic with confirmed message and return
+            const newMessages = [...prevMessages];
+            newMessages[optimisticIndex] = {
+              ...data,
+              fromCurrentUser: true
+            };
+            
+            // Add to seen set to avoid future duplicates
+            if (data.id) messageSeenRef.current.add(data.id.toString());
+            
+            return newMessages;
+          }
         }
         
-        // Check for duplicates
-        const isDuplicate = prevMessages.some(m => m.id === processedMessage.id);
-        if (isDuplicate) return prevMessages;
+        // Next, check for any near-duplicate messages
+        isDuplicate = prevMessages.some(m => {
+          // Perfect ID match
+          if (m.id === data.id) return true;
+          
+          // Same content, same sender, and timestamp within 3 seconds
+          if (m.content === data.content && 
+              m.sender?.id === data.sender?.id && 
+              Math.abs(new Date(m.timestamp) - new Date(data.timestamp)) < 3000) {
+            return true;
+          }
+          
+          return false;
+        });
         
-        // Add the new message and sort chronologically
-        const updatedMessages = [...prevMessages, processedMessage];
+        if (isDuplicate) {
+          console.log('Duplicate message detected and skipped:', data);
+          return prevMessages;
+        }
+        
+        // Add to seen set to avoid future duplicates
+        if (data.id) messageSeenRef.current.add(data.id.toString());
+        
+        // If it passes all checks, add the message
+        const newMessage = {
+          ...data,
+          fromCurrentUser: isFromCurrentUser,
+          roomId: data.roomId || roomId
+        };
+        
+        // Add and sort chronologically
+        const updatedMessages = [...prevMessages, newMessage];
         return updatedMessages.sort((a, b) => {
           const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
           const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
@@ -137,41 +183,36 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
       });
     };
     
-    // Handler for message deletions
-    const handleDeletedMessage = (messageId) => {
-      if (!messageId) return;
-      
-      console.log('Message deleted notification received:', messageId);
-      
-      // Remove from seen set
-      messageSeenRef.current.delete(messageId.toString());
-      
-      // Remove from local messages
-      setLocalMessages(prev => prev.filter(msg => msg.id !== messageId));
-    };
-    
-    // Register multiple handlers to catch all message types
-    const messageHandlerId = ChatWebSocketService.addHandler('onChatMessage', handleNewMessage);
-    const chatMessageHandlerId = ChatWebSocketService.addHandler('CHAT_MESSAGE', handleNewMessage);
-    const messageSentHandlerId = ChatWebSocketService.addHandler('MESSAGE_SENT', handleNewMessage);
-    const deleteHandlerId = ChatWebSocketService.addHandler('onMessageDeleted', handleDeletedMessage);
-    handlerIdsRef.current = [messageHandlerId, chatMessageHandlerId, messageSentHandlerId, deleteHandlerId];
-    
-    console.log('Registered WebSocket handlers:', handlerIdsRef.current);
-    
-    // Connect WebSocket if not already connected to this room
-    if (!ChatWebSocketService.isConnected() || ChatWebSocketService.roomId !== roomId) {
-      ChatWebSocketService.connect(roomId);
+    // Connect to the appropriate chat type
+    let subscription;
+    if (chatType === 'GLOBAL') {
+      subscription = ChatWebSocketService.subscribeToGlobalChat(handleMessage);
+    } else if (chatType === 'GUILD' && roomId) {
+      subscription = ChatWebSocketService.subscribeToGuildChat(roomId, handleMessage);
+    } else if (chatType === 'FIGHT' || chatType === 'DUEL') {
+      subscription = ChatWebSocketService.subscribeToDuelChat(roomId, handleMessage);
     }
+    
+    if (subscription) {
+      subscriptionsRef.current.push(subscription);
+    }
+    
+    console.log('Subscribed to WebSocket chat:', chatType, roomId);
+    
+    // Don't attempt to connect here - rely on the ChatContext to manage connection
+    // The connection should already be established by the ChatContext
     
     // Cleanup
     return () => {
-      if (handlerIdsRef.current.length > 0) {
-        console.log('Removing WebSocket handlers:', handlerIdsRef.current);
-        handlerIdsRef.current.forEach(id => ChatWebSocketService.removeHandler(id));
-      }
+      // Unsubscribe from WebSocket
+      subscriptionsRef.current.forEach(sub => {
+        if (sub && typeof sub.unsubscribe === 'function') {
+          sub.unsubscribe();
+        }
+      });
+      subscriptionsRef.current = [];
     };
-  }, [roomId, currentUser]);
+  }, [roomId, currentUser, chatType]);
 
   // Handle sending a message
   const handleSendMessage = async (e) => {
@@ -201,17 +242,15 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
       });
     });
     
+    // Store message content before clearing input
+    const messageContent = newMessage;
+    
     // Clear input field immediately for better UX
     setNewMessage('');
     
     try {
-      // Send via WebSocket first for fastest delivery
-      if (ChatWebSocketService.isConnected()) {
-        ChatWebSocketService.sendMessage(newMessage, roomId);
-      }
-      
-      // Also send via API for persistence
-      const response = await sendMessage(newMessage);
+      // First try to send via context method which handles both API and WebSocket
+      const response = await sendMessage(messageContent);
       
       // If we get a response with an ID, update the optimistic message
       if (response && response.id) {
@@ -224,6 +263,17 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
             fromCurrentUser: true
           } : msg)
         );
+      } 
+      // If no response from sendMessage, try WebSocket directly as backup
+      else if (ChatWebSocketService.isConnected()) {
+        try {
+          await ChatWebSocketService.sendMessage({
+            roomId: roomId,
+            content: messageContent
+          });
+        } catch (wsError) {
+          console.error('WebSocket send failed as backup, message may be stuck:', wsError);
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -279,42 +329,48 @@ const ChatRoom = ({ roomId, roomName, chatType, onBack }) => {
             {t('noMessagesYet', language) || 'No messages yet. Start the conversation!'}
           </div>
         ) : (
-          localMessages.map((message) => (
-            <div 
-              key={message.id || `temp-${message.timestamp}`}
-              className={`flex ${message.fromCurrentUser ? 'justify-end' : 'justify-start'}`}
-            >
+          localMessages.map((message) => {
+            // Determine if this message is from the current user
+            const isCurrentUserMessage = message.fromCurrentUser || 
+              (message.sender && currentUser && message.sender.id === currentUser.id);
+            
+            return (
               <div 
-                className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                  message.fromCurrentUser 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-200 dark:bg-[#3a3464] text-black dark:text-white'
-                } ${message.isOptimistic ? 'opacity-70' : ''}`}
+                key={message.id || `temp-${message.timestamp}`}
+                className={`flex ${isCurrentUserMessage ? 'justify-end' : 'justify-start'}`}
               >
-                {!message.fromCurrentUser && (
-                  <div className="font-bold text-sm">
-                    {message.sender?.username || 'Unknown user'}
+                <div 
+                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    isCurrentUserMessage 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-200 dark:bg-[#3a3464] text-black dark:text-white'
+                  } ${message.isOptimistic ? 'opacity-70' : ''}`}
+                >
+                  {!isCurrentUserMessage && (
+                    <div className="font-bold text-sm">
+                      {message.sender?.username || 'Unknown user'}
+                    </div>
+                  )}
+                  <div className="break-words">{message.content}</div>
+                  <div className="text-xs text-right mt-1 opacity-70">
+                    {formatTime(message.timestamp)}
+                    {message.isOptimistic && ' (sending...)'}
                   </div>
-                )}
-                <div className="break-words">{message.content}</div>
-                <div className="text-xs text-right mt-1 opacity-70">
-                  {formatTime(message.timestamp)}
-                  {message.isOptimistic && ' (sending...)'}
+                  
+                  {/* Delete button for own messages */}
+                  {isCurrentUserMessage && !message.isOptimistic && (
+                    <button 
+                      onClick={() => handleDeleteMessage(message.id)}
+                      className="ml-2 text-xs opacity-50 hover:opacity-100"
+                      title={t('deleteMessage', language) || 'Delete message'}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-                
-                {/* Delete button for own messages */}
-                {message.fromCurrentUser && !message.isOptimistic && (
-                  <button 
-                    onClick={() => handleDeleteMessage(message.id)}
-                    className="ml-2 text-xs opacity-50 hover:opacity-100"
-                    title={t('deleteMessage', language) || 'Delete message'}
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
