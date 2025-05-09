@@ -159,31 +159,61 @@ const GlobalChat = () => {
       roomId: globalChatRoom?.id,
       sender: currentUser,
       fromCurrentUser: true,
-      isOptimistic: true
+      isOptimistic: true,
+      sending: true // Mark as sending
     };
     
     // Add optimistic message immediately
     setLocalMessages(prev => [...prev, optimisticMessage]);
     
     // Send via WebSocket first for fastest delivery
-    if (ChatWebSocketService.isConnected()) {
-      ChatWebSocketService.sendMessage(content, globalChatRoom?.id);
-    }
-    
-    // Also send via chat context for persistence
-    const response = await sendMessage(content);
-    
-    // Replace optimistic message with real one if we got a response
-    if (response && response.id) {
-      // Add to seen set to prevent duplication
-      messageSeenRef.current.add(response.id.toString());
+    try {
+      await ChatWebSocketService.sendMessage({
+        roomId: globalChatRoom.id,
+        content: content,
+        clientId: optimisticId // Include the optimistic ID to match messages
+      });
       
-      setLocalMessages(prev => prev.map(msg => 
-        msg.id === optimisticId ? {
-          ...response,
-          fromCurrentUser: true
-        } : msg
-      ));
+      // If no error, the message will be confirmed by the incoming WebSocket broadcast
+      // If there's no WebSocket response within 1s, we'll fall back to REST API
+      setTimeout(async () => {
+        const messageExists = localMessages.some(m => 
+          (m.id === optimisticId && !m.sending) || // Already got websocket confirmation
+          m.clientId === optimisticId // Or matched by client ID
+        );
+        
+        if (!messageExists) {
+          // WebSocket broadcast failed or is taking too long, try REST API as fallback
+          console.log('WebSocket broadcast not received, falling back to REST API');
+          try {
+            await sendMessage(globalChatRoom.id, content, currentUser);
+          } catch (error) {
+            console.error('Failed to send message via REST API:', error);
+            // Mark the message as failed
+            setLocalMessages(prev => 
+              prev.map(m => m.id === optimisticId 
+                ? { ...m, sending: false, failed: true } 
+                : m
+              )
+            );
+          }
+        }
+      }, 1000); // Wait 1 second before falling back to REST API
+    } catch (wsError) {
+      console.error('WebSocket message send failed:', wsError);
+      // WebSocket failed, try REST API immediately
+      try {
+        await sendMessage(globalChatRoom.id, content, currentUser);
+      } catch (restError) {
+        console.error('Failed to send message via REST API:', restError);
+        // Mark the message as failed
+        setLocalMessages(prev => 
+          prev.map(m => m.id === optimisticId 
+            ? { ...m, sending: false, failed: true } 
+            : m
+          )
+        );
+      }
     }
   };
 

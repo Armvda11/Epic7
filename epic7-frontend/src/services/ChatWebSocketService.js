@@ -686,10 +686,17 @@ class ChatWebSocketService {
       return Promise.reject(new Error('Not connected to WebSocket server'));
     }
 
+    // Get the current user from localStorage
+    const userData = localStorage.getItem('userData');
+    const currentUser = userData ? JSON.parse(userData) : null;
+    
     // Add a unique ID to prevent duplicates and help with tracking
     const messageWithId = {
       ...message,
-      clientId: `client-${Date.now()}-${Math.floor(Math.random() * 10000)}`
+      clientId: `client-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      // Store the current user ID to identify own messages when they come back
+      senderId: currentUser?.id,
+      fromCurrentUser: true
     };
 
     return new Promise((resolve, reject) => {
@@ -741,6 +748,16 @@ class ChatWebSocketService {
 
     return new Promise((resolve, reject) => {
       try {
+        // Add deletion to local tracking to prevent message from being re-added
+        if (deleteMessage.messageId) {
+          // Create a "deleted messages" set if it doesn't exist
+          if (!this.deletedMessages) {
+            this.deletedMessages = new Set();
+          }
+          // Add the message ID to the deleted set
+          this.deletedMessages.add(deleteMessage.messageId.toString());
+        }
+
         this.stompClient.send(
           '/app/chat.deleteMessage',
           {},
@@ -752,6 +769,16 @@ class ChatWebSocketService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Check if a message has been deleted locally
+   * @param {string|number} messageId The ID of the message to check
+   * @returns {boolean} True if the message was marked as deleted
+   */
+  isMessageDeleted(messageId) {
+    if (!messageId || !this.deletedMessages) return false;
+    return this.deletedMessages.has(messageId.toString());
   }
 
   /**
