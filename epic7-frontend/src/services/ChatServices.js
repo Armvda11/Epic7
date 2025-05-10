@@ -77,22 +77,51 @@ export const sendChatMessage = async (chatRoomId, content) => {
 };
 
 // Delete a message
-export const deleteChatMessage = async (messageId) => {
+export const deleteMessage = async (messageId, roomId, uniqueId) => {
   try {
-    const response = await API.delete(`/chat/messages/${messageId}`);
+    // Make sure we have both required parameters
+    if (!messageId || !roomId) {
+      console.error('[ChatService] Cannot delete message: Missing messageId or roomId');
+      return false;
+    }
+
+    // Normalize messageId to string for consistent handling
+    const normalizedMessageId = messageId.toString();
+
+    console.log(`[ChatService] Deleting message ${normalizedMessageId}${uniqueId ? `, uniqueId ${uniqueId}` : ' (no uniqueId)'} from room ${roomId}`);
+
+    // Send delete request to the server with both messageId and roomId
+    // Use a more structured URL that can include uniqueId if it exists
+    let url = `/chat/messages/${normalizedMessageId}?roomId=${roomId}`;
+    if (uniqueId) {
+      url += `&uniqueId=${encodeURIComponent(uniqueId)}`;
+      console.log(`[ChatService] Added uniqueId to delete request: ${url}`);
+    } else {
+      console.warn('[ChatService] No uniqueId provided for delete request. This may cause precision issues.');
+    }
+    
+    // Execute the delete request
+    console.log(`[ChatService] Sending DELETE request to: ${url}`);
+    const response = await API.delete(url);
     
     // After successfully deleting via API, if we don't get a WebSocket notification
     // from the server within 100ms, manually trigger the WebSocket handlers
     // to ensure all clients remove the message
     setTimeout(() => {
-      console.log('Manually triggering message deletion handlers for message:', messageId);
-      ChatWebSocketService.notifyHandlers('onMessageDeleted', messageId);
+      console.log(`[ChatService] Manually triggering message deletion handlers for message id: ${normalizedMessageId}, uniqueId: ${uniqueId || 'not provided'}`);
+      ChatWebSocketService.notifyHandlers('onMessageDeleted', {
+        type: 'delete', // Explicitly set type for consistent processing
+        messageId: normalizedMessageId,
+        id: normalizedMessageId, // Also include as id for redundancy
+        roomId,
+        uniqueId // Pass the uniqueId if available
+      });
     }, 100);
     
-    return response.data;
+    return response.data.success !== false;
   } catch (error) {
-    console.error(`Error deleting message ${messageId}:`, error);
-    throw error;
+    console.error(`[ChatService] Error deleting message ${normalizedMessageId} from room ${roomId}:`, error);
+    return false;
   }
 };
 

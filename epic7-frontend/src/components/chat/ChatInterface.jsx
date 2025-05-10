@@ -38,7 +38,7 @@ const ChatMessage = memo(({ message, currentUser, canDelete, onDeleteMessage, fo
             </span>
             {canDeleteThisMessage && (
               <button 
-                onClick={() => onDeleteMessage(message.id)}
+                onClick={() => onDeleteMessage(message.id, message.uniqueId)}
                 className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 title={t('deleteMessage', language)}
               >

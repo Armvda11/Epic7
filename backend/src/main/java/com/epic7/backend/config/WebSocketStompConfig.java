@@ -2,6 +2,7 @@ package com.epic7.backend.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -17,6 +18,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
+    private final StompAuthenticationHandler stompAuthenticationHandler;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -37,5 +39,11 @@ public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
             // Authentication interceptor restored for production
             .addInterceptors(jwtHandshakeInterceptor)
             .withSockJS(); // for fallback
+    }
+    
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // Add our authentication handler for all inbound messages
+        registration.interceptors(stompAuthenticationHandler);
     }
 }

@@ -8,6 +8,7 @@ import com.epic7.backend.dto.chatroom.TypingDTO;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import com.epic7.backend.model.chat.ChatRoom;
+import com.epic7.backend.repository.UserRepository;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ChatService;
 import com.epic7.backend.utils.JwtUtil;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.util.Optional;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -42,6 +44,7 @@ public class ChatController {
     private final ChatService chatService;
     private final AuthService authService;
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
     
     // Error codes constants
     private static final String ERROR_CHAT_ROOM_NOT_FOUND = "CHAT_ROOM_NOT_FOUND";
@@ -243,18 +246,29 @@ public class ChatController {
                     if (chatRoom != null) {
                         try {
                             String destination = getDestinationByRoomType(chatRoom) + "/delete";
+                            String uniqueId = request.getParameter("uniqueId");
+                            log.info("REST delete - Broadcasting via WebSocket to {} for message ID {}, uniqueId: {}", 
+                                destination, messageId, uniqueId);
+                            
                             // Include user who performed the delete operation along with the message's original sender info
                             DeleteMessageDTO deleteDTO = new DeleteMessageDTO(
                                 messageId, 
                                 chatRoom.getId(),
                                 user.getUsername(),
-                                user.getId()
+                                user.getId(),
+                                uniqueId, // Get uniqueId from request parameters if available
+                                "delete" // Explicitly set the type
                             );
                             messagingTemplate.convertAndSend(destination, deleteDTO);
+                            log.info("REST delete - Successfully broadcasted delete event for message ID: {}", messageId);
                         } catch (Exception e) {
-                            log.warn("Could not broadcast message deletion via WebSocket: {}", e.getMessage());
+                            log.error("REST delete - Could not broadcast message deletion via WebSocket: {}", e.getMessage(), e);
                         }
+                    } else {
+                        log.warn("REST delete - Chat room not found for message {}. Delete event not broadcasted.", messageId);
                     }
+                } else {
+                    log.warn("REST delete - Message with ID {} not found for WebSocket broadcast, but was reported as deleted.", messageId);
                 }
                 
                 return ResponseEntity.ok(
@@ -393,21 +407,92 @@ public class ChatController {
      */
     @MessageMapping("/chat.deleteMessage")
     public void deleteMessage(@Payload DeleteMessageDTO deleteMessage, Principal principal) {
+        // Log all details of the delete request for debugging
+        log.info("Received delete request: messageId={}, roomId={}, uniqueId={}, type={}, sender={}",
+                deleteMessage.getMessageId(), deleteMessage.getRoomId(), 
+                deleteMessage.getUniqueId(), "delete", deleteMessage.getSender());
+                
         // Handle the case where principal is null
         if (principal == null) {
             log.warn("Received delete request without principal: {}", deleteMessage);
-            return; // Skip processing delete updates without authentication
+            
+            // Try to proceed with deletion if askerId is provided
+            if (deleteMessage.getAskerId() != null) {
+                log.info("Attempting to proceed with deletion using askerId: {}", deleteMessage.getAskerId());
+                User requester = userRepository.findById(deleteMessage.getAskerId()).orElse(null);
+                if (requester != null) {
+                    processDeletion(deleteMessage, requester);
+                    return;
+                }
+            }
+            
+            // Try to proceed with deletion if sender is provided
+            if (deleteMessage.getSender() != null && !deleteMessage.getSender().isEmpty()) {
+                log.info("Attempting to proceed with deletion using sender name: {}", deleteMessage.getSender());
+                Optional<User> requesterOpt = userRepository.findByUsername(deleteMessage.getSender());
+                if (requesterOpt.isPresent()) {
+                    processDeletion(deleteMessage, requesterOpt.get());
+                    return;
+                }
+            }
+            
+            log.error("Cannot process delete request: no valid authentication or sender information");
+            return; // Skip processing delete updates without any authentication
         }
         
         log.info("Delete message request from {}: message ID {}", principal.getName(), deleteMessage.getMessageId());
         
         User user = authService.getUserByEmail(principal.getName());
         if (user == null) {
+            log.warn("User not found for email: {}", principal.getName());
             return;
         }
         
+        processDeletion(deleteMessage, user);
+    }
+    
+    /**
+     * Process the actual message deletion and broadcast
+     * 
+     * @param deleteMessage The delete message DTO
+     * @param user The user requesting deletion
+     */
+    private void processDeletion(DeleteMessageDTO deleteMessage, User user) {
+        // First check if the message exists before attempting to delete it
+        ChatMessage message = null;
+        try {
+            message = chatService.getChatMessageById(deleteMessage.getMessageId());
+            if (message == null) {
+                // Message already deleted, just broadcast the deletion event
+                log.info("Message with ID {} was already deleted, skipping deletion and proceeding to broadcast", 
+                    deleteMessage.getMessageId());
+                
+                // Get the chat room directly from the DTO since we don't have the message anymore
+                ChatRoom chatRoom = chatService.getChatRoomById(deleteMessage.getRoomId());
+                if (chatRoom != null) {
+                    broadcastDeletionEvent(deleteMessage, user, chatRoom);
+                } else {
+                    log.warn("Chat room with ID {} not found for broadcasting delete event", deleteMessage.getRoomId());
+                }
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("Error checking message existence before deletion: {}", e.getMessage());
+            // Continue with normal flow, the deleteMessage method will handle exceptions
+        }
+        
         // Try to delete the message
-        boolean deleted = chatService.deleteMessage(deleteMessage.getMessageId(), user.getId());
+        boolean deleted = false;
+        try {
+            deleted = chatService.deleteMessage(deleteMessage.getMessageId(), user.getId());
+        } catch (IllegalArgumentException e) {
+            // Message not found, consider it already deleted
+            log.info("Message with ID {} was already deleted by someone else", deleteMessage.getMessageId());
+            deleted = true; // Consider it successfully deleted since it's gone
+        } catch (Exception e) {
+            log.error("Error deleting message: {}", e.getMessage());
+            return; // Stop processing if other errors occur
+        }
         
         if (deleted) {
             // If deletion was successful, broadcast to all users in the chat room
@@ -415,9 +500,51 @@ public class ChatController {
             ChatRoom chatRoom = chatService.getChatRoomById(roomId);
             
             if (chatRoom != null) {
-                String destination = getDestinationByRoomType(chatRoom) + "/delete";
-                messagingTemplate.convertAndSend(destination, deleteMessage);
+                broadcastDeletionEvent(deleteMessage, user, chatRoom);
+            } else {
+                log.warn("Chat room not found for ID: {}. Delete event not broadcasted.", roomId);
             }
+        } else {
+            log.warn("User {} not authorized to delete message {}", user.getUsername(), deleteMessage.getMessageId());
+        }
+    }
+    
+    /**
+     * Helper method to broadcast a message deletion event
+     */
+    private void broadcastDeletionEvent(DeleteMessageDTO deleteMessage, User user, ChatRoom chatRoom) {
+        try {
+            // Get destination topic based on chat room type
+            String destination = getDestinationByRoomType(chatRoom) + "/delete";
+            
+            log.info("Broadcasting delete event to {} for message ID {}, uniqueId: {}, sender: {}", 
+                destination, deleteMessage.getMessageId(), deleteMessage.getUniqueId(), user.getUsername());
+            
+            // Update sender in the DTO if it's not already set
+            if (deleteMessage.getSender() == null || deleteMessage.getSender().isEmpty()) {
+                deleteMessage.setSender(user.getUsername());
+            }
+            
+            // Ensure type is set for consistency
+            deleteMessage.setType("delete");
+            
+            // Create a new simplified DTO to ensure consistent format
+            DeleteMessageDTO broadcastDTO = new DeleteMessageDTO(
+                deleteMessage.getMessageId(),
+                deleteMessage.getRoomId(),
+                user.getUsername(),  // Always use the authenticated user's username
+                null,                // Don't expose askerId in broadcasts
+                deleteMessage.getUniqueId(),
+                "delete"             // Always set explicit type
+            );
+            
+            // Send to the appropriate topic
+            messagingTemplate.convertAndSend(destination, broadcastDTO);
+            
+            log.info("Successfully broadcasted delete event for message ID: {} to {}", 
+                deleteMessage.getMessageId(), destination);
+        } catch (Exception e) {
+            log.error("Error broadcasting delete event: {}", e.getMessage(), e);
         }
     }
     
@@ -428,6 +555,10 @@ public class ChatController {
      * @return The destination topic
      */
     private String getDestinationByRoomType(ChatRoom chatRoom) {
+        if (chatRoom == null) {
+            return "/topic/chat/global"; // Default fallback
+        }
+        
         switch (chatRoom.getType()) {
             case GLOBAL:
                 return "/topic/chat/global";

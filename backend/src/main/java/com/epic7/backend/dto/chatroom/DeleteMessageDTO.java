@@ -12,4 +12,6 @@ public class DeleteMessageDTO {
     private Long roomId;
     private String sender;
     private Long askerId; // ID of the user who asked for the deletion to check if the user is allowed to delete the message
+    private String uniqueId; // Added to support more precise message targeting
+    private String type = "delete"; // Explicitly mark as a delete message for client-side handling
 }

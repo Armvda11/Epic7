@@ -17,6 +17,65 @@ class ChatWebSocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.isAttemptingConnection = false;
+    
+    // Add a processed transactions cache to avoid duplicate event processing
+    this.processedTransactions = new Set();
+    // Keep track of when transactions were processed (for cleanup)
+    this.transactionTimestamps = new Map();
+    // Set up a timer to clean old transaction records periodically
+    setInterval(this.cleanupOldTransactions.bind(this), 60000); // Check every minute
+  }
+  
+  /**
+   * Check if a transaction has already been processed
+   * @param {string} transactionId - The unique ID for the transaction
+   * @returns {boolean} True if already processed, false otherwise
+   */
+  hasProcessedTransaction(transactionId) {
+    return this.processedTransactions.has(transactionId);
+  }
+  
+  /**
+   * Mark a transaction as processed and store the timestamp
+   * @param {string} transactionId - The unique ID for the transaction
+   */
+  markTransactionProcessed(transactionId) {
+    this.processedTransactions.add(transactionId);
+    this.transactionTimestamps.set(transactionId, Date.now());
+  }
+  
+  /**
+   * Clean up old transaction records to prevent memory leaks
+   * Only keeps transactions from the last 5 minutes
+   */
+  cleanupOldTransactions() {
+    const now = Date.now();
+    const expirationTime = 5 * 60 * 1000; // 5 minutes in milliseconds
+    
+    // Remove transactions older than the expiration time
+    for (const [transactionId, timestamp] of this.transactionTimestamps.entries()) {
+      if (now - timestamp > expirationTime) {
+        this.processedTransactions.delete(transactionId);
+        this.transactionTimestamps.delete(transactionId);
+      }
+    }
+    
+    // If the set gets too large, trim it regardless of timestamps
+    const maxTransactions = 1000;
+    if (this.processedTransactions.size > maxTransactions) {
+      // Sort by timestamp (oldest first) and keep only the newest 500
+      const sortedTransactions = [...this.transactionTimestamps.entries()]
+        .sort((a, b) => a[1] - b[1])
+        .slice(0, this.processedTransactions.size - 500);
+      
+      // Remove the oldest transactions
+      for (const [transactionId] of sortedTransactions) {
+        this.processedTransactions.delete(transactionId);
+        this.transactionTimestamps.delete(transactionId);
+      }
+    }
+    
+    console.log(`[WebSocket] Cleaned up transaction cache. Current size: ${this.processedTransactions.size}`);
   }
 
   /**
@@ -634,7 +693,8 @@ class ChatWebSocketService {
    * @returns {Object} Subscription object with an unsubscribe method
    */
   subscribeToDeleteEvents(chatType, id, callback) {
-    if (!this.connected) {
+    if (!callback) {
+      console.warn('[WebSocket] No callback provided for delete events subscription');
       return { unsubscribe: () => {} };
     }
 
@@ -643,36 +703,149 @@ class ChatWebSocketService {
       destination = '/topic/chat/global/delete';
     } else if (chatType === 'guild') {
       destination = `/topic/chat/guild.${id}/delete`;
-    } else if (chatType === 'duel') {
+    } else if (chatType === 'duel' || chatType === 'FIGHT') {
       destination = `/topic/chat/duel.${id}/delete`;
     } else {
+      console.warn(`[WebSocket] Unknown chat type: ${chatType} for delete events subscription`);
       return { unsubscribe: () => {} };
     }
 
-    const subscription = this.stompClient.subscribe(destination, (message) => {
-      const data = JSON.parse(message.body);
-      if (callback) callback({ type: 'delete', messageId: data.messageId });
-    });
-
     const key = chatType === 'global' ? 'global' : `${chatType}_${id}`;
+    
+    // Add the subscription to our internal tracking
     if (!this.subscribers.delete[key]) {
       this.subscribers.delete[key] = [];
     }
-    this.subscribers.delete[key].push({
-      callback,
-      subscription
-    });
 
-    return {
-      unsubscribe: () => {
-        subscription.unsubscribe();
-        if (this.subscribers.delete[key]) {
-          this.subscribers.delete[key] = this.subscribers.delete[key].filter(
-            (sub) => sub.callback !== callback
-          );
+    // If not connected, store the callback and return a dummy subscription
+    if (!this.connected) {
+      console.log(`[WebSocket] Not connected, storing delete event callback for ${chatType} ${id || ''} for later`);
+      
+      const pendingSubscription = {
+        unsubscribe: () => {
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key] = this.subscribers.delete[key].filter(
+              (sub) => sub.callback !== callback
+            );
+          }
+        },
+        isPending: true
+      };
+      
+      this.subscribers.delete[key].push({
+        callback,
+        subscription: pendingSubscription
+      });
+      
+      return pendingSubscription;
+    }
+
+    // Log subscription attempt
+    console.log(`Subscribing to delete events for ${chatType} ${id || ''} at ${destination}`);
+
+    try {
+      // Create a wrapper callback that handles transaction IDs and deduplication
+      const wrappedCallback = (message) => {
+        try {
+          // Create a standardized delete event object
+          console.log(`[WebSocket] Received delete event from ${destination}:`, message.body);
+          const data = JSON.parse(message.body);
+          
+          // Explicitly log the full received delete message
+          console.log(`[WebSocket] Parsed delete event:`, data);
+          
+          // Extract message ID and transaction ID
+          const messageId = data.messageId || data.id;
+          const transactionId = data.transactionId || `ws-delete-${messageId}-${Date.now()}`;
+          
+          // Check if we've already processed this transaction
+          if (this.hasProcessedTransaction(transactionId)) {
+            console.log(`[WebSocket] Skipping already processed delete transaction: ${transactionId}`);
+            return;
+          }
+          
+          // Also check for recent processing of the same message ID as a backup
+          const recentKey = `recent-${messageId}`;
+          if (messageId && this.hasProcessedTransaction(recentKey)) {
+            console.log(`[WebSocket] Skipping recently processed message ID: ${messageId}`);
+            return;
+          }
+          
+          // Mark this transaction as processed
+          this.markTransactionProcessed(transactionId);
+          if (messageId) {
+            this.markTransactionProcessed(recentKey); // Mark message ID as recently processed
+          }
+          
+          // Standardize the delete event format and explicitly set the type
+          let deleteEvent;
+          
+          // If data already has type field, use it as is
+          if (data.type === 'delete') {
+            deleteEvent = {
+              ...data,
+              // Ensure these fields are always present and correctly formatted
+              type: 'delete',
+              messageId: messageId,
+              roomId: data.roomId || id,
+              transactionId: transactionId
+            };
+          } else {
+            // Otherwise create a new object with the type field
+            deleteEvent = {
+              type: 'delete',
+              messageId: messageId,
+              roomId: data.roomId || id,
+              uniqueId: data.uniqueId, // Include uniqueId if available
+              sender: data.sender, // Include sender information for logging
+              transactionId: transactionId
+            };
+          }
+          
+          // Log detailed info about the event
+          console.log(`[WebSocket] Processing delete event for message: ${deleteEvent.messageId}, uniqueId: ${deleteEvent.uniqueId || 'not provided'}, roomId: ${deleteEvent.roomId}, sender: ${deleteEvent.sender || 'unknown'}, transactionId: ${transactionId}`);
+          
+          // Call the provided callback with the standardized event
+          if (callback) {
+            console.log(`[WebSocket] Calling delete callback for message: ${deleteEvent.messageId}`);
+            callback(deleteEvent);
+          } else {
+            console.warn(`[WebSocket] No callback provided for delete event: ${deleteEvent.messageId}`);
+          }
+          
+        } catch (err) {
+          console.error(`Error processing delete event for ${chatType} ${id || ''}:`, err, message.body);
         }
-      }
-    };
+      };
+      
+      // Create STOMP subscription
+      const subscription = this.stompClient.subscribe(destination, wrappedCallback);
+
+      // Store subscription for cleanup
+      this.subscribers.delete[key].push({
+        callback,
+        subscription,
+        wrappedCallback // Store the wrapped callback for reference
+      });
+
+      return {
+        unsubscribe: () => {
+          if (subscription) {
+            subscription.unsubscribe();
+          }
+          
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key] = this.subscribers.delete[key].filter(
+              (sub) => sub.callback !== callback
+            );
+          }
+        }
+      };
+    } catch (error) {
+      console.error(`Error subscribing to delete events for ${chatType} ${id || ''}:`, error);
+      // Return a dummy subscription object
+      return { unsubscribe: () => {} };
+    }
   }
 
   /**
@@ -738,47 +911,199 @@ class ChatWebSocketService {
 
   /**
    * Delete a message
-   * @param {Object} deleteMessage Object with messageId and roomId
+   * @param {Object} messageData - The message data
+   * @param {number} messageData.messageId - The ID of the message to delete
+   * @param {number} messageData.roomId - The ID of the room the message belongs to
+   * @param {string} messageData.uniqueId - The unique identifier of the message
+   * @param {string} messageData.transactionId - Unique ID for this delete operation (optional)
+   * @returns {Promise} - A promise that resolves when the message is deleted
    */
-  deleteMessage(deleteMessage) {
-    if (!this.connected) {
-      console.error('Not connected to WebSocket server');
-      return Promise.reject(new Error('Not connected to WebSocket server'));
-    }
-
+  deleteMessage(messageData) {
     return new Promise((resolve, reject) => {
+      if (!this.connected || !this.stompClient) {
+        console.error('[WebSocket] Cannot delete message - not connected to WebSocket');
+        reject(new Error('Not connected to WebSocket'));
+        return;
+      }
+
       try {
-        // Add deletion to local tracking to prevent message from being re-added
-        if (deleteMessage.messageId) {
-          // Create a "deleted messages" set if it doesn't exist
-          if (!this.deletedMessages) {
-            this.deletedMessages = new Set();
-          }
-          // Add the message ID to the deleted set
-          this.deletedMessages.add(deleteMessage.messageId.toString());
+        // Get token to ensure it's sent with delete request
+        const token = getToken();
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        // Get current user information
+        const currentUser = JSON.parse(localStorage.getItem('userData')) || {};
+        
+        // Normalize messageId - could be in messageId or id property
+        const messageId = messageData.messageId || messageData.id;
+        
+        if (!messageId) {
+          console.error('[WebSocket] Cannot delete message - no messageId provided');
+          reject(new Error('No messageId provided for delete operation'));
+          return;
+        }
+        
+        // Create a unique transaction ID if not provided
+        // This will be used for deduplication across components
+        const transactionId = messageData.transactionId || 
+                             `delete-${messageId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                              
+        // Check if we've already processed this transaction
+        if (this.hasProcessedTransaction(transactionId)) {
+          console.log(`[WebSocket] Skipping already processed delete transaction: ${transactionId}`);
+          resolve(true);
+          return;
+        }
+        
+        // Mark this transaction as processed
+        this.markTransactionProcessed(transactionId);
+
+        // Also mark any transaction with the same messageId in the last few seconds as processed
+        // This helps catch nearly-duplicate delete requests with different transaction IDs
+        const existingTransactions = [...this.processedTransactions].filter(tid => 
+          tid.includes(`delete-${messageId}`) && 
+          this.transactionTimestamps.has(tid) && 
+          (Date.now() - this.transactionTimestamps.get(tid) < 5000) // Within last 5 seconds
+        );
+        
+        if (existingTransactions.length > 0) {
+          console.log(`[WebSocket] Found ${existingTransactions.length} recent transactions for message ${messageId}, this may be a duplicate`);
         }
 
-        this.stompClient.send(
-          '/app/chat.deleteMessage',
-          {},
-          JSON.stringify(deleteMessage)
-        );
-        resolve();
+        // Log delete request with more detail
+        console.log(`[WebSocket] Sending delete request for messageId: ${messageId}, roomId: ${messageData.roomId}${messageData.uniqueId ? `, uniqueId: ${messageData.uniqueId}` : ''}, transactionId: ${transactionId}`);
+
+        // Send a properly structured delete message to the server
+        this.stompClient.send('/app/chat.deleteMessage', headers, JSON.stringify({
+          messageId: messageId,
+          roomId: messageData.roomId,
+          // Include current user ID in delete request
+          askerId: currentUser.id,
+          sender: currentUser.username, // Send username as string, not an object
+          // Add uniqueId if available for precise message targeting
+          uniqueId: messageData.uniqueId,
+          // Add a type field to explicitly identify this as a delete message
+          type: 'delete',
+          // Include transaction ID for deduplication
+          transactionId: transactionId
+        }));
+
+        // Add a fallback mechanism to ensure the message is deleted locally
+        // if the WebSocket broadcast fails or is delayed
+        setTimeout(() => {
+          // Check if we need to manually broadcast the deletion event
+          // This is a fallback in case the server doesn't broadcast it properly
+          console.log(`[WebSocket] Sending manual delete fallback for messageId: ${messageId}${messageData.uniqueId ? `, uniqueId: ${messageData.uniqueId}` : ''}, transactionId: ${transactionId}`);
+          
+          // Create a standardized delete event for consistency with explicit type
+          const deleteEvent = {
+            type: 'delete', // Explicitly mark as delete message
+            messageId: messageId,
+            roomId: messageData.roomId,
+            uniqueId: messageData.uniqueId,
+            sender: currentUser.username,
+            transactionId: transactionId // Include transaction ID
+          };
+          
+          // Notify all relevant delete event subscribers
+          this.notifyHandlers('onMessageDeleted', deleteEvent);
+          
+          // Also try to broadcast to the correct destination as a double-fallback
+          try {
+            // Get the room type from the roomId if possible
+            let chatRoom = null;
+            let destination = null;
+            
+            // Try to determine the most appropriate destination
+            if (messageData.chatType) {
+              // If we already know the chat type
+              const chatType = messageData.chatType.toLowerCase();
+              
+              if (chatType === 'global') {
+                destination = '/topic/chat/global/delete';
+              } else if (chatType === 'guild') {
+                destination = `/topic/chat/guild.${messageData.roomId}/delete`;
+              } else if (chatType === 'duel' || chatType === 'fight') {
+                destination = `/topic/chat/duel.${messageData.roomId}/delete`;
+              }
+            }
+            
+            // If we determined a destination, try to send a fallback broadcast
+            if (destination && this.connected && this.stompClient) {
+              console.log(`[WebSocket] Attempting second fallback delete broadcast to ${destination}`);
+              this.stompClient.send(destination, headers, JSON.stringify(deleteEvent));
+            }
+          } catch (fallbackError) {
+            console.warn('[WebSocket] Error in delete fallback broadcast:', fallbackError);
+            // This is a best-effort fallback, so we don't let errors propagate
+          }
+        }, 500); // Increased timeout to allow server to process first and reduce race conditions
+        
+        resolve(true);
       } catch (error) {
-        console.error('Error deleting message:', error);
+        console.error('[WebSocket] Error deleting message via WebSocket:', error);
         reject(error);
       }
     });
   }
 
   /**
-   * Check if a message has been deleted locally
-   * @param {string|number} messageId The ID of the message to check
-   * @returns {boolean} True if the message was marked as deleted
+   * Cleanup old transaction records to prevent memory leaks
+   * Removes transactions older than 10 minutes to balance reliability with memory usage
    */
-  isMessageDeleted(messageId) {
-    if (!messageId || !this.deletedMessages) return false;
-    return this.deletedMessages.has(messageId.toString());
+  cleanupOldTransactions() {
+    const now = Date.now();
+    const expirationTime = 10 * 60 * 1000; // 10 minutes in milliseconds
+    
+    // Find expired transactions
+    const expiredTransactions = [];
+    this.transactionTimestamps.forEach((timestamp, transactionId) => {
+      if (now - timestamp > expirationTime) {
+        expiredTransactions.push(transactionId);
+      }
+    });
+    
+    // Remove expired transactions
+    expiredTransactions.forEach(transactionId => {
+      this.processedTransactions.delete(transactionId);
+      this.transactionTimestamps.delete(transactionId);
+    });
+    
+    if (expiredTransactions.length > 0) {
+      console.log(`[WebSocket] Cleaned up ${expiredTransactions.length} expired transactions`);
+    }
+  }
+
+  /**
+   * Check if a transaction has already been processed to avoid duplicates
+   * @param {string} transactionId The transaction ID to check
+   * @returns {boolean} True if the transaction has already been processed
+   */
+  hasProcessedTransaction(transactionId) {
+    return this.processedTransactions.has(transactionId);
+  }
+  
+  /**
+   * Mark a transaction as processed to avoid duplicate processing
+   * @param {string} transactionId The transaction ID to mark as processed
+   */
+  markTransactionProcessed(transactionId) {
+    if (!transactionId) return;
+    
+    this.processedTransactions.add(transactionId);
+    this.transactionTimestamps.set(transactionId, Date.now());
+    
+    // Limit the size of the processed transactions set to prevent memory leaks
+    if (this.processedTransactions.size > 1000) {
+      const oldestTransaction = Array.from(this.transactionTimestamps.entries())
+        .sort((a, b) => a[1] - b[1])[0][0];
+      
+      this.processedTransactions.delete(oldestTransaction);
+      this.transactionTimestamps.delete(oldestTransaction);
+    }
   }
 
   /**
@@ -796,7 +1121,114 @@ class ChatWebSocketService {
    * @param {any} data The data to pass to handlers
    */
   notifyHandlers(eventType, data) {
-    console.log(`Broadcasting ${eventType} to all subscribers:`, data);
+    console.log(`[WebSocket] Broadcasting ${eventType} to all subscribers:`, data);
+    
+    // Don't attempt to broadcast if disconnected
+    if (!this.connected && eventType !== 'onClose' && eventType !== 'onError') {
+      console.warn(`[WebSocket] Cannot broadcast ${eventType} - not connected`);
+      return;
+    }
+    
+    // Special handling for delete events
+    if (eventType === 'onMessageDeleted' || eventType === 'MESSAGE_DELETED' || eventType === 'DELETE_MESSAGE') {
+      // For delete events, we need both messageId and roomId
+      const { messageId, roomId, uniqueId, sender, transactionId } = data;
+      
+      if (!messageId) {
+        console.warn('[WebSocket] Cannot notify delete handlers: missing messageId', data);
+        return;
+      }
+      
+      // If we have a transaction ID, check if we've already processed it
+      if (transactionId) {
+        if (this.hasProcessedTransaction(transactionId)) {
+          console.log(`[WebSocket] Skipping duplicate delete event with transaction ID: ${transactionId}`);
+          return;
+        }
+        // Mark this transaction as processed
+        this.markTransactionProcessed(transactionId);
+      } else {
+        // If no transaction ID, generate one for deduplication
+        const generatedTransactionId = `notify-delete-${messageId}-${Date.now()}`;
+        data.transactionId = generatedTransactionId;
+        
+        // Check for any recently processed deletes for this message ID
+        let hasRecentDelete = false;
+        for (const [existingTransId, timestamp] of this.transactionTimestamps.entries()) {
+          // If we've processed a deletion for this message ID in the last 5 seconds
+          if (existingTransId.includes(`-${messageId}-`) && 
+              Date.now() - timestamp < 5000 &&
+              (existingTransId.startsWith('delete-') || existingTransId.startsWith('notify-delete-'))) {
+            console.log(`[WebSocket] Found recent delete transaction for message ${messageId}: ${existingTransId}`);
+            hasRecentDelete = true;
+            break;
+          }
+        }
+        
+        if (hasRecentDelete) {
+          console.log(`[WebSocket] Multiple delete requests for message ${messageId} in quick succession`);
+          // We'll still process it but with this warning
+        }
+        
+        this.markTransactionProcessed(generatedTransactionId);
+      }
+      
+      // Log the uniqueId to ensure it's being passed correctly
+      console.log(`[WebSocket] Delete event for messageId ${messageId}${uniqueId ? `, uniqueId ${uniqueId}` : ' (no uniqueId)'}, sender: ${sender || 'unknown'}, transactionId: ${transactionId || data.transactionId}`);
+      
+      // Create a standardized delete event object
+      const deleteEvent = { 
+        type: 'delete', // Always set the type explicitly
+        messageId,
+        roomId,
+        uniqueId, // Include uniqueId if available
+        sender,    // Include sender if available
+        transactionId: transactionId || data.transactionId // Include transaction ID for deduplication
+      };
+      
+      // Track all keys to broadcast to, including global subscribers
+      const keysToNotify = new Set(['global']);
+      
+      // If we know the room ID
+      if (roomId) {
+        // Try to determine the correct chat type for this room ID
+        let chatType = 'global';
+        
+        // Extract from roomId pattern if possible (common format in our system)
+        if (typeof roomId === 'string') {
+          if (roomId.startsWith('guild-')) {
+            chatType = 'guild';
+          } else if (roomId.startsWith('duel-') || roomId.startsWith('fight-')) {
+            chatType = 'duel';
+          }
+        }
+        
+        // Add type-specific key
+        if (chatType === 'guild') {
+          keysToNotify.add(`guild_${roomId}`);
+        } else if (chatType === 'duel') {
+          keysToNotify.add(`duel_${roomId}`);
+        }
+      }
+      
+      // Broadcast to all relevant delete subscribers
+      keysToNotify.forEach(key => {
+        if (this.subscribers.delete[key]) {
+          console.log(`[WebSocket] Broadcasting delete event to ${this.subscribers.delete[key].length} subscribers for ${key}`);
+          this.subscribers.delete[key].forEach(sub => {
+            if (sub.callback) {
+              try {
+                sub.callback(deleteEvent);
+              } catch (err) {
+                console.error(`Error calling ${key} delete subscriber callback:`, err);
+              }
+            }
+          });
+        }
+      });
+      
+      return;
+    }
     
     if (eventType === 'onChatMessage' || eventType === 'CHAT_MESSAGE' || eventType === 'MESSAGE_SENT') {
       // For chat messages, notify all subscribers that might be interested
@@ -828,90 +1260,148 @@ class ChatWebSocketService {
           if (sub.callback) {
             try {
               sub.callback(data);
-            } catch (error) {
-              console.error('Error in global subscriber callback:', error);
+            } catch (err) {
+              console.error('Error calling global subscriber callback:', err);
             }
           }
         });
       }
       
-      // Also notify specific room subscribers
-      if (roomType === 'GUILD') {
-        // Notify guild chat subscribers
-        const guildId = data.guildId || (data.chatRoom && data.chatRoom.groupId) || roomId;
-        if (this.subscribers.guild[guildId]) {
-          console.log(`Broadcasting to ${this.subscribers.guild[guildId].length} guild subscribers for guildId ${guildId}`);
-          this.subscribers.guild[guildId].forEach(sub => {
-            if (sub.callback) {
-              try {
-                sub.callback(data);
-              } catch (error) {
-                console.error('Error in guild subscriber callback:', error);
-              }
+      // Then notify room-specific subscribers
+      if (roomType === 'GUILD' && this.subscribers.guild[roomId]) {
+        console.log(`Broadcasting to ${this.subscribers.guild[roomId].length} guild subscribers for guild ${roomId}`);
+        this.subscribers.guild[roomId].forEach(sub => {
+          if (sub.callback) {
+            try {
+              sub.callback(data);
+            } catch (err) {
+              console.error(`Error calling guild ${roomId} subscriber callback:`, err);
             }
-          });
-        }
-      } else if (roomType === 'FIGHT' || roomType === 'DUEL') {
-        // Notify duel chat subscribers
-        const battleId = data.battleId || (data.chatRoom && data.chatRoom.groupId) || roomId;
-        if (this.subscribers.duel[battleId]) {
-          console.log(`Broadcasting to ${this.subscribers.duel[battleId].length} duel subscribers for battleId ${battleId}`);
-          this.subscribers.duel[battleId].forEach(sub => {
-            if (sub.callback) {
-              try {
-                sub.callback(data);
-              } catch (error) {
-                console.error('Error in duel subscriber callback:', error);
-              }
+          }
+        });
+      } else if (roomType === 'FIGHT' && this.subscribers.duel[roomId]) {
+        console.log(`Broadcasting to ${this.subscribers.duel[roomId].length} duel subscribers for battle ${roomId}`);
+        this.subscribers.duel[roomId].forEach(sub => {
+          if (sub.callback) {
+            try {
+              sub.callback(data);
+            } catch (err) {
+              console.error(`Error calling duel ${roomId} subscriber callback:`, err);
             }
-          });
-        }
+          }
+        });
       }
-    } else if (eventType === 'onMessageDeleted') {
-      // For message deletion, broadcast the messageId to all subscribers
-      // We don't know which room it belongs to, so broadcast to all
+    } 
+    else if (eventType === 'onMessageDeleted' || eventType === 'MESSAGE_DELETED' || eventType === 'DELETE_MESSAGE') {
+      // For delete events, we need both messageId and roomId
+      const { messageId, roomId, uniqueId, sender } = data;
       
-      // Create a delete event object
-      const deleteEvent = { type: 'delete', messageId: data };
-      console.log('Broadcasting delete event to all subscribers:', deleteEvent);
+      if (!messageId) {
+        console.warn('[WebSocket] Cannot notify delete handlers: missing messageId', data);
+        return;
+      }
       
-      // Notify global chat subscribers
-      this.subscribers.global.forEach(sub => {
-        if (sub.callback) {
-          try {
-            sub.callback(deleteEvent);
-          } catch (error) {
-            console.error('Error in global delete callback:', error);
+      // Log the uniqueId to ensure it's being passed correctly
+      console.log(`[WebSocket] Delete event fallback handling for messageId ${messageId}${uniqueId ? `, uniqueId ${uniqueId}` : ' (no uniqueId)'}, sender: ${sender || 'unknown'}`);
+      
+      // If we have a roomId, we can try to determine the room type
+      if (roomId) {
+        // Determine room type from subscriptions (best guess approach)
+        let roomType = 'GLOBAL'; // Default
+        
+        // Check if this roomId exists in guild subscriptions
+        if (Object.keys(this.subscribers.guild).includes(roomId.toString())) {
+          roomType = 'GUILD';
+        } 
+        // Check if this roomId exists in duel subscriptions
+        else if (Object.keys(this.subscribers.duel).includes(roomId.toString())) {
+          roomType = 'FIGHT';
+        }
+        
+        console.log(`[WebSocket] Broadcasting delete event for messageId ${messageId} in room ${roomId} (type: ${roomType})`);
+        
+        // Create a standardized delete event object
+        const deleteEvent = { 
+          type: 'delete', 
+          messageId,
+          roomId,
+          uniqueId, // Include uniqueId if available
+          sender    // Include sender if available
+        };
+        
+        // Notify room-specific delete subscribers
+        if (roomType === 'GLOBAL') {
+          // Notify global delete subscribers
+          const key = 'global';
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key].forEach(sub => {
+              if (sub.callback) {
+                try {
+                  sub.callback(deleteEvent);
+                } catch (err) {
+                  console.error('Error calling global delete subscriber callback:', err);
+                }
+              }
+            });
+          }
+        } else if (roomType === 'GUILD') {
+          // Notify guild-specific delete subscribers
+          const key = `guild_${roomId}`;
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key].forEach(sub => {
+              if (sub.callback) {
+                try {
+                  sub.callback(deleteEvent);
+                } catch (err) {
+                  console.error(`Error calling guild ${roomId} delete subscriber callback:`, err);
+                }
+              }
+            });
+          }
+        } else if (roomType === 'FIGHT') {
+          // Notify duel-specific delete subscribers
+          const key = `duel_${roomId}`;
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key].forEach(sub => {
+              if (sub.callback) {
+                try {
+                  sub.callback(deleteEvent);
+                } catch (err) {
+                  console.error(`Error calling duel ${roomId} delete subscriber callback:`, err);
+                }
+              }
+            });
           }
         }
-      });
-      
-      // Notify guild chat subscribers (all guilds)
-      Object.values(this.subscribers.guild).forEach(guildSubs => {
-        guildSubs.forEach(sub => {
-          if (sub.callback) {
-            try {
-              sub.callback(deleteEvent);
-            } catch (error) {
-              console.error('Error in guild delete callback:', error);
-            }
+      } else {
+        // If no roomId, broadcast to all subscribers as a best effort
+        console.warn('No roomId for delete event, broadcasting to all subscribers as fallback', data);
+        
+        // Create a standardized delete event object
+        const deleteEvent = { 
+          type: 'delete', 
+          messageId,
+          uniqueId,
+          sender
+        };
+        
+        // Broadcast to all delete subscribers as fallback
+        Object.keys(this.subscribers.delete).forEach(key => {
+          if (this.subscribers.delete[key]) {
+            this.subscribers.delete[key].forEach(sub => {
+              if (sub.callback) {
+                try {
+                  sub.callback(deleteEvent);
+                } catch (err) {
+                  console.error(`Error calling ${key} delete subscriber callback:`, err);
+                }
+              }
+            });
           }
         });
-      });
-      
-      // Notify duel chat subscribers (all duels)
-      Object.values(this.subscribers.duel).forEach(duelSubs => {
-        duelSubs.forEach(sub => {
-          if (sub.callback) {
-            try {
-              sub.callback(deleteEvent);
-            } catch (error) {
-              console.error('Error in duel delete callback:', error);
-            }
-          }
-        });
-      });
+      }
     }
+    // Add handlers for other event types as needed
   }
 }
 

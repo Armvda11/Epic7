@@ -82,13 +82,52 @@ const GuildChat = ({ guildRoom, guildName }) => {
     
     // Create direct WebSocket handler for this component
     const handleNewMessage = (messageData) => {
-      console.log('Guild component received new message:', messageData);
+      console.log('[GuildChat] Received message or event:', messageData);
       
       if (!messageData) return;
       
+      // Handle delete events first using the same enhanced detection
+      const isDeleteMessage = 
+        // Standard delete type
+        (messageData.type === 'delete') || 
+        // Alternative event/action format
+        (messageData.event === 'delete') || 
+        (messageData.action === 'delete') ||
+        // Check explicit delete property 
+        (messageData.delete === true);
+      
+      // Get message ID from either messageId or id property
+      const messageId = messageData.messageId || messageData.id;
+      
+      // Process any recognized delete message format
+      if (isDeleteMessage && messageId) {
+        console.log(`[GuildChat] Delete event received for message: ${messageId}`);
+        messageSeenRef.current.delete(messageId.toString());
+        
+        // More precise deletion with uniqueId if available
+        setLocalMessages(prev => {
+          const targetIndex = prev.findIndex(msg => 
+            (msg.id && msg.id.toString() === messageId.toString()) && 
+            (messageData.uniqueId ? msg.uniqueId === messageData.uniqueId : true)
+          );
+          
+          if (targetIndex === -1) {
+            console.log(`[GuildChat] Message with ID ${messageData.messageId} not found for deletion`);
+            return prev; // Message not found
+          }
+          
+          console.log(`[GuildChat] Removing message at index ${targetIndex}`);
+          // Create a new array without the target message
+          return [...prev.slice(0, targetIndex), ...prev.slice(targetIndex + 1)];
+        });
+        return;
+      }
+      
+      // Continue with regular message handling
+      
       // Skip if we've already seen this message
       if (messageData.id && messageSeenRef.current.has(messageData.id.toString())) {
-        console.log('Skipping already seen message:', messageData.id);
+        console.log('[GuildChat] Skipping already seen message:', messageData.id);
         return;
       }
       
@@ -140,21 +179,36 @@ const GuildChat = ({ guildRoom, guildName }) => {
     // Listen for both direct CHAT_MESSAGE events and events that come through onChatMessage
     const handlerId1 = ChatWebSocketService.addHandler('CHAT_MESSAGE', handleNewMessage);
     const handlerId2 = ChatWebSocketService.addHandler('onChatMessage', handleNewMessage);
-    handlerIdRef.current = [handlerId1, handlerId2];
+    // Add explicit handlers for delete events
+    const handlerId3 = ChatWebSocketService.addHandler('onMessageDeleted', handleNewMessage);
+    const handlerId4 = ChatWebSocketService.addHandler('MESSAGE_DELETED', handleNewMessage);
+    handlerIdRef.current = [handlerId1, handlerId2, handlerId3, handlerId4];
     
-    console.log('Registered message handlers with IDs:', handlerIdRef.current);
+    console.log('[GuildChat] Registered message handlers with IDs:', handlerIdRef.current);
+    
+    // Subscribe to delete events
+    let deleteSubscription;
+    if (guildRoom && guildRoom.id) {
+      deleteSubscription = ChatWebSocketService.subscribeToDeleteEvents('guild', guildRoom.id, handleNewMessage);
+      console.log('[GuildChat] Subscribed to guild delete events for room:', guildRoom.id);
+    }
     
     // Connect to room if not already connected
     if (!ChatWebSocketService.isConnected() || ChatWebSocketService.roomId !== guildRoom.id) {
-      console.log('Connecting to guild chat room:', guildRoom.id);
+      console.log('[GuildChat] Connecting to guild chat room:', guildRoom.id);
       ChatWebSocketService.connect(guildRoom.id);
     }
     
     // Cleanup function
     return () => {
       if (handlerIdRef.current) {
-        console.log('Removing message handlers:', handlerIdRef.current);
+        console.log('[GuildChat] Removing message handlers:', handlerIdRef.current);
         handlerIdRef.current.forEach(id => ChatWebSocketService.removeHandler(id));
+      }
+      
+      if (deleteSubscription && typeof deleteSubscription.unsubscribe === 'function') {
+        console.log('[GuildChat] Unsubscribing from delete events');
+        deleteSubscription.unsubscribe();
       }
     };
   }, [guildRoom, currentUser]);
@@ -170,8 +224,11 @@ const GuildChat = ({ guildRoom, guildName }) => {
   const handleSendMessage = async (content) => {
     // Create optimistic message
     const optimisticId = `temp-${Date.now()}`;
+    const uniqueId = `msg-${optimisticId}-${Math.random().toString(36).substr(2, 9)}`;
+    
     const optimisticMessage = {
       id: optimisticId,
+      uniqueId: uniqueId,
       content: content,
       timestamp: new Date().toISOString(),
       roomId: guildRoom?.id,
@@ -206,15 +263,31 @@ const GuildChat = ({ guildRoom, guildName }) => {
   };
 
   // Handle delete message
-  const handleDeleteMessage = async (messageId) => {
+  const handleDeleteMessage = async (messageId, messageUniqueId) => {
+    console.log(`[GuildChat] Deleting message with ID: ${messageId}, uniqueId: ${messageUniqueId || 'not provided'}`);
+    
     // Remove from seen set
     messageSeenRef.current.delete(messageId.toString());
     
-    // Remove from local messages immediately
-    setLocalMessages(prev => prev.filter(msg => msg.id !== messageId));
+    // Remove from local messages immediately - use more precise targeting with uniqueId
+    setLocalMessages(prev => {
+      const targetIndex = prev.findIndex(msg => 
+        (msg.id && msg.id.toString() === messageId.toString()) && 
+        (messageUniqueId ? msg.uniqueId === messageUniqueId : true)
+      );
+      
+      if (targetIndex === -1) {
+        console.log(`[GuildChat] Message with ID ${messageId} not found in local state`);
+        return prev; // Message not found
+      }
+      
+      console.log(`[GuildChat] Removing message at index ${targetIndex}`);
+      // Create a new array without the target message
+      return [...prev.slice(0, targetIndex), ...prev.slice(targetIndex + 1)];
+    });
     
-    // Delete via chat context
-    await deleteMessage(messageId);
+    // Delete via chat context, passing the uniqueId for more precision
+    await deleteMessage(messageId, guildRoom?.id, messageUniqueId);
   };
 
   // Return to guilds page
