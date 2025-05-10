@@ -413,12 +413,20 @@ public class ChatService {
             // Create a new chat room based on type
             if (type == ChatType.GUILD) {
                 // Get guild name for the chat room
-                Optional<Guild> guildOptional = guildService.getGuildById(groupId);
-                if (guildOptional.isEmpty()) {
-                    throw new IllegalArgumentException("Guild not found");
+                try {
+                    Optional<Guild> guildOptional = guildService.getGuildById(groupId);
+                    if (guildOptional.isEmpty()) {
+                        log.warn("Guild with ID {} not found, creating generic guild chat room", groupId);
+                        // If guild not found, create a generic guild chat room with a more generic name
+                        return createGuildChatRoom("Guild " + groupId, groupId);
+                    }
+                    Guild guild = guildOptional.get();
+                    return createGuildChatRoom(guild.getName() + " Chat", groupId);
+                } catch (Exception e) {
+                    log.error("Error fetching guild info for chat room creation: {} - {}", e.getClass().getName(), e.getMessage());
+                    // On error, fallback to creating a generic guild chat room
+                    return createGuildChatRoom("Guild " + groupId, groupId);
                 }
-                Guild guild = guildOptional.get();
-                return createGuildChatRoom(guild.getName() + " Chat", groupId);
             } else if (type == ChatType.FIGHT) {
                 // For fight chat rooms, we need more info like the list of users
                 // This would typically be handled in a separate method called from a battle service

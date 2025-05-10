@@ -1077,4 +1077,17 @@ public class GuildService {
                 .map(GuildInfoDTO::fromEntity)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Gets the number of members in a guild
+     * @param guildId The ID of the guild
+     * @return The number of members in the guild
+     */
+    @Transactional(readOnly = true)
+    public int getGuildMemberCount(Long guildId) {
+        Guild guild = guildRepository.findById(guildId)
+                .orElseThrow(() -> new IllegalArgumentException("Guild not found"));
+        
+        return guild.getMembers().size();
+    }
 }

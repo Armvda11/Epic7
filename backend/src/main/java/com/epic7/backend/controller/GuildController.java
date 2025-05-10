@@ -14,6 +14,7 @@ import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.GuildService;
 import com.epic7.backend.utils.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +27,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/guilds")
+@Slf4j
 public class GuildController {
 
     private final JwtUtil jwtUtil;
@@ -677,6 +679,46 @@ public class GuildController {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération des guildes récentes."));
+        }
+    }
+
+    /**
+     * Get a guild by ID
+     */
+    @GetMapping("/{guildId}")
+    public ResponseEntity<ApiResponseDTO> getGuildById(
+            @PathVariable("guildId") Long guildId,
+            HttpServletRequest request) {
+        
+        log.info("Getting guild with ID: {}", guildId);
+        
+        try {
+            Optional<Guild> guildOptional = guildService.getGuildById(guildId);
+            
+            if (guildOptional.isEmpty()) {
+                log.warn("Guild with ID {} not found", guildId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponseDTO.error("GUILD_NOT_FOUND", "Guild not found"));
+            }
+            
+            Guild guild = guildOptional.get();
+            GuildDTO guildDTO = GuildDTO.fromEntity(guild, true);
+            
+            // Get member count
+            int memberCount = guildService.getGuildMemberCount(guildId);
+            guildDTO.setMemberCount(memberCount);
+            
+            return ResponseEntity.ok()
+                    .body(ApiResponseDTO.success(
+                            "GUILD_FOUND", 
+                            "Guild retrieved successfully", 
+                            guildDTO));
+        } catch (Exception e) {
+            log.error("Error retrieving guild with ID {}: {}", guildId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(
+                            "GUILD_RETRIEVAL_ERROR", 
+                            "Error retrieving guild: " + e.getMessage()));
         }
     }
 }

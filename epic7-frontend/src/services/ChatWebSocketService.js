@@ -863,13 +863,28 @@ class ChatWebSocketService {
     const userData = localStorage.getItem('userData');
     const currentUser = userData ? JSON.parse(userData) : null;
     
+    // Determine chat type based on roomId or explicit type
+    let chatType = message.chatType || 'GLOBAL';
+    if (!chatType) {
+      // Try to infer chat type from roomId
+      if (typeof message.roomId === 'string') {
+        if (message.roomId.startsWith('guild-')) {
+          chatType = 'GUILD';
+        } else if (message.roomId.startsWith('fight-') || message.roomId.startsWith('duel-')) {
+          chatType = 'FIGHT';
+        }
+      }
+    }
+    
     // Add a unique ID to prevent duplicates and help with tracking
     const messageWithId = {
       ...message,
       clientId: `client-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       // Store the current user ID to identify own messages when they come back
       senderId: currentUser?.id,
-      fromCurrentUser: true
+      fromCurrentUser: true,
+      // Include chat type for proper routing
+      chatType: chatType
     };
 
     return new Promise((resolve, reject) => {
@@ -1243,6 +1258,7 @@ class ChatWebSocketService {
       // Get the chat room type - try to extract it from various properties
       const roomType = data.roomType || 
                       (data.chatRoom && data.chatRoom.type) || 
+                      (data.type) ||
                       'GLOBAL'; // Default to GLOBAL if we can't determine
       
       console.log(`Broadcasting message to room type: ${roomType}, roomId: ${roomId}`);
@@ -1252,9 +1268,21 @@ class ChatWebSocketService {
         data.sender = { username: data.username, id: data.userId };
       }
       
-      // Notify all global chat subscribers always
-      // This is important to catch messages across all rooms
-      if (this.subscribers.global.length > 0) {
+      // Determine if this is a GUILD chat based on roomId or explicit type
+      const isGuildChat = 
+          roomType === 'GUILD' || 
+          (typeof roomId === 'string' && roomId.startsWith('guild-')) ||
+          (data.chatType === 'GUILD');
+          
+      // Determine if this is a FIGHT chat based on roomId or explicit type
+      const isFightChat = 
+          roomType === 'FIGHT' || 
+          roomType === 'DUEL' || 
+          (typeof roomId === 'string' && (roomId.startsWith('fight-') || roomId.startsWith('duel-'))) ||
+          (data.chatType === 'FIGHT' || data.chatType === 'DUEL');
+      
+      // Notify global chat subscribers only if it's a global message or if global fallback is enabled
+      if (!isGuildChat && !isFightChat && this.subscribers.global.length > 0) {
         console.log(`Broadcasting to ${this.subscribers.global.length} global subscribers`);
         this.subscribers.global.forEach(sub => {
           if (sub.callback) {
@@ -1268,7 +1296,7 @@ class ChatWebSocketService {
       }
       
       // Then notify room-specific subscribers
-      if (roomType === 'GUILD' && this.subscribers.guild[roomId]) {
+      if (isGuildChat && this.subscribers.guild[roomId]) {
         console.log(`Broadcasting to ${this.subscribers.guild[roomId].length} guild subscribers for guild ${roomId}`);
         this.subscribers.guild[roomId].forEach(sub => {
           if (sub.callback) {
@@ -1279,7 +1307,7 @@ class ChatWebSocketService {
             }
           }
         });
-      } else if (roomType === 'FIGHT' && this.subscribers.duel[roomId]) {
+      } else if (isFightChat && this.subscribers.duel[roomId]) {
         console.log(`Broadcasting to ${this.subscribers.duel[roomId].length} duel subscribers for battle ${roomId}`);
         this.subscribers.duel[roomId].forEach(sub => {
           if (sub.callback) {
@@ -1288,115 +1316,6 @@ class ChatWebSocketService {
             } catch (err) {
               console.error(`Error calling duel ${roomId} subscriber callback:`, err);
             }
-          }
-        });
-      }
-    } 
-    else if (eventType === 'onMessageDeleted' || eventType === 'MESSAGE_DELETED' || eventType === 'DELETE_MESSAGE') {
-      // For delete events, we need both messageId and roomId
-      const { messageId, roomId, uniqueId, sender } = data;
-      
-      if (!messageId) {
-        console.warn('[WebSocket] Cannot notify delete handlers: missing messageId', data);
-        return;
-      }
-      
-      // Log the uniqueId to ensure it's being passed correctly
-      console.log(`[WebSocket] Delete event fallback handling for messageId ${messageId}${uniqueId ? `, uniqueId ${uniqueId}` : ' (no uniqueId)'}, sender: ${sender || 'unknown'}`);
-      
-      // If we have a roomId, we can try to determine the room type
-      if (roomId) {
-        // Determine room type from subscriptions (best guess approach)
-        let roomType = 'GLOBAL'; // Default
-        
-        // Check if this roomId exists in guild subscriptions
-        if (Object.keys(this.subscribers.guild).includes(roomId.toString())) {
-          roomType = 'GUILD';
-        } 
-        // Check if this roomId exists in duel subscriptions
-        else if (Object.keys(this.subscribers.duel).includes(roomId.toString())) {
-          roomType = 'FIGHT';
-        }
-        
-        console.log(`[WebSocket] Broadcasting delete event for messageId ${messageId} in room ${roomId} (type: ${roomType})`);
-        
-        // Create a standardized delete event object
-        const deleteEvent = { 
-          type: 'delete', 
-          messageId,
-          roomId,
-          uniqueId, // Include uniqueId if available
-          sender    // Include sender if available
-        };
-        
-        // Notify room-specific delete subscribers
-        if (roomType === 'GLOBAL') {
-          // Notify global delete subscribers
-          const key = 'global';
-          if (this.subscribers.delete[key]) {
-            this.subscribers.delete[key].forEach(sub => {
-              if (sub.callback) {
-                try {
-                  sub.callback(deleteEvent);
-                } catch (err) {
-                  console.error('Error calling global delete subscriber callback:', err);
-                }
-              }
-            });
-          }
-        } else if (roomType === 'GUILD') {
-          // Notify guild-specific delete subscribers
-          const key = `guild_${roomId}`;
-          if (this.subscribers.delete[key]) {
-            this.subscribers.delete[key].forEach(sub => {
-              if (sub.callback) {
-                try {
-                  sub.callback(deleteEvent);
-                } catch (err) {
-                  console.error(`Error calling guild ${roomId} delete subscriber callback:`, err);
-                }
-              }
-            });
-          }
-        } else if (roomType === 'FIGHT') {
-          // Notify duel-specific delete subscribers
-          const key = `duel_${roomId}`;
-          if (this.subscribers.delete[key]) {
-            this.subscribers.delete[key].forEach(sub => {
-              if (sub.callback) {
-                try {
-                  sub.callback(deleteEvent);
-                } catch (err) {
-                  console.error(`Error calling duel ${roomId} delete subscriber callback:`, err);
-                }
-              }
-            });
-          }
-        }
-      } else {
-        // If no roomId, broadcast to all subscribers as a best effort
-        console.warn('No roomId for delete event, broadcasting to all subscribers as fallback', data);
-        
-        // Create a standardized delete event object
-        const deleteEvent = { 
-          type: 'delete', 
-          messageId,
-          uniqueId,
-          sender
-        };
-        
-        // Broadcast to all delete subscribers as fallback
-        Object.keys(this.subscribers.delete).forEach(key => {
-          if (this.subscribers.delete[key]) {
-            this.subscribers.delete[key].forEach(sub => {
-              if (sub.callback) {
-                try {
-                  sub.callback(deleteEvent);
-                } catch (err) {
-                  console.error(`Error calling ${key} delete subscriber callback:`, err);
-                }
-              }
-            });
           }
         });
       }

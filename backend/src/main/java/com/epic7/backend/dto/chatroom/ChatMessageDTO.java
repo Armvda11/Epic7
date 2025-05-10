@@ -27,6 +27,7 @@ public class ChatMessageDTO {
     private String content;
     private String timestamp;
     private boolean isFromCurrentUser;
+    private String roomType; // Added roomType field
     
     /**
      * Creates a ChatMessageDTO from a ChatMessage entity
@@ -45,6 +46,7 @@ public class ChatMessageDTO {
         dto.setRoomId(message.getChatRoom().getId());
         dto.setContent(message.getContent());
         dto.setTimestamp(message.getTimestamp().toString());
+        dto.setRoomType(message.getChatRoom().getType().toString()); // Set room type from chat room
         
         // Set sender information
         User sender = message.getSender();
@@ -77,6 +79,7 @@ public class ChatMessageDTO {
         dto.setRoomId(message.getChatRoom().getId());
         dto.setContent(message.getContent());
         dto.setTimestamp(message.getTimestamp().toString());
+        dto.setRoomType(message.getChatRoom().getType().toString()); // Set room type from chat room
         
         // Set sender information
         User sender = message.getSender();

@@ -278,6 +278,14 @@ const GlobalChat = () => {
   const handleDeleteMessage = async (messageId, messageUniqueId) => {
     console.log(`[GlobalChat] Deleting message with ID: ${messageId}, uniqueId: ${messageUniqueId || 'not provided'}`);
     
+    if (!globalChatRoom || !globalChatRoom.id) {
+      console.error('[GlobalChat] Cannot delete message - no global chat room');
+      return;
+    }
+    
+    // Generate a unique transaction ID for this delete operation
+    const transactionId = `ui-delete-${messageId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     // Remove from seen set
     messageSeenRef.current.delete(messageId.toString());
     
@@ -298,8 +306,23 @@ const GlobalChat = () => {
       return [...prev.slice(0, targetIndex), ...prev.slice(targetIndex + 1)];
     });
     
-    // Delete via chat context, passing the uniqueId for more precision
-    await deleteMessage(messageId, globalChatRoom?.id, messageUniqueId);
+    try {
+      // Delete via chat context, passing the uniqueId for more precision
+      await deleteMessage(messageId, globalChatRoom.id, messageUniqueId);
+      
+      // Also directly broadcast the delete via WebSocket as an additional safeguard
+      await ChatWebSocketService.deleteMessage({
+        messageId,
+        roomId: globalChatRoom.id,
+        uniqueId: messageUniqueId,
+        transactionId,
+        chatType: "GLOBAL"  // Explicitly specify the chat type
+      });
+      
+      console.log(`Message ${messageId} successfully deleted`);
+    } catch (error) {
+      console.error(`[GlobalChat] Error deleting message ${messageId}:`, error);
+    }
   };
 
   // Return to dashboard

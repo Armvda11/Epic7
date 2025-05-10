@@ -180,9 +180,10 @@ public class ChatController {
     public ResponseEntity<ApiResponseDTO> sendMessageRest(
             @RequestParam("roomId") Long roomId,
             @RequestParam("content") String content,
+            @RequestParam(value = "chatType", required = false) String chatTypeStr,
             HttpServletRequest request) {
         
-        log.info("Sending message via REST API to room: {}", roomId);
+        log.info("Sending message via REST API to room: {} with type: {}", roomId, chatTypeStr);
         User user = getUserFromRequest(request);
         
         try {
@@ -193,22 +194,32 @@ public class ChatController {
                 );
             }
             
+            // Ensure the chat type parameter is consistent with the room's actual type
+            // This prevents messages from being sent with incorrect type information
+            if (chatTypeStr != null && !chatTypeStr.isEmpty()) {
+                try {
+                    ChatType requestedType = ChatType.valueOf(chatTypeStr);
+                    if (requestedType != chatRoom.getType()) {
+                        log.warn("Requested chat type {} doesn't match room's actual type {}. Using room's type.",
+                                chatTypeStr, chatRoom.getType());
+                    }
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid chat type: {}. Using room's type.", chatTypeStr);
+                }
+            }
+            
             // Save message
             ChatMessage savedMessage = chatService.sendMessage(user, roomId, content);
             ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(savedMessage);
+            
+            // Add chat type to the DTO
+            messageDTO.setRoomType(chatRoom.getType().toString());
             
             // Also broadcast via WebSocket if possible - Important for real-time updates!
             try {
                 String destination = getDestinationByRoomType(chatRoom);
                 log.info("Broadcasting message to destination: {}", destination);
                 messagingTemplate.convertAndSend(destination, messageDTO);
-                
-                // Also broadcast to global topic as a fallback to ensure all clients receive it
-                // This is an additional safety measure
-                if (!destination.equals("/topic/chat/global")) {
-                    log.info("Also broadcasting to global as fallback");
-                    messagingTemplate.convertAndSend("/topic/chat/global", messageDTO);
-                }
             } catch (Exception e) {
                 log.warn("Could not broadcast message via WebSocket: {}", e.getMessage(), e);
             }
@@ -309,6 +320,66 @@ public class ChatController {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération des salons de discussion."));
+        }
+    }
+    
+    /**
+     * Get a guild chat room for a specific guild ID
+     */
+    @GetMapping("/rooms/guild/{guildId}")
+    public ResponseEntity<ApiResponseDTO> getGuildChatRoom(
+            @PathVariable("guildId") Long guildId,
+            HttpServletRequest request) {
+        
+        log.info("Getting guild chat room for guild ID: {}", guildId);
+        User user = getUserFromRequest(request);
+        
+        try {
+            // Get or create the guild chat room
+            ChatRoom guildRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(ChatType.GUILD, guildId);
+            
+            if (guildRoom == null) {
+                return ResponseEntity.badRequest().body(
+                    ApiResponseDTO.error(ERROR_CHAT_ROOM_ERROR, "Could not retrieve guild chat room")
+                );
+            }
+            
+            // Skip access check if the user just created a guild
+            // This allows a user to access their newly created guild's chat
+            boolean skipAccessCheck = false;
+            try {
+                if (user.getGuildMembership() != null && 
+                    user.getGuildMembership().getGuild() != null && 
+                    user.getGuildMembership().getGuild().getId().equals(guildId)) {
+                    skipAccessCheck = true;
+                    log.info("User {} is a member of guild {}, skipping additional access checks", 
+                        user.getUsername(), guildId);
+                }
+            } catch (Exception e) {
+                log.warn("Error checking guild membership: {}", e.getMessage());
+                // Continue with normal access check
+            }
+            
+            // Ensure the user has access to this guild chat (unless we're skipping the check)
+            if (!skipAccessCheck && !chatService.canUserAccessChat(user.getId(), guildRoom)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                    ApiResponseDTO.error("GUILD_ACCESS_DENIED", "You don't have access to this guild's chat")
+                );
+            }
+            
+            return ResponseEntity.ok(
+                ApiResponseDTO.success(SUCCESS_CHAT_ROOM_FOUND, "Guild chat room retrieved successfully", 
+                    ChatRoomDTO.fromEntity(guildRoom))
+            );
+        } catch (Exception e) {
+            log.error("Error retrieving guild chat room for guild ID: {} - {}: {}", 
+                guildId, e.getClass().getName(), e.getMessage(), e);
+            
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponseDTO.error(ERROR_SERVER, 
+                        "Une erreur est survenue lors de la récupération du salon de discussion de guilde. " 
+                        + e.getMessage()));
         }
     }
     

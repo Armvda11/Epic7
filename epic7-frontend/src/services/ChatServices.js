@@ -26,10 +26,38 @@ export const fetchGlobalChatRoom = async () => {
 // Fetch guild chat room by guild ID
 export const fetchGuildChatRoom = async (guildId) => {
   try {
-    const response = await API.get(`/chat/rooms/by-type?type=GUILD&groupId=${guildId}`);
-    return response.data;
+    console.log(`Fetching guild chat room for guild ID: ${guildId}`);
+    // Use the dedicated guild chat endpoint instead of the generic by-type endpoint
+    const response = await API.get(`/chat/rooms/guild/${guildId}`);
+    
+    // Check if we received a valid response with data
+    if (response.data && response.data.data) {
+      console.log(`Received guild chat room data for guild ${guildId}:`, response.data.data);
+      return response.data.data; // Return only the room data
+    } else {
+      console.warn(`Received empty or invalid response for guild ${guildId} chat room:`, response.data);
+      // Return a default chat room object to prevent UI errors
+      return {
+        id: `guild-${guildId}`,
+        name: `Guild ${guildId} Chat`,
+        type: 'GUILD',
+        groupId: guildId
+      };
+    }
   } catch (error) {
     console.error(`Error fetching guild chat room for guild ${guildId}:`, error);
+    
+    // If it's a 404, the guild might not exist yet, so we'll create a default room
+    if (error.response && error.response.status === 404) {
+      console.log(`Guild ${guildId} not found, returning default chat room`);
+      return {
+        id: `guild-${guildId}`,
+        name: `Guild ${guildId} Chat`,
+        type: 'GUILD',
+        groupId: guildId
+      };
+    }
+    
     throw error;
   }
 };
@@ -47,15 +75,26 @@ export const fetchChatMessages = async (chatRoomId, limit = 50) => {
 };
 
 // Send a message to a chat room
-export const sendChatMessage = async (chatRoomId, content) => {
+export const sendChatMessage = async (chatRoomId, content, chatType = "GLOBAL") => {
   try {
     // Using query parameters as expected by the backend
-    const response = await API.post(`/chat/send?roomId=${chatRoomId}&content=${encodeURIComponent(content)}`);
+    let url = `/chat/send?roomId=${chatRoomId}&content=${encodeURIComponent(content)}`;
+    // Add chatType as a parameter if provided
+    if (chatType) {
+      url += `&chatType=${chatType}`;
+    }
+    
+    const response = await API.post(url);
     
     // After successfully sending via API, if we don't get a WebSocket notification
     // from the server within 100ms, manually trigger the WebSocket handler
     // to ensure all clients show the message
     const messageData = response.data.data;
+    
+    // Add chatType to message data so it propagates correctly
+    if (messageData && chatType) {
+      messageData.chatType = chatType;
+    }
     
     // Set a short delay to check if WebSocket has already broadcasted this message
     // If not, we'll manually trigger the handlers
@@ -90,6 +129,9 @@ export const deleteMessage = async (messageId, roomId, uniqueId) => {
 
     console.log(`[ChatService] Deleting message ${normalizedMessageId}${uniqueId ? `, uniqueId ${uniqueId}` : ' (no uniqueId)'} from room ${roomId}`);
 
+    // Generate a transaction ID to track this deletion
+    const transactionId = `rest-delete-${normalizedMessageId}-${Date.now()}`;
+
     // Send delete request to the server with both messageId and roomId
     // Use a more structured URL that can include uniqueId if it exists
     let url = `/chat/messages/${normalizedMessageId}?roomId=${roomId}`;
@@ -104,23 +146,34 @@ export const deleteMessage = async (messageId, roomId, uniqueId) => {
     console.log(`[ChatService] Sending DELETE request to: ${url}`);
     const response = await API.delete(url);
     
-    // After successfully deleting via API, if we don't get a WebSocket notification
-    // from the server within 100ms, manually trigger the WebSocket handlers
-    // to ensure all clients remove the message
-    setTimeout(() => {
-      console.log(`[ChatService] Manually triggering message deletion handlers for message id: ${normalizedMessageId}, uniqueId: ${uniqueId || 'not provided'}`);
-      ChatWebSocketService.notifyHandlers('onMessageDeleted', {
-        type: 'delete', // Explicitly set type for consistent processing
+    // Immediately notify WebSocket handlers to ensure all clients remove the message
+    // This helps when the WebSocket broadcast from the server might be delayed or missed
+    console.log(`[ChatService] Immediately triggering deletion handlers for message id: ${normalizedMessageId}, uniqueId: ${uniqueId || 'not provided'}`);
+    ChatWebSocketService.notifyHandlers('onMessageDeleted', {
+      type: 'delete', // Explicitly set type for consistent processing
+      messageId: normalizedMessageId,
+      id: normalizedMessageId, // Also include as id for redundancy
+      roomId,
+      uniqueId, // Pass the uniqueId if available
+      transactionId // Include transaction ID to prevent duplicates
+    });
+    
+    // Also try direct WebSocket deletion as a backup
+    try {
+      ChatWebSocketService.deleteMessage({
         messageId: normalizedMessageId,
-        id: normalizedMessageId, // Also include as id for redundancy
         roomId,
-        uniqueId // Pass the uniqueId if available
+        uniqueId,
+        transactionId 
       });
-    }, 100);
+    } catch (wsError) {
+      console.warn('[ChatService] WebSocket direct deletion failed, but REST API succeeded:', wsError);
+      // Continue since the REST API call was successful
+    }
     
     return response.data.success !== false;
   } catch (error) {
-    console.error(`[ChatService] Error deleting message ${normalizedMessageId} from room ${roomId}:`, error);
+    console.error(`[ChatService] Error deleting message ${messageId} from room ${roomId}:`, error);
     return false;
   }
 };

@@ -330,26 +330,59 @@ export const ChatProvider = ({ children }) => {
     }
   }, [fetchGlobalRoom, fetchChatRoomByGuildId, fetchMessages, handleMessage, handleDeleteMessage]);
 
-  // Send a message
-  const sendMessage = useCallback(async (content) => {
-    if (!currentRoom || !content.trim()) return null;
-    
-    try {
-      // Try to send via REST API first (this guarantees persistence)
-      const response = await sendChatMessage(currentRoom.id, content);
-      
-      // IMPORTANT: Don't send via WebSocket if it's already done in the API
-      // The backend already broadcasts the message to all clients including this one
-      // The message will come back via the WebSocket subscription
-      
-      // Return the response from the REST API
-      return response;
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError("Failed to send message");
-      throw err; // Re-throw to let the component handle it
+  /**
+   * Send a message to the current chat room
+   * @param {string} roomId - Chat room ID
+   * @param {string} content - Message content
+   * @param {object} user - User sending the message
+   * @param {string} chatType - Type of chat (GLOBAL, GUILD, or FIGHT)
+   */
+  const sendMessage = async (roomId, content, user, chatType = "GLOBAL") => {
+    if (!roomId || !content) {
+      console.error('Cannot send message: roomId or content missing');
+      return null;
     }
-  }, [currentRoom]);
+
+    try {
+      // First try to send via WebSocket for real-time delivery
+      if (ChatWebSocketService.isConnected()) {
+        try {
+          console.log(`Sending message to room ${roomId} via WebSocket with type ${chatType}`);
+          await ChatWebSocketService.sendMessage({
+            roomId,
+            content,
+            chatType // Include chat type for proper routing
+          });
+          // If no error is thrown, assume success and return early
+          return true;
+        } catch (wsError) {
+          console.warn('WebSocket send failed, falling back to REST API:', wsError);
+          // Continue to REST API fallback
+        }
+      }
+
+      // Fallback to REST API for message sending
+      console.log(`Sending message to room ${roomId} via REST API`);
+      const messageData = await sendChatMessage(roomId, content, chatType);
+      
+      // Add the sent message to our messages state
+      if (messageData) {
+        const newMessage = {
+          ...messageData,
+          chatType, // Make sure chat type is included
+          fromCurrentUser: user && messageData.sender && messageData.sender.id === user.id
+        };
+        
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        return newMessage;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setErrorMessage('Failed to send message. Please try again.');
+      return null;
+    }
+  };
 
   // Delete a message
   const deleteMessage = async (messageId, roomId, uniqueId, transactionId) => {
