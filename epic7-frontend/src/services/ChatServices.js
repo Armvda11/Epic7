@@ -139,7 +139,8 @@ export const deleteMessage = async (messageId, roomId, uniqueId) => {
       url += `&uniqueId=${encodeURIComponent(uniqueId)}`;
       console.log(`[ChatService] Added uniqueId to delete request: ${url}`);
     } else {
-      console.warn('[ChatService] No uniqueId provided for delete request. This may cause precision issues.');
+      console.warn('[ChatService] No uniqueId provided for delete request. This may cause precision issues. Stack: ' + 
+        new Error().stack.split('\n').slice(1,5).join('\n'));
     }
     
     // Execute the delete request
@@ -149,13 +150,23 @@ export const deleteMessage = async (messageId, roomId, uniqueId) => {
     // Immediately notify WebSocket handlers to ensure all clients remove the message
     // This helps when the WebSocket broadcast from the server might be delayed or missed
     console.log(`[ChatService] Immediately triggering deletion handlers for message id: ${normalizedMessageId}, uniqueId: ${uniqueId || 'not provided'}`);
+
+    // Get room type from URL or param if available
+    let chatType = "GLOBAL"; // Default
+    if (url.includes("guild")) {
+      chatType = "GUILD";
+    } else if (url.includes("duel") || url.includes("fight")) {
+      chatType = "FIGHT";
+    }
+
     ChatWebSocketService.notifyHandlers('onMessageDeleted', {
       type: 'delete', // Explicitly set type for consistent processing
       messageId: normalizedMessageId,
       id: normalizedMessageId, // Also include as id for redundancy
       roomId,
       uniqueId, // Pass the uniqueId if available
-      transactionId // Include transaction ID to prevent duplicates
+      transactionId, // Include transaction ID to prevent duplicates
+      chatType: chatType // Add chat type
     });
     
     // Also try direct WebSocket deletion as a backup
@@ -164,7 +175,8 @@ export const deleteMessage = async (messageId, roomId, uniqueId) => {
         messageId: normalizedMessageId,
         roomId,
         uniqueId,
-        transactionId 
+        transactionId,
+        chatType: chatType // Include chat type
       });
     } catch (wsError) {
       console.warn('[ChatService] WebSocket direct deletion failed, but REST API succeeded:', wsError);

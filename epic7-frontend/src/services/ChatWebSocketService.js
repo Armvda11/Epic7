@@ -755,6 +755,7 @@ class ChatWebSocketService {
           console.log(`[WebSocket] Parsed delete event:`, data);
           
           // Extract message ID and transaction ID
+          // Support both messageId and id fields for compatibility
           const messageId = data.messageId || data.id;
           const transactionId = data.transactionId || `ws-delete-${messageId}-${Date.now()}`;
           
@@ -798,7 +799,8 @@ class ChatWebSocketService {
               roomId: data.roomId || id,
               uniqueId: data.uniqueId, // Include uniqueId if available
               sender: data.sender, // Include sender information for logging
-              transactionId: transactionId
+              transactionId: transactionId,
+              chatType: chatType.toUpperCase() // Include chat type
             };
           }
           
@@ -1147,7 +1149,9 @@ class ChatWebSocketService {
     // Special handling for delete events
     if (eventType === 'onMessageDeleted' || eventType === 'MESSAGE_DELETED' || eventType === 'DELETE_MESSAGE') {
       // For delete events, we need both messageId and roomId
-      const { messageId, roomId, uniqueId, sender, transactionId } = data;
+      // Support both messageId and id fields for compatibility
+      const messageId = data.messageId || data.id;
+      const { roomId, uniqueId, sender, transactionId } = data;
       
       if (!messageId) {
         console.warn('[WebSocket] Cannot notify delete handlers: missing messageId', data);
@@ -1195,13 +1199,16 @@ class ChatWebSocketService {
       const deleteEvent = { 
         type: 'delete', // Always set the type explicitly
         messageId,
+        id: messageId, // Include as id too for compatibility
         roomId,
         uniqueId, // Include uniqueId if available
         sender,    // Include sender if available
-        transactionId: transactionId || data.transactionId // Include transaction ID for deduplication
+        transactionId: transactionId || data.transactionId, // Include transaction ID for deduplication
+        chatType: data.chatType // Include the chat type if available
       };
       
       // Track all keys to broadcast to, including global subscribers
+      // We'll broadcast to global by default for maximum reliability
       const keysToNotify = new Set(['global']);
       
       // If we know the room ID
@@ -1209,8 +1216,12 @@ class ChatWebSocketService {
         // Try to determine the correct chat type for this room ID
         let chatType = 'global';
         
-        // Extract from roomId pattern if possible (common format in our system)
-        if (typeof roomId === 'string') {
+        // Use provided chatType if available
+        if (data.chatType) {
+          chatType = data.chatType.toLowerCase();
+        } 
+        // Otherwise extract from roomId pattern if possible
+        else if (typeof roomId === 'string') {
           if (roomId.startsWith('guild-')) {
             chatType = 'guild';
           } else if (roomId.startsWith('duel-') || roomId.startsWith('fight-')) {
@@ -1239,6 +1250,8 @@ class ChatWebSocketService {
               }
             }
           });
+        } else {
+          console.log(`[WebSocket] No subscribers found for key: ${key}`);
         }
       });
       
