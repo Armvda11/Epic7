@@ -32,11 +32,10 @@ export const getBannerEquipments = async (bannerId) => {
 
 export async function getOwnedHeroes() {
   try {
-    const response = await API.get("/player-hero/my");
-    // Assurez-vous de renvoyer un tableau
-    return Array.isArray(response.data) ? response.data : [];
+    const response = await API.get("/summons/owned-heroes");
+    return response.data;
   } catch (error) {
     console.error("Erreur lors de la récupération des héros possédés :", error);
-    return []; // Toujours renvoyer un tableau, même en cas d'erreur
+    throw error;
   }
 }

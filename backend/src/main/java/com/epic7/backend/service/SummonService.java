@@ -19,7 +19,7 @@ import java.util.Optional;
  * bannières actives,
  * la probabilité d'invocation en fonction de la rareté du héros et la mise à
  * jour des diamants du joueur.
- * @author hermas
+ * @author yannis
  */
 @Service
 public class SummonService {
@@ -47,7 +47,6 @@ public class SummonService {
         System.out.println("Current time: " + now);
         System.out.println("Active banners: " + bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now));
 
-        System.out.println("est ce que ca marche ? 🚀");
         return bannerRepository.findAllByStartsAtBeforeAndEndsAtAfterOrderByStartsAtDesc(now, now);
     }
 
@@ -119,7 +118,7 @@ public class SummonService {
             Collections.shuffle(tousEquipments);
             for (Equipment equipment : tousEquipments) {
                 draw = draw - draw / tousEquipments.size();
-                double probability = getProbabilityByRarityEquip(equipment); // Probabilité d'obtenir l'équipement
+                double probability = getProbabilityByRarityEquip(equipment);
                 if (draw < probability) { 
                     user.addEquipment(equipment, 1);
                     return Optional.of(new SummonResult(null, equipment));
@@ -129,7 +128,6 @@ public class SummonService {
         // Si aucun héros ni équipement n'a été invoqué, retourner une valeur vide  
         return Optional.empty();
     }
-
 
     /**
      * Récupère un héros spécifique par son ID.
