@@ -118,9 +118,20 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
   const isPlayerTurn = currentHero.player;
   const nextHeroId = battleState.participants[getNextTurnIndex()]?.id;
   
-  // Séparer les participants en joueurs et ennemis
-  const players = battleState.participants.filter(p => p.player && p.currentHp > 0);
-  const enemies = battleState.participants.filter(p => !p.player && p.currentHp > 0);
+  // Séparer les participants en héros alliés et ennemis en fonction de leur position dans le tableau
+  // Au lieu d'utiliser userId, on va simplement diviser le tableau en deux parties
+  const totalParticipants = battleState.participants.length;
+  const midPoint = totalParticipants / 2;
+  
+  // Les héros du joueur sont toujours les premiers dans le tableau (index 0 à midPoint-1)
+  const myHeroes = battleState.participants
+    .slice(0, midPoint)
+    .filter(p => p.currentHp > 0);
+    
+  // Les héros de l'adversaire sont toujours les derniers (index midPoint à fin)
+  const enemyHeroes = battleState.participants
+    .slice(midPoint)
+    .filter(p => p.currentHp > 0);
 
   return (
     <div className="relative h-screen w-screen bg-[url('/arena.webp')] bg-cover bg-center text-white overflow-hidden">
@@ -130,7 +141,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
       {/* Barres d'ordre de tour */}
       <div className="absolute top-20 left-0 z-40 pl-4">
         <TurnOrderBar
-          participants={players}
+          participants={myHeroes}
           currentId={currentHero.id}
           nextId={nextHeroId}
         />
@@ -138,7 +149,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
 
       <div className="absolute top-20 right-0 z-40 pr-4">
         <TurnOrderBar
-          participants={enemies}
+          participants={enemyHeroes}
           currentId={currentHero.id}
           nextId={nextHeroId}
         />
@@ -150,7 +161,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
         <div className="flex flex-col gap-12 items-start">
           {/* Héros alliés - maintenant avec seulement 2 héros par joueur */}
           <div className="flex gap-8">
-            {players.map(hero => (
+            {myHeroes.map(hero => (
               <div key={hero.id} ref={el => targetRefs.current[hero.id] = el} className="battle-target">
                 <BattleHeroCard
                   hero={hero}
@@ -168,7 +179,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
         <div className="flex flex-col gap-12 items-end">
           {/* Héros ennemis - maintenant avec seulement 2 héros par joueur */}
           <div className="flex gap-8">
-            {enemies.map(enemy => (
+            {enemyHeroes.map(enemy => (
               <div key={enemy.id} ref={el => targetRefs.current[enemy.id] = el} className="battle-target">
                 <BattleHeroCard
                   hero={enemy}

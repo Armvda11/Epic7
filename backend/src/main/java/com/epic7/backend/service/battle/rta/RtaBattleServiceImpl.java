@@ -2,6 +2,7 @@ package com.epic7.backend.service.battle.rta;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -35,15 +36,23 @@ public class RtaBattleServiceImpl implements BattleManager {
                                   List<Long> player2HeroIds) {
         // Construire les participants
         List<BattleParticipant> participants = new ArrayList<>();
+        
+        // Ajouter les héros du joueur 1 avec son ID
+        String player1Id = player1.getId().toString();
         for (Long id : player1HeroIds) {
             PlayerHero ph = playerHeroRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Héros introuvable : " + id));
-            participants.add(participantFactory.fromPlayerHero(ph));
+            BattleParticipant participant = participantFactory.fromPlayerHeroWithUserId(ph, player1Id);
+            participants.add(participant);
         }
+        
+        // Ajouter les héros du joueur 2 avec son ID
+        String player2Id = player2.getId().toString();
         for (Long id : player2HeroIds) {
             PlayerHero ph = playerHeroRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Héros introuvable : " + id));
-            participants.add(participantFactory.fromPlayerHero(ph));
+            BattleParticipant participant = participantFactory.fromPlayerHeroWithUserId(ph, player2Id);
+            participants.add(participant);
         }
 
         // Ordonner par vitesse et initialiser l'état
@@ -95,36 +104,47 @@ public class RtaBattleServiceImpl implements BattleManager {
      * Vérifie si le combat est terminé (un camp a été éliminé).
      */
     private boolean checkBattleEnd(BattleState state) {
-        // Identifier les deux joueurs par leurs participant.isPlayer
-        boolean player1Alive = false;
-        boolean player2Alive = false;
+        // Récupérer tous les userId uniques des participants
+        Set<String> userIds = state.getParticipants().stream()
+            .map(BattleParticipant::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
         
-        // On parcourt les premiers participants (joueur 1) et les derniers (joueur 2)
-        // Maintenant avec 2 héros par joueur, au lieu de 4
-        int participantCount = state.getParticipants().size();
-        int midPoint = participantCount / 2;
-        
-        for (int i = 0; i < midPoint; i++) {
-            if (state.getParticipants().get(i).getCurrentHp() > 0) {
-                player1Alive = true;
-                break;
-            }
+        if (userIds.size() != 2) {
+            // Cas anormal: il devrait y avoir exactement 2 joueurs
+            return false;
         }
         
-        for (int i = midPoint; i < participantCount; i++) {
-            if (state.getParticipants().get(i).getCurrentHp() > 0) {
-                player2Alive = true;
-                break;
-            }
+        // Pour chaque joueur, vérifier s'il a encore des héros vivants
+        Map<String, Boolean> playerAliveStatus = new HashMap<>();
+        
+        for (String userId : userIds) {
+            boolean isAlive = state.getParticipants().stream()
+                .filter(p -> userId.equals(p.getUserId()))
+                .anyMatch(p -> p.getCurrentHp() > 0);
+            
+            playerAliveStatus.put(userId, isAlive);
         }
         
-        // Si un des joueurs n'a plus de héros vivants
-        if (!player1Alive || !player2Alive) {
-            if (!player1Alive) {
-                state.getLogs().add("Le joueur 2 remporte la victoire!");
-            } else {
-                state.getLogs().add("Le joueur 1 remporte la victoire!");
+        // Vérifier si un des joueurs n'a plus de héros vivants
+        if (playerAliveStatus.containsValue(false)) {
+            // Trouver le perdant et le gagnant
+            String loserId = null;
+            String winnerId = null;
+            
+            for (Map.Entry<String, Boolean> entry : playerAliveStatus.entrySet()) {
+                if (!entry.getValue()) {
+                    loserId = entry.getKey();
+                } else {
+                    winnerId = entry.getKey();
+                }
             }
+            
+            // Ajouter le résultat aux logs
+            if (winnerId != null) {
+                state.getLogs().add("Le joueur avec l'ID " + winnerId + " remporte la victoire!");
+            }
+            
             return true;
         }
         

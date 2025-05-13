@@ -70,6 +70,27 @@ public class RtaWebSocketController {
                 "/queue/rta/match",
                 battleId
             );
+            
+            // Étape importante: envoyer l'état initial de la bataille aux deux joueurs
+            // Récupérer l'état actuel de la bataille
+            BattleState state = (BattleState) battleManager.getBattleState(battleId);
+            
+            // Envoyer immédiatement l'état initial à tous les abonnés
+            messaging.convertAndSend(
+                "/topic/rta/state/" + battleId,
+                state
+            );
+            
+            // Envoyer également le tour du premier joueur
+            String nextHeroName = state
+                .getParticipants()
+                .get(state.getCurrentTurnIndex())
+                .getName();
+            log.info("Premier tour dans combat {}: {}", battleId, nextHeroName);
+            messaging.convertAndSend(
+                "/topic/rta/turn/" + battleId,
+                nextHeroName
+            );
         }
     }
 
