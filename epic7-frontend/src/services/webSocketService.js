@@ -163,7 +163,7 @@ class WebSocketService {
 
   /**
    * Rejoindre le matchmaking avec une équipe de héros
-   * @param {Array} heroIds - Tableau des IDs de héros (4)
+   * @param {Array} heroIds - Tableau des IDs de héros (2)
    * @returns {Promise} - Promise résolue quand souscrit, rejetée en cas d'erreur
    */
   joinMatchmaking(heroIds) {
@@ -182,9 +182,9 @@ class WebSocketService {
    * Implémentation interne pour rejoindre le matchmaking
    */
   _doJoinMatchmaking(heroIds, resolve, reject) {
-    // Vérifier que nous avons exactement 4 héros
-    if (!heroIds || !Array.isArray(heroIds) || heroIds.length !== 4) {
-      const error = new Error('Vous devez sélectionner exactement 4 héros');
+    // Vérifier que nous avons exactement 2 héros
+    if (!heroIds || !Array.isArray(heroIds) || heroIds.length !== 2) {
+      const error = new Error('Vous devez sélectionner exactement 2 héros');
       reject(error);
       return;
     }

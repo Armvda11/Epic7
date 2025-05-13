@@ -38,8 +38,8 @@ export default function RtaBattlePage() {
 
   // 4) Lancement de la recherche de match
   const handleStart = () => {
-    if (selectedHeroes.length !== 4) {
-      toast.error('Vous devez sélectionner exactement 4 héros');
+    if (selectedHeroes.length !== 2) {
+      toast.error('Vous devez sélectionner exactement 2 héros');
       return;
     }
     joinQueue(selectedHeroes.map(h => h.id));

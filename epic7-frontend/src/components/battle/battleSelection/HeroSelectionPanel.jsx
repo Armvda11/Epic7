@@ -122,9 +122,9 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
 
           <button
             onClick={onStart}
-            disabled={rtaMode ? selectedHeroes.filter(Boolean).length <2 : selectedHeroes.filter(Boolean).length < 1}
+            disabled={rtaMode ? selectedHeroes.filter(Boolean).length < 2 : selectedHeroes.filter(Boolean).length < 1}
             className={`mt-6 px-8 py-3 rounded-xl font-bold transition transform duration-300 ${
-              (rtaMode && selectedHeroes.filter(Boolean).length !== 4) || 
+              (rtaMode && selectedHeroes.filter(Boolean).length !== 2) || 
               (!rtaMode && selectedHeroes.filter(Boolean).length < 1)
                 ? 'bg-gray-600 cursor-not-allowed opacity-50'
                 : rtaMode 
@@ -133,7 +133,7 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
             }`}
           >
             {rtaMode 
-              ? '🔍 Rechercher un adversaire (4 héros requis)' 
+              ? '🔍 Rechercher un adversaire (2 héros requis)' 
               : selectedHeroes.filter(Boolean).length > 0 
                 ? '🚀 Lancer le combat' 
                 : '🚀 Sélectionnez au moins 1 héro'}

@@ -120,9 +120,9 @@ export default function useRtaBattle() {
   
   // Rejoindre la file d'attente avec les héros sélectionnés
   const joinQueue = useCallback((heroIds) => {
-    // Vérifier que nous avons bien 4 héros
-    if (!heroIds || heroIds.length !== 4) {
-      toast.error('Vous devez sélectionner 4 héros');
+    // Vérifier que nous avons bien 2 héros
+    if (!heroIds || heroIds.length !== 2) {
+      toast.error('Vous devez sélectionner 2 héros');
       return;
     }
     

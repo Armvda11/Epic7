@@ -99,7 +99,8 @@ public class RtaBattleServiceImpl implements BattleManager {
         boolean player1Alive = false;
         boolean player2Alive = false;
         
-        // On parcourt les 4 premiers participants (joueur 1) et les 4 derniers (joueur 2)
+        // On parcourt les premiers participants (joueur 1) et les derniers (joueur 2)
+        // Maintenant avec 2 héros par joueur, au lieu de 4
         int participantCount = state.getParticipants().size();
         int midPoint = participantCount / 2;
         

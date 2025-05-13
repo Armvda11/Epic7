@@ -44,15 +44,15 @@ public class MatchmakingService {
     /**
      * Rejoindre la file d'attente
      * @param user L'utilisateur qui recherche un match
-     * @param heroIds Les IDs des héros sélectionnés (4)
+     * @param heroIds Les IDs des héros sélectionnés (2)
      * @return null si en attente, ou MatchResponse si un adversaire est trouvé
      */
     public synchronized MatchResponse join(User user, List<Long> heroIds) {
         String userId = user.getId().toString();
         
         // Vérifier que le nombre de héros est correct
-        if (heroIds.size() != 4) {
-            throw new IllegalArgumentException("Le joueur doit sélectionner exactement 4 héros.");
+        if (heroIds.size() != 2) {
+            throw new IllegalArgumentException("Le joueur doit sélectionner exactement 2 héros.");
         }
         
         // Si déjà dans la file, actualiser la sélection

@@ -148,24 +148,9 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
       <div className="absolute inset-0 flex items-center justify-between px-20">
         {/* Zone des héros alliés (à gauche) */}
         <div className="flex flex-col gap-12 items-start">
-          {/* Première ligne d'alliés */}
+          {/* Héros alliés - maintenant avec seulement 2 héros par joueur */}
           <div className="flex gap-8">
-            {players.slice(0, 2).map(hero => (
-              <div key={hero.id} ref={el => targetRefs.current[hero.id] = el} className="battle-target">
-                <BattleHeroCard
-                  hero={hero}
-                  isCurrent={hero.id === currentHero.id}
-                  isNext={hero.id === nextHeroId}
-                  highlight={getHighlightClass(hero)}
-                  onClick={() => selectedSkillId && selectedSkillType === 'HEAL' && useSkill(selectedSkillId, hero.id)}
-                />
-              </div>
-            ))}
-          </div>
-          
-          {/* Seconde ligne d'alliés */}
-          <div className="flex gap-8">
-            {players.slice(2).map(hero => (
+            {players.map(hero => (
               <div key={hero.id} ref={el => targetRefs.current[hero.id] = el} className="battle-target">
                 <BattleHeroCard
                   hero={hero}
@@ -181,24 +166,9 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
 
         {/* Zone des ennemis (à droite) */}
         <div className="flex flex-col gap-12 items-end">
-          {/* Première ligne d'ennemis */}
+          {/* Héros ennemis - maintenant avec seulement 2 héros par joueur */}
           <div className="flex gap-8">
-            {enemies.slice(0, 2).map(enemy => (
-              <div key={enemy.id} ref={el => targetRefs.current[enemy.id] = el} className="battle-target">
-                <BattleHeroCard
-                  hero={enemy}
-                  isCurrent={enemy.id === currentHero.id}
-                  isNext={enemy.id === nextHeroId}
-                  highlight={getHighlightClass(enemy)}
-                  onClick={() => selectedSkillId && selectedSkillType === 'DAMAGE' && useSkill(selectedSkillId, enemy.id)}
-                />
-              </div>
-            ))}
-          </div>
-          
-          {/* Seconde ligne d'ennemis */}
-          <div className="flex gap-8">
-            {enemies.slice(2).map(enemy => (
+            {enemies.map(enemy => (
               <div key={enemy.id} ref={el => targetRefs.current[enemy.id] = el} className="battle-target">
                 <BattleHeroCard
                   hero={enemy}
