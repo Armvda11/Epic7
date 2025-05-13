@@ -81,6 +81,14 @@ public class BattleEngine {
      * Vérifie si un des deux camps a gagné.
      */
     public boolean checkEnd(BattleState state) {
+        // Vérifier si c'est un combat RTA (joueur vs joueur)
+        if (state.getPlayer1Id() != null && state.getPlayer2Id() != null) {
+            // Pour les combats RTA, la logique est gérée par RtaBattleServiceImpl.checkBattleEnd()
+            // Ne pas terminer le combat ici
+            return false;
+        }
+        
+        // Sinon c'est un combat contre un boss (PvE)
         boolean allPlayersDead = state.getParticipants().stream()
                 .noneMatch(p -> p.isPlayer() && p.getCurrentHp() > 0);
 

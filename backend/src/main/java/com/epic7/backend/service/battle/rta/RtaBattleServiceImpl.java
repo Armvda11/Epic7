@@ -123,8 +123,9 @@ public class RtaBattleServiceImpl implements BattleManager {
             return false;
         }
         
-        // Vérifier si combat terminé
+        // Vérifier si combat terminé en utilisant la logique spécifique aux combats RTA
         if (checkBattleEnd(state)) {
+            state.getLogs().add("⚔️ Combat RTA terminé !");
             state.setFinished(true);
             return true;
         }
@@ -138,6 +139,11 @@ public class RtaBattleServiceImpl implements BattleManager {
     /**
      * Vérifie si le combat est terminé (un camp a été éliminé).
      */
+    /**
+     * Vérifie si un des deux joueurs a gagné dans le mode RTA (tous les héros de l'autre sont morts)
+     * @param state L'état actuel du combat
+     * @return true si un joueur a gagné, false sinon
+     */
     private boolean checkBattleEnd(BattleState state) {
         // Récupérer tous les userId uniques des participants
         Set<String> userIds = state.getParticipants().stream()
@@ -147,37 +153,50 @@ public class RtaBattleServiceImpl implements BattleManager {
         
         if (userIds.size() != 2) {
             // Cas anormal: il devrait y avoir exactement 2 joueurs
+            state.getLogs().add("⚠️ Nombre incorrect de joueurs dans la partie RTA: " + userIds.size());
             return false;
         }
         
         // Pour chaque joueur, vérifier s'il a encore des héros vivants
         Map<String, Boolean> playerAliveStatus = new HashMap<>();
+        Map<String, String> playerNames = new HashMap<>();
         
         for (String userId : userIds) {
+            // Vérifier si le joueur a encore des héros vivants
             boolean isAlive = state.getParticipants().stream()
                 .filter(p -> userId.equals(p.getUserId()))
                 .anyMatch(p -> p.getCurrentHp() > 0);
             
             playerAliveStatus.put(userId, isAlive);
+            
+            // Récupérer le nom d'un des héros pour afficher un nom à la place de l'ID
+            String playerName = state.getParticipants().stream()
+                .filter(p -> userId.equals(p.getUserId()))
+                .map(BattleParticipant::getName)
+                .findFirst()
+                .orElse("Joueur " + userId);
+                
+            playerNames.put(userId, playerName);
         }
         
         // Vérifier si un des joueurs n'a plus de héros vivants
         if (playerAliveStatus.containsValue(false)) {
-            // Trouver le perdant et le gagnant
-            String loserId = null;
+            // Trouver le gagnant
             String winnerId = null;
             
             for (Map.Entry<String, Boolean> entry : playerAliveStatus.entrySet()) {
-                if (!entry.getValue()) {
-                    loserId = entry.getKey();
-                } else {
+                if (entry.getValue()) { // Ce joueur est vivant
                     winnerId = entry.getKey();
+                    break;
                 }
             }
             
-            // Ajouter le résultat aux logs
+            // Ajouter le résultat aux logs avec un meilleur message
             if (winnerId != null) {
-                state.getLogs().add("Le joueur avec l'ID " + winnerId + " remporte la victoire!");
+                String winnerName = playerNames.get(winnerId);
+                state.getLogs().add("🏆 " + winnerName + " remporte la victoire!");
+            } else {
+                state.getLogs().add("⚠️ Match nul! Tous les héros sont morts.");
             }
             
             return true;
