@@ -9,6 +9,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinMatchMessage {
-    // la liste des 4 IDs de PlayerHero du client
-    private List<Long> heroIds;
+    private List<Long> heroIds;  // IDs des héros sélectionnés par le joueur
 }

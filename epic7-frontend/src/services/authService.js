@@ -1,7 +1,8 @@
 import API from "../api/axiosInstance";
 
-// Clé de stockage du token
+// Clés de stockage
 const TOKEN_KEY = "token";
+const USER_EMAIL_KEY = "userEmail"; // Ajout d'une clé pour l'email utilisateur
 
 /**
  * Authentifie l'utilisateur et stocke le token.
@@ -13,6 +14,7 @@ export const login = async (email, password) => {
 
     if (!token) throw new Error("Token manquant");
     localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_EMAIL_KEY, email); // Stocker l'email de l'utilisateur
 
     return { token, ...rest };
   } catch (error) {
@@ -33,14 +35,22 @@ export const register = async (email, password) => {
 };
 
 /**
- * Déconnexion : supprime le token.
+ * Déconnexion : supprime le token et l'email.
  */
-export const logout = () => localStorage.removeItem(TOKEN_KEY);
+export const logout = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_EMAIL_KEY); // Supprimer aussi l'email lors de la déconnexion
+};
 
 /**
  * Retourne le token stocké.
  */
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+/**
+ * Retourne l'email de l'utilisateur stocké.
+ */
+export const getUserEmail = () => localStorage.getItem(USER_EMAIL_KEY);
 
 /**
  * Retourne les headers d'autorisation (Bearer).

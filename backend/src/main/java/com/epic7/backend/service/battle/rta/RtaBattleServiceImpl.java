@@ -66,11 +66,68 @@ public class RtaBattleServiceImpl implements BattleManager {
     @Override
     public boolean applySkillAction(String battleId, Long skillId, Long targetId) {
         BattleState state = getBattleState(battleId);
+        
+        // Vérifier si c'est bien au tour du joueur qui fait l'action
+        BattleParticipant currentParticipant = state.getParticipants().get(state.getCurrentTurnIndex());
+        
+        // Vérifier que la cible est valide
+        BattleParticipant targetParticipant = state.getParticipants().stream()
+                .filter(p -> p.getId().equals(targetId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Cible invalide: " + targetId));
+        
+        // Utiliser la compétence et obtenir le résultat
         skillEngine.useSkillWithResult(state, skillId, targetId);
-        if (state.isFinished()) {
-            endRtaBattle(battleId, null);
+        
+        // Vérifier si combat terminé
+        if (checkBattleEnd(state)) {
+            state.setFinished(true);
+            return true;
         }
+        
+        // Passer au joueur suivant
+        battleEngine.nextTurn(state);
+        
         return true;
+    }
+    
+    /**
+     * Vérifie si le combat est terminé (un camp a été éliminé).
+     */
+    private boolean checkBattleEnd(BattleState state) {
+        // Identifier les deux joueurs par leurs participant.isPlayer
+        boolean player1Alive = false;
+        boolean player2Alive = false;
+        
+        // On parcourt les 4 premiers participants (joueur 1) et les 4 derniers (joueur 2)
+        int participantCount = state.getParticipants().size();
+        int midPoint = participantCount / 2;
+        
+        for (int i = 0; i < midPoint; i++) {
+            if (state.getParticipants().get(i).getCurrentHp() > 0) {
+                player1Alive = true;
+                break;
+            }
+        }
+        
+        for (int i = midPoint; i < participantCount; i++) {
+            if (state.getParticipants().get(i).getCurrentHp() > 0) {
+                player2Alive = true;
+                break;
+            }
+        }
+        
+        // Si un des joueurs n'a plus de héros vivants
+        if (!player1Alive || !player2Alive) {
+            if (!player1Alive) {
+                state.getLogs().add("Le joueur 2 remporte la victoire!");
+            } else {
+                state.getLogs().add("Le joueur 1 remporte la victoire!");
+            }
+            return true;
+        }
+        
+        return false;
     }
 
     @Override
