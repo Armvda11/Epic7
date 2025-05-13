@@ -10,6 +10,8 @@ import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.repository.ChatMessageRepository;
 import com.epic7.backend.repository.ChatRoomRepository;
 import com.epic7.backend.repository.UserRepository;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,12 +51,18 @@ public class ChatService {
      * Create a global chat room with the given name
      */
     @Transactional
-    public ChatRoom createGlobalChatRoom(String name) {
+    private ChatRoom createGlobalChatRoom(String name) {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setName(name);
         chatRoom.setType(ChatType.GLOBAL);
         chatRoom.setUserIds(new ArrayList<>());
-        chatRoom.setAdminUserIds(new ArrayList<>());
+
+        // Set admin user IDs to a default admin user (ID 1), first user in the database
+        User admin = userRepository.findById(1L)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found"));
+        chatRoom.setAdminUserIds(Collections.singletonList(admin.getId()));
+        chatRoom.setGroupId(null);
+        // Save the chat room to the database
         return chatRoomRepository.save(chatRoom);
     }
 
@@ -62,13 +70,16 @@ public class ChatService {
      * Create a guild chat room
      */
     @Transactional
-    public ChatRoom createGuildChatRoom(String name, Long guildId) {
+    private ChatRoom createGuildChatRoom(String name, Long guildId, Long ownerId) {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setName(name);
         chatRoom.setType(ChatType.GUILD);
         chatRoom.setGroupId(guildId);
         chatRoom.setUserIds(new ArrayList<>());
-        chatRoom.setAdminUserIds(new ArrayList<>());
+
+        // Set admin user IDs to the guild owner
+        chatRoom.setAdminUserIds(Collections.singletonList(ownerId));
+        
         return chatRoomRepository.save(chatRoom);
     }
 
@@ -76,50 +87,33 @@ public class ChatService {
      * Create a fight chat room
      */
     @Transactional
-    public ChatRoom createFightChatRoom(String name, Long fightId, List<Long> userIds, List<Long> adminUserIds) {
+    private ChatRoom createFightChatRoom(String name, Long fightId, List<Long> userIds) {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setName(name);
         chatRoom.setType(ChatType.FIGHT);
         chatRoom.setGroupId(fightId);
         chatRoom.setUserIds(new ArrayList<>(userIds));
-        chatRoom.setAdminUserIds(new ArrayList<>(adminUserIds));
+        chatRoom.setAdminUserIds(null); // No admins for fight chat rooms
+        // Save the chat room to the database
         return chatRoomRepository.save(chatRoom);
     }
 
+    
     /**
-     * Get all chat rooms a user is a member of
+     * Get chat messages for a specific room
      */
-    public List<ChatRoom> getUserChatRooms(Long userId) {
-        // Get rooms where user is explicitly in userIds
-        List<ChatRoom> userRooms = chatRoomRepository.findByUserIdsContaining(userId);
-        
-        // Get global rooms (available to all)
-        List<ChatRoom> globalRooms = chatRoomRepository.findByType(ChatType.GLOBAL);
-        
-        // Get guild room if user is member of a guild
-        List<ChatRoom> guildRooms = new ArrayList<>();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        
-        // Check if user has a guild
-        if (user.getGuildMembership() != null) {
-            Long guildId = user.getGuildMembership().getGuild().getId();
-            List<ChatRoom> userGuildRooms = chatRoomRepository.findByTypeAndGroupId(ChatType.GUILD, guildId);
-            if (userGuildRooms != null && !userGuildRooms.isEmpty()) {
-                guildRooms.addAll(userGuildRooms);
-            }
+    private List<ChatMessage> getChatRoomMessages(Long roomId, int limit) {
+        // Verify chat room exists
+        ChatRoom chatRoom = getChatRoomById(roomId);
+        if (chatRoom == null) {
+            throw new IllegalArgumentException("Chat room not found");
         }
         
-        // Combine all lists
-        List<ChatRoom> allRooms = new ArrayList<>();
-        allRooms.addAll(userRooms);
-        allRooms.addAll(globalRooms);
-        allRooms.addAll(guildRooms);
-        
-        // Remove duplicates (if any)
-        return allRooms.stream().distinct().toList();
+        // Use existing method for pagination
+        Pageable pageable = PageRequest.of(0, limit);
+        return chatMessageRepository.findLastMessagesByChatRoomId(roomId, pageable);
     }
-
+    
     /**
      * Get recent messages for a chat room
      */
@@ -133,11 +127,17 @@ public class ChatService {
             throw new IllegalStateException("User does not have access to this chat room");
         }
         
-        // Get recent messages using Pageable for pagination
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
-        return chatMessageRepository.findByChatRoomIdOrderByTimestampDesc(roomId, pageable);
+        return getChatRoomMessages(roomId, limit);
     }
 
+    private ChatMessage sendMessage(Long chatRoomId, ChatMessage message) {
+
+        // Publish event to notify listeners (like WebSocket handler)
+        eventPublisher.publishEvent(new ChatMessageEvent(chatRoomId, message));
+        
+        // Save the message to the database
+        return chatMessageRepository.save(message);
+    }
     /**
      * Send a message to a chat room
      */
@@ -158,14 +158,17 @@ public class ChatService {
         message.setSender(sender);
         message.setContent(content);
         message.setTimestamp(Instant.now());
-        
-        // Save to database
-        ChatMessage savedMessage = chatMessageRepository.save(message);
-        
+
+        return sendMessage(roomId, message);
+    }
+
+    private boolean deleteMessage(ChatMessage message) {
         // Publish event to notify listeners (like WebSocket handler)
-        eventPublisher.publishEvent(new ChatMessageEvent(roomId, savedMessage));
+        // eventPublisher.publishEvent(new ChatMessageDeletionEvent(message.getChatRoom().getId(), message));
         
-        return savedMessage;
+        // Delete the message from the database
+        chatMessageRepository.delete(message);
+        return true;
     }
 
     /**
@@ -178,12 +181,12 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalArgumentException("Message not found"));
         
         // Check if user is sender or admin
-        boolean isAdmin = isUserAdmin(message.getChatRoom().getId(), userId);
+        boolean isAdmin = isUserChatRoomAdmin(message.getChatRoom().getId(), userId);
         boolean isSender = message.getSender().getId().equals(userId);
         
         if (isAdmin || isSender) {
-            chatMessageRepository.delete(message);
-            return true;
+            // Delete the message
+            return deleteMessage(message);
         } else {
             return false;
         }
@@ -192,46 +195,13 @@ public class ChatService {
     /**
      * Check if a user is an admin of a chat room
      */
-    public boolean isUserAdmin(Long roomId, Long userId) {
+    public boolean isUserChatRoomAdmin(Long roomId, Long userId) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
         
         return chatRoom.getAdminUserIds() != null && chatRoom.getAdminUserIds().contains(userId);
     }
 
-    /**
-     * Check if a user is an admin of a chat room - method to match controller endpoint naming
-     */
-    public boolean isUserChatRoomAdmin(Long roomId, Long userId) {
-        return isUserAdmin(roomId, userId);
-    }
-
-    /**
-     * Check if a user is an admin of a chat room
-     * Legacy method name for backward compatibility
-     */
-    public boolean isUserChatAdmin(Long userId, Long roomId) {
-        return isUserAdmin(roomId, userId);
-    }
-
-    /**
-     * Delete a message by ID
-     * Simplified method that doesn't require userId parameter
-     */
-    public boolean deleteMessage(Long messageId) {
-        try {
-            // Find message
-            ChatMessage message = chatMessageRepository.findById(messageId)
-                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
-            
-            // Delete the message
-            chatMessageRepository.delete(message);
-            return true;
-        } catch (Exception e) {
-            log.error("Error deleting message", e);
-            return false;
-        }
-    }
 
     /**
      * Connect a user to a chat room
@@ -246,14 +216,13 @@ public class ChatService {
             return false;
         }
         
-        // Add user to the room if not already there and not a global room
-        if (chatRoom.getType() != ChatType.GLOBAL && 
-            (chatRoom.getUserIds() == null || !chatRoom.getUserIds().contains(userId))) {
-            
-            if (chatRoom.getUserIds() == null) {
-                chatRoom.setUserIds(new ArrayList<>());
-            }
-            
+        // Check if it's defined
+        if (chatRoom.getUserIds() == null) {
+            chatRoom.setUserIds(new ArrayList<>());
+        }
+
+        // Check if user is already connected
+        if (!chatRoom.getUserIds().contains(userId)) {
             chatRoom.getUserIds().add(userId);
             chatRoomRepository.save(chatRoom);
         }
@@ -279,7 +248,7 @@ public class ChatService {
             if (chatRoom.getGroupId() == null) {
                 return false;
             }
-            
+            // In this case the group ID is the guild ID
             return guildService.isUserInGuild(userId, chatRoom.getGroupId());
         }
         
@@ -292,85 +261,11 @@ public class ChatService {
     }
 
     /**
-     * Process a batch of chat messages
-     * 
-     * @param sender The user sending the messages
-     * @param messageDTOs The messages to process
-     * @return List of processed messages
-     */
-    @Transactional
-    public List<ChatMessage> processBatchMessages(User sender, List<ChatMessageDTO> messageDTOs) {
-        if (messageDTOs == null || messageDTOs.isEmpty()) {
-            return Collections.emptyList();
-        }
-        
-        List<ChatMessage> processedMessages = new ArrayList<>();
-        
-        for (ChatMessageDTO messageDTO : messageDTOs) {
-            if (messageDTO.getRoomId() == null || messageDTO.getContent() == null) {
-                throw new IllegalArgumentException("Room ID and content are required for each message");
-            }
-            
-            // Process each message individually
-            ChatMessage message = sendMessage(sender, messageDTO.getRoomId(), messageDTO.getContent());
-            processedMessages.add(message);
-        }
-        
-        return processedMessages;
-    }
-    
-    /**
-     * Mark messages as read up to a specific message ID
-     * 
-     * @param roomId The chat room ID
-     * @param userId The user ID
-     * @param lastReadMessageId The last message ID that was read
-     * @return Number of messages marked as read
-     */
-    @Transactional
-    public int markMessagesAsRead(Long roomId, Long userId, Long lastReadMessageId) {
-        // Verify chat room exists
-        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
-                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
-        
-        // Check if user has access to this chat room
-        if (!canUserAccessChat(userId, chatRoom)) {
-            throw new IllegalStateException("User does not have access to this chat room");
-        }
-        
-        // Find all unread messages in the room up to the lastReadMessageId
-        List<ChatMessage> messages = chatMessageRepository.findByChatRoomId(roomId);
-        int updatedCount = 0;
-        
-        // In a real implementation, you would have a more efficient query
-        // This is a simplistic approach
-        for (ChatMessage message : messages) {
-            if (message.getId() <= lastReadMessageId) {
-                // Mark as read in your user-message read status tracking
-                // This would depend on how you track read status
-                updatedCount++;
-            }
-        }
-        
-        return updatedCount;
-    }
-
-    /**
-     * Find chat rooms by type
-     *
-     * @param type The chat room type
-     * @return A list of chat rooms of the specified type
-     */
-    public List<ChatRoom> findChatRoomsByType(ChatType type) {
-        return chatRoomRepository.findByType(type);
-    }
-
-    /**
      * Get a chat message by its ID
      * @param messageId The ID of the message to retrieve
      * @return The ChatMessage if found, null otherwise
      */
-    public ChatMessage getMessageById(Long messageId) {
+    public ChatMessage getChatMessageById(Long messageId) {
         if (messageId == null) {
             return null;
         }
@@ -416,20 +311,17 @@ public class ChatService {
                 try {
                     Optional<Guild> guildOptional = guildService.getGuildById(groupId);
                     if (guildOptional.isEmpty()) {
-                        log.warn("Guild with ID {} not found, creating generic guild chat room", groupId);
-                        // If guild not found, create a generic guild chat room with a more generic name
-                        return createGuildChatRoom("Guild " + groupId, groupId);
+                        throw new IllegalArgumentException("Guild not found");
                     }
                     Guild guild = guildOptional.get();
-                    return createGuildChatRoom(guild.getName() + " Chat", groupId);
+                    return createGuildChatRoom(guild.getName() + " Chat", groupId, guild.getLeader());
                 } catch (Exception e) {
                     log.error("Error fetching guild info for chat room creation: {} - {}", e.getClass().getName(), e.getMessage());
                     // On error, fallback to creating a generic guild chat room
-                    return createGuildChatRoom("Guild " + groupId, groupId);
+                    throw new IllegalArgumentException("Error fetching guild info for chat room creation");
                 }
             } else if (type == ChatType.FIGHT) {
                 // For fight chat rooms, we need more info like the list of users
-                // This would typically be handled in a separate method called from a battle service
                 throw new IllegalArgumentException("Fight chat rooms must be created through the battle service");
             } else {
                 throw new IllegalArgumentException("Unsupported chat room type: " + type);
@@ -437,36 +329,15 @@ public class ChatService {
         }
     }
 
-    /**
-     * Get chat messages for a specific room
-     */
-    public List<ChatMessage> getChatRoomMessages(Long roomId, int limit) {
-        // Verify chat room exists
-        ChatRoom chatRoom = getChatRoomById(roomId);
-        if (chatRoom == null) {
-            throw new IllegalArgumentException("Chat room not found");
-        }
+    public ChatRoom getOrCreateFightChatRoom(Long fightId, List<Long> userIds) {
+        // Check if a fight chat room already exists for this fight ID
+        List<ChatRoom> existingRooms = chatRoomRepository.findByTypeAndGroupId(ChatType.FIGHT, fightId);
         
-        // Use existing method for pagination
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
-        return chatMessageRepository.findByChatRoomIdOrderByTimestampDesc(roomId, pageable);
-    }
-
-    /**
-     * Get all chat rooms accessible to a user
-     */
-    public List<ChatRoom> getAllChatRoomsForUser(Long userId) {
-        // This is equivalent to getUserChatRooms but with a name that
-        // better matches the controller endpoint naming
-        return getUserChatRooms(userId);
-    }
-
-    /**
-     * Get a chat message by its ID
-     */
-    public ChatMessage getChatMessageById(Long messageId) {
-        // This is equivalent to getMessageById but with a name that
-        // better matches the controller endpoint naming
-        return getMessageById(messageId);
+        if (!existingRooms.isEmpty()) {
+            return existingRooms.get(0);
+        } else {
+            // Create a new fight chat room
+            return createFightChatRoom("Fight " + fightId.toString(), fightId, userIds);
+        }
     }
 }

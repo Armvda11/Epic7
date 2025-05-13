@@ -243,7 +243,8 @@ const GlobalChat = () => {
           // WebSocket broadcast failed or is taking too long, try REST API as fallback
           console.log('WebSocket broadcast not received, falling back to REST API');
           try {
-            await sendMessage(globalChatRoom.id, content, currentUser);
+            // Using correct parameter order: content, roomId, user, chatType
+            await sendMessage(content, globalChatRoom.id, currentUser, "GLOBAL");
           } catch (error) {
             console.error('Failed to send message via REST API:', error);
             // Mark the message as failed

@@ -7,7 +7,7 @@ import {
   deleteMessage as deleteMessageService
 } from "../services/ChatServices";
 import ChatWebSocketService from "../services/ChatWebSocketService";
-import { getToken, isAuthenticated } from "../services/authService";
+import { isAuthenticated } from "../services/authService";
 
 export const ChatContext = createContext();
 
@@ -19,33 +19,30 @@ export const ChatProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [webSocketStatus, setWebSocketStatus] = useState('disconnected');
-  const [typingUsers, setTypingUsers] = useState([]); // Users currently typing
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(isAuthenticated());
   
   // Store subscriptions for cleanup
   const subscriptionsRef = useRef({
     message: null,
-    typing: null,
     delete: null,
     globalDelete: null
   });
 
+  // Track already processed delete transaction IDs to avoid duplicates
+  const processedDeleteTransactionsRef = useRef(new Set());
+
   // Check authentication status on mount and set up listener
   useEffect(() => {
-    // Set initial auth state
     setIsUserAuthenticated(isAuthenticated());
     
-    // Listen for storage events (for logout/login in other tabs)
     const handleStorageChange = () => {
       const newAuthState = isAuthenticated();
       setIsUserAuthenticated(newAuthState);
       
-      // If user logged out, disconnect
       if (!newAuthState && ChatWebSocketService.isConnected()) {
         ChatWebSocketService.disconnect();
         setWebSocketStatus('disconnected');
       }
-      // If user logged in and we're disconnected, we'll let the other useEffect handle connection
     };
     
     window.addEventListener('storage', handleStorageChange);
@@ -79,7 +76,7 @@ export const ChatProvider = ({ children }) => {
       if (room && room.id) {
         setGlobalChatRoom(room);
         setCurrentRoom(room);
-        fetchMessages(room.id);
+        await fetchMessages(room.id);
       } else {
         setError("Global chat room not found.");
       }
@@ -95,156 +92,140 @@ export const ChatProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
+      console.log(`[ChatContext] Fetching guild chat room for guild ID: ${guildId}`);
       const room = await fetchGuildChatRoom(guildId);
+      console.log(`[ChatContext] Received guild chat room:`, room);
+      
+      if (!room) {
+        throw new Error("No valid chat room data returned");
+      }
+      
       setGuildChatRooms(prev => ({ ...prev, [guildId]: room }));
       setCurrentRoom(room);
-      fetchMessages(room.id);
-      return room;
+      
+      // Check WebSocket connection status
+      const isWebSocketConnected = ChatWebSocketService.isConnected();
+      console.log(`[ChatContext] WebSocket connection status for guild ${guildId}: ${isWebSocketConnected ? 'Connected' : 'Disconnected'}`);
+      
+      if (!isWebSocketConnected) {
+        console.log(`[ChatContext] Attempting to connect WebSocket for guild ${guildId}`);
+        try {
+          await ChatWebSocketService.connect();
+          console.log(`[ChatContext] WebSocket connected successfully for guild ${guildId}`);
+        } catch (wsError) {
+          console.warn(`[ChatContext] Failed to connect WebSocket for guild ${guildId}:`, wsError);
+        }
+      }
+      
+      if (room.id) {
+        await fetchMessages(room.id);
+      } else {
+        console.error(`[ChatContext] Chat room is missing ID property:`, room);
+      }
+      
+      return room; // Return the room to allow components to use it directly
     } catch (err) {
-      setError("Failed to load guild chat room");
-      return null;
+      console.error(`[ChatContext] Error in fetchChatRoomByGuildId:`, err);
+      setError(`Failed to load guild chat room: ${err.message}`);
+      throw err;
     } finally {
       setLoading(false);
     }
   }, [fetchMessages]);
-
-  // Store already processed delete transaction IDs to avoid duplicates
-  const processedDeleteTransactionsRef = useRef(new Set());
   
-  // Handle message deletion events specifically
+  // Handle message deletion events
   const handleDeleteMessage = useCallback((deleteEvent) => {
-    console.log('[ChatContext] Received delete event:', deleteEvent);
+    const messageId = deleteEvent.messageId || deleteEvent.id;
+    if (!messageId) return;
     
-    // Normalize the messageId - could be in messageId or id property
-    const messageId = deleteEvent?.messageId || deleteEvent?.id;
+    // Normalize the messageId to string for consistent comparisons
+    const normalizedMessageId = messageId.toString();
     
-    // Generate or use provided transaction ID to track this unique delete operation
-    const transactionId = deleteEvent?.transactionId || `${messageId}-${Date.now()}`;
+    // Optional transaction ID for deduplication
+    const transactionId = deleteEvent.transactionId || `delete-${normalizedMessageId}-${Date.now()}`;
     
-    // Check if we've already processed this delete event
+    // Skip if already processed this transaction ID
     if (processedDeleteTransactionsRef.current.has(transactionId)) {
-      console.log(`[ChatContext] Skipping already processed delete event: ${transactionId}`);
-      return; // Already processed this delete event
-    }
-    
-    // The deleteEvent should contain messageId, roomId, and potentially uniqueId
-    if (deleteEvent && messageId) {
-      const uniqueId = deleteEvent.uniqueId;
-      
-      // Add this transaction to processed set to avoid duplicate processing
-      processedDeleteTransactionsRef.current.add(transactionId);
-      
-      // Limit size of processed transactions set to prevent memory leaks
-      if (processedDeleteTransactionsRef.current.size > 100) {
-        // Convert to array, remove oldest items, and convert back to set
-        const transactionsArray = Array.from(processedDeleteTransactionsRef.current);
-        processedDeleteTransactionsRef.current = new Set(transactionsArray.slice(-50));
-      }
-      
-      // Remove the message from the messages state using uniqueId if available
-      setMessages(prev => {
-        // If we have a uniqueId, we can be more precise with our deletion
-        if (uniqueId) {
-          console.log(`[ChatContext] Looking for message with ID ${messageId} and uniqueId ${uniqueId}`);
-          const targetIndex = prev.findIndex(msg => 
-            (msg.id && msg.id.toString() === messageId.toString()) && 
-            msg.uniqueId === uniqueId
-          );
-          
-          if (targetIndex === -1) {
-            console.log(`[ChatContext] Message with ID ${messageId} and uniqueId ${uniqueId} not found`);
-            return prev; // Message not found
-          }
-          
-          console.log(`[ChatContext] Removing message at index ${targetIndex}`);
-          // Create a new array without the target message
-          return [...prev.slice(0, targetIndex), ...prev.slice(targetIndex + 1)];
-        } 
-        // Without uniqueId, we fall back to the old method but with improved string comparison
-        else {
-          console.log(`[ChatContext] Looking for message with ID ${messageId} (no uniqueId provided)`);
-          const beforeCount = prev.length;
-          const filtered = prev.filter(msg => 
-            !(msg.id && msg.id.toString() === messageId.toString())
-          );
-          const afterCount = filtered.length;
-          
-          const deleted = beforeCount - afterCount;
-          console.log(`[ChatContext] Deleted ${deleted} message(s) with ID ${messageId} (no uniqueId provided)`);
-          
-          return filtered;
-        }
-      });
-      console.log(`[ChatContext] Message ${messageId} delete event processed with transaction ${transactionId}`);
-    } else {
-      console.warn('[ChatContext] Received malformed delete event:', deleteEvent);
-    }
-  }, []);
-
-  // Handle incoming messages and events
-  const handleMessage = useCallback((data) => {
-    // Handle typing events
-    if (data.type === 'typing') {
-      setTypingUsers(prev => {
-        if (data.typing) {
-          // Add user to typing list if not already there
-          if (!prev.includes(data.user)) {
-            return [...prev, data.user];
-          }
-        } else {
-          // Remove user from typing list
-          return prev.filter(user => user !== data.user);
-        }
-        return prev;
-      });
       return;
     }
     
-    // Check for all possible delete event formats
-    const isDeleteEvent = 
-      (data.type === 'delete') || 
-      (data.event === 'delete') || 
-      (data.action === 'delete') ||
-      (data.delete === true);
+    // Mark as processed to avoid duplicates
+    processedDeleteTransactionsRef.current.add(transactionId);
     
-    // Handle delete events
-    if (isDeleteEvent) {
-      console.log('[ChatContext] Received delete event via handleMessage:', data);
-      
-      // Don't process if we don't have message ID
-      const messageId = data?.messageId || data?.id;
-      if (!messageId) {
-        console.warn('[ChatContext] Delete event missing messageId:', data);
-        return;
-      }
-      
-      // Generate transaction ID for deduplication if not present
-      if (!data.transactionId) {
-        data.transactionId = `delete-${messageId}-${Date.now()}`;
-        console.log(`[ChatContext] Generated transaction ID: ${data.transactionId}`);
-      }
-      
-      // Call our dedicated delete handler to ensure consistent handling
+    // Remove the message from our state
+    setMessages(prevMessages => 
+      prevMessages.filter(msg => {
+        // Check by ID
+        const idMatch = msg.id && msg.id.toString() === normalizedMessageId;
+        
+        // Also check uniqueId if provided (more precise targeting)
+        const uniqueIdMatch = !deleteEvent.uniqueId || 
+          (msg.uniqueId && msg.uniqueId === deleteEvent.uniqueId);
+          
+        // Only filter out if both conditions match
+        return !(idMatch && uniqueIdMatch);
+      })
+    );
+  }, []);
+
+  // Handle incoming messages
+  const handleMessage = useCallback((data) => {
+    console.log(`[ChatContext] handleMessage received data:`, data);
+    
+    // Process delete events
+    if ((data.type === 'delete' || data.event === 'delete' || data.action === 'delete' || data.delete === true) && 
+        (data.messageId || data.id)) {
+      console.log(`[ChatContext] Handling delete message:`, data);
       handleDeleteMessage(data);
       return;
     }
     
+    // Skip if message is missing important data
+    if (!data || (!data.content && !data.text)) {
+      console.log(`[ChatContext] Skipping message due to missing content:`, data);
+      return;
+    }
+    
+    // Normalize the content field if needed
+    const normalizedData = { ...data };
+    if (!normalizedData.content && normalizedData.text) {
+      normalizedData.content = normalizedData.text;
+    }
+    
+    console.log(`[ChatContext] Processing message with content: "${normalizedData.content}"`);
+    
     // Handle regular messages
     setMessages(prev => {
-      // Check for duplicates
-      if (prev.some(m => m.id === data.id)) return prev;
+      // Check for duplicates by ID
+      if (normalizedData.id && prev.some(m => m.id === normalizedData.id)) {
+        console.log(`[ChatContext] Skipping duplicate message with ID ${normalizedData.id}`);
+        return prev;
+      }
+      
+      // Check for duplicates by content and sender if no ID available
+      if (!normalizedData.id && normalizedData.content && normalizedData.sender) {
+        const isDuplicate = prev.some(m => 
+          m.content === normalizedData.content && 
+          m.sender?.id === normalizedData.sender?.id &&
+          // Only check recent messages (within 5 seconds)
+          m.timestamp && 
+          new Date(m.timestamp).getTime() > Date.now() - 5000
+        );
+        
+        if (isDuplicate) {
+          console.log(`[ChatContext] Skipping duplicate message by content match:`, normalizedData.content);
+          return prev; 
+        }
+      }
+      
+      console.log(`[ChatContext] Adding new message to state:`, normalizedData);
       
       // Add the new message
-      return [...prev, data];
+      return [...prev, normalizedData];
     });
-  }, [handleDeleteMessage]);
-
-  // Switch chat room
+  }, [handleDeleteMessage]);  // Switch chat room
   const switchRoom = useCallback(async (newRoomId, newRoomType = 'GLOBAL') => {
-    console.log(`Switching room to ${newRoomType} room ${newRoomId}`);
-    
     if (currentRoom && currentRoom.id === newRoomId && currentRoom.type === newRoomType) {
-      console.log('Already in this room, no need to switch');
       return true;
     }
     
@@ -252,7 +233,7 @@ export const ChatProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // Unsubscribe from previous WebSocket subscriptions if needed
+      // Unsubscribe from previous WebSocket subscriptions
       if (subscriptionsRef.current.message) {
         subscriptionsRef.current.message.unsubscribe();
       }
@@ -260,329 +241,313 @@ export const ChatProvider = ({ children }) => {
         subscriptionsRef.current.delete.unsubscribe();
       }
       
-      // Clear current messages
       setMessages([]);
       
-      // Fetch message history for the new room
-      let fetchedMessages = [];
-      let roomDetails = null;
-      
       if (newRoomType === 'GLOBAL') {
-        // Use existing fetchGlobalRoom logic to get global chat room
         await fetchGlobalRoom();
-        return true; // fetchGlobalRoom already sets messages and currentRoom
-      } 
-      else if (newRoomType === 'GUILD' && newRoomId) {
-        // Use existing fetchChatRoomByGuildId logic to get guild chat room
-        await fetchChatRoomByGuildId(newRoomId);
-        return true; // fetchChatRoomByGuildId already sets messages and currentRoom
-      } 
-      else if (newRoomType === 'FIGHT' && newRoomId) {
-        try {
-          // We may need to implement a fetchDuelChatRoom function
-          // For now, manually set the room
-          roomDetails = {
-            id: newRoomId,
-            name: `Battle #${newRoomId}`,
-            type: 'FIGHT'
-          };
-          setCurrentRoom(roomDetails);
-          
-          // Fetch messages for this duel chat
-          await fetchMessages(newRoomId);
-          
-          // Set up WebSocket subscriptions for this room
-          if (ChatWebSocketService.isConnected()) {
-            // Subscribe to messages in this duel chat
-            const messageSubscription = ChatWebSocketService.subscribeToDuelChat(
-              newRoomId, 
-              handleMessage
-            );
-            
-            // Subscribe to deletion events for this duel chat
-            const deleteSubscription = ChatWebSocketService.subscribeToDeleteEvents(
-              'FIGHT',
-              newRoomId,
-              handleDeleteMessage
-            );
-            
-            // Save subscriptions for later cleanup
-            subscriptionsRef.current.message = messageSubscription;
-            subscriptionsRef.current.delete = deleteSubscription;
-          }
-        } catch (error) {
-          console.error('Error setting up duel chat room:', error);
-          setError('Failed to set up duel chat room');
-          return false;
-        }
-      } else {
-        setError('Invalid room type or room ID');
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error switching chat room:', error);
-      setError('Failed to switch chat room');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchGlobalRoom, fetchChatRoomByGuildId, fetchMessages, handleMessage, handleDeleteMessage]);
-
-  /**
-   * Send a message to the current chat room
-   * @param {string} roomId - Chat room ID
-   * @param {string} content - Message content
-   * @param {object} user - User sending the message
-   * @param {string} chatType - Type of chat (GLOBAL, GUILD, or FIGHT)
-   */
-  const sendMessage = async (roomId, content, user, chatType = "GLOBAL") => {
-    if (!roomId || !content) {
-      console.error('Cannot send message: roomId or content missing');
-      return null;
-    }
-
-    try {
-      // First try to send via WebSocket for real-time delivery
-      if (ChatWebSocketService.isConnected()) {
-        try {
-          console.log(`Sending message to room ${roomId} via WebSocket with type ${chatType}`);
-          await ChatWebSocketService.sendMessage({
-            roomId,
-            content,
-            chatType // Include chat type for proper routing
-          });
-          // If no error is thrown, assume success and return early
-          return true;
-        } catch (wsError) {
-          console.warn('WebSocket send failed, falling back to REST API:', wsError);
-          // Continue to REST API fallback
-        }
-      }
-
-      // Fallback to REST API for message sending
-      console.log(`Sending message to room ${roomId} via REST API`);
-      const messageData = await sendChatMessage(roomId, content, chatType);
-      
-      // Add the sent message to our messages state
-      if (messageData) {
-        const newMessage = {
-          ...messageData,
-          chatType, // Make sure chat type is included
-          fromCurrentUser: user && messageData.sender && messageData.sender.id === user.id
-        };
         
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-        return newMessage;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setErrorMessage('Failed to send message. Please try again.');
-      return null;
-    }
-  };
-
-  // Delete a message
-  const deleteMessage = async (messageId, roomId, uniqueId, transactionId) => {
-    if (!messageId || !roomId) {
-      console.error('[ChatContext] Cannot delete message: Missing messageId or roomId');
-      return false;
-    }
-    
-    try {
-      setLoading(true);
-      
-      // Use provided transaction ID or generate a new one
-      const deleteTransactionId = transactionId || `context-delete-${messageId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Track this transaction in our local cache to avoid duplicate processing
-      if (processedDeleteTransactionsRef.current.has(deleteTransactionId)) {
-        console.log(`[ChatContext] Skipping already in-progress delete transaction: ${deleteTransactionId}`);
-        return true; // Act as if it succeeded since we're already processing it
-      }
-      
-      // Mark this transaction as processed to prevent duplicates
-      processedDeleteTransactionsRef.current.add(deleteTransactionId);
-      
-      // Also check for any recent transactions for this message ID
-      const recentDeleteForThisMessage = Array.from(processedDeleteTransactionsRef.current)
-        .filter(tid => 
-          tid !== deleteTransactionId && // Not the current transaction
-          tid.includes(`-${messageId}-`) && // Contains the message ID
-          (tid.startsWith('context-delete-') || tid.startsWith('delete-')) // Is a delete transaction
-        );
-        
-      if (recentDeleteForThisMessage.length > 0) {
-        console.log(`[ChatContext] Warning: Processing multiple delete transactions for message ID ${messageId} in quick succession`);
-        // We'll still continue but log a warning
-      }
-      
-      console.log(`[ChatContext] Deleting message ${messageId}, uniqueId: ${uniqueId || 'not provided'}, roomId: ${roomId}, transactionId: ${deleteTransactionId}`);
-      
-      // First try the REST API service method
-      const success = await deleteMessageService(messageId, roomId, uniqueId);
-      
-      if (success) {
-        // Remove the message from our local context state immediately using a more precise approach with uniqueId
-        setMessages(prev => {
-          const targetIndex = prev.findIndex(msg => 
-            (msg.id && msg.id.toString() === messageId.toString()) && 
-            (uniqueId ? msg.uniqueId === uniqueId : true)
+        // Set up global chat WebSocket subscription
+        if (ChatWebSocketService.isConnected()) {
+          console.log('[ChatContext] Setting up global chat WebSocket subscription');
+          subscriptionsRef.current.message = ChatWebSocketService.subscribeToGlobalChat(
+            handleMessage
           );
           
-          if (targetIndex === -1) {
-            console.log(`[ChatContext] Message with ID ${messageId} not found in context state`);
-            return prev; // Message not found
-          }
-          
-          console.log(`[ChatContext] Removing message at index ${targetIndex} from context state`);
-          // Create a new array without the target message
-          return [...prev.slice(0, targetIndex), ...prev.slice(targetIndex + 1)];
-        });
+          subscriptionsRef.current.delete = ChatWebSocketService.subscribeToDeleteEvents(
+            'global',
+            null,
+            handleDeleteMessage
+          );
+        }
         
-        console.log(`[ChatContext] Successfully deleted message ${messageId} via REST API. Broadcasting via WebSocket...`);
+        return true;
+      } 
+      else if (newRoomType === 'GUILD' && newRoomId) {
+        const roomData = await fetchChatRoomByGuildId(newRoomId);
         
-        // Also notify WebSocket service to broadcast the deletion to all clients
+        // Get guildId from either the newRoomId or from the room data
+        let guildId = newRoomId;
+        
+        // Extract from newRoomId if it looks like "guild-123"
+        const guildIdMatch = newRoomId.toString().match(/guild-(\d+)/);
+        if (guildIdMatch && guildIdMatch[1]) {
+          guildId = guildIdMatch[1];
+          console.log(`[ChatContext] Extracted guildId=${guildId} from roomId`);
+        } 
+        // Or get from room data if available
+        else if (roomData && (roomData.groupId || roomData.guildId)) {
+          guildId = roomData.groupId || roomData.guildId;
+          console.log(`[ChatContext] Using guildId=${guildId} from room data`);
+        }
+        
+        // Set up guild chat WebSocket subscription
         if (ChatWebSocketService.isConnected()) {
-          try {
-            // This will broadcast the delete event to all connected clients
-            await ChatWebSocketService.deleteMessage({
-              messageId,
-              id: messageId, // Include as id field for redundancy
-              roomId,
-              uniqueId,
-              type: 'delete', // Explicitly identify as delete message
-              transactionId: deleteTransactionId // Pass transaction ID for deduplication
-            });
-            console.log('[ChatContext] Message deletion broadcast successfully via WebSocket');
-          } catch (wsError) {
-            console.warn('[ChatContext] WebSocket broadcast of deletion failed, but message was deleted:', wsError);
-            // Even if WebSocket broadcast fails, we can manually notify all subscribers
-            // This ensures that at least clients on this browser get the update
-            ChatWebSocketService.notifyHandlers('onMessageDeleted', {
-              type: 'delete', // Explicitly set type
-              messageId,
-              id: messageId, // Include as id field for redundancy
-              roomId,
-              uniqueId,
-              transactionId: deleteTransactionId // Pass transaction ID for deduplication
-            });
-          }
-        } else {
-          console.warn('[ChatContext] WebSocket not connected, manually notifying handlers about deletion');
-          // If not connected to WebSocket, manually broadcast the delete event
-          ChatWebSocketService.notifyHandlers('onMessageDeleted', {
-            type: 'delete', // Explicitly set type
-            messageId,
-            id: messageId, // Include as id field for redundancy
-            roomId,
-            uniqueId,
-            transactionId: deleteTransactionId // Pass transaction ID for deduplication
+          console.log(`[ChatContext] Setting up guild chat WebSocket subscription for guild ${guildId}`);
+          
+          // Create a handler wrapper that adds guild ID if missing
+          const guildMessageHandler = (data) => {
+            // Add guildId if it's missing
+            if (!data.guildId) {
+              data.guildId = guildId;
+            }
+            // Call the original handler
+            handleMessage(data);
+          };
+          
+          subscriptionsRef.current.message = ChatWebSocketService.subscribeToGuildChat(
+            guildId,
+            guildMessageHandler
+          );
+          
+          subscriptionsRef.current.delete = ChatWebSocketService.subscribeToDeleteEvents(
+            'guild',
+            guildId,
+            handleDeleteMessage
+          );
+          
+          // Register a direct handler for additional reliability
+          const handlerId = ChatWebSocketService.addHandler('CHAT_MESSAGE', (data) => {
+            if (data && data.chatType === 'GUILD' && 
+                (data.guildId === guildId || !data.guildId)) {
+              console.log(`[ChatContext] Direct handler received guild message:`, data);
+              handleMessage({...data, guildId});
+            }
           });
+          
+          // Store the handler ID for cleanup
+          subscriptionsRef.current.directHandler = handlerId;
+        } else {
+          console.warn('[ChatContext] WebSocket not connected when switching to guild room');
+          
+          // Try to connect WebSocket
+          try {
+            console.log('[ChatContext] Attempting to connect WebSocket');
+            await ChatWebSocketService.connect();
+            console.log('[ChatContext] WebSocket connected, setting up guild subscription');
+            
+            subscriptionsRef.current.message = ChatWebSocketService.subscribeToGuildChat(
+              guildId,
+              handleMessage
+            );
+          } catch (wsError) {
+            console.error('[ChatContext] Failed to connect WebSocket:', wsError);
+          }
+        }
+        
+        return true;
+      } 
+      else if (newRoomType === 'FIGHT' && newRoomId) {
+        const roomDetails = {
+          id: newRoomId,
+          name: `Battle #${newRoomId}`,
+          type: 'FIGHT'
+        };
+        setCurrentRoom(roomDetails);
+        
+        await fetchMessages(newRoomId);
+        
+        if (ChatWebSocketService.isConnected()) {
+          subscriptionsRef.current.message = ChatWebSocketService.subscribeToDuelChat(
+            newRoomId,
+            handleMessage
+          );
+          
+          subscriptionsRef.current.delete = ChatWebSocketService.subscribeToDeleteEvents(
+            'duel',
+            newRoomId,
+            handleDeleteMessage
+          );
         }
         
         return true;
       }
       
-      return false;
+      throw new Error(`Invalid room type or ID: ${newRoomType}, ${newRoomId}`);
     } catch (error) {
-      console.error('Error deleting message:', error);
-      setError('Failed to delete message');
+      setError(`Failed to switch room: ${error.message}`);
       return false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentRoom, fetchGlobalRoom, fetchChatRoomByGuildId, fetchMessages, handleMessage, handleDeleteMessage]);
 
-  // Send typing status
-  const sendTypingStatus = useCallback((isTyping) => {
-    if (!currentRoom) return;
+  // Send a message
+  const sendMessage = useCallback(async (content, roomId, user, chatType = undefined, transactionId = null) => {
+    if (!content || !roomId) {
+      console.error('[ChatContext] Cannot send message: Missing content or roomId');
+      throw new Error('Message content and room ID are required');
+    }
     
-    if (ChatWebSocketService.isConnected()) {
-      ChatWebSocketService.sendTypingStatus(currentRoom.id, isTyping);
+    try {
+      if (!currentRoom) {
+        console.error('[ChatContext] Cannot send message: No active chat room');
+        throw new Error('No active chat room');
+      }
+      
+      // Determine chat type based on current room or passed parameter
+      const effectiveChatType = chatType || currentRoom.type || 'GLOBAL';
+      console.log(`[ChatContext] Sending message with chat type: ${effectiveChatType}`);
+      console.log(`[ChatContext] Current room:`, currentRoom);
+      console.log(`[ChatContext] Message content: "${content}"`);
+      console.log(`[ChatContext] Room ID: ${roomId}`);
+      
+      // Generate a transaction ID if one wasn't provided
+      const effectiveTransactionId = transactionId || `ctx-send-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      
+      // Mark transaction as processed to prevent duplicate handling
+      if (effectiveTransactionId) {
+        ChatWebSocketService.markTransactionProcessed(effectiveTransactionId);
+      }
+      
+      // Extract guildId for guild chat messages
+      let guildId = null;
+      if (effectiveChatType === 'GUILD') {
+        // Try to get guildId from the room
+        guildId = currentRoom.groupId || currentRoom.guildId;
+        
+        // If not found in the room object, try to extract from the roomId
+        if (!guildId && roomId) {
+          const guildIdMatch = roomId.toString().match(/guild-(\d+)/);
+          if (guildIdMatch && guildIdMatch[1]) {
+            guildId = guildIdMatch[1];
+          }
+        }
+        
+        console.log(`[ChatContext] Guild chat message, guildId: ${guildId || 'unknown'}`);
+      }
+      
+      // Create an optimistic message to show immediately
+      const optimisticId = `opt-${Date.now()}`;
+      const optimisticMessage = {
+        id: optimisticId,
+        content: content,
+        sender: user || JSON.parse(localStorage.getItem('userData') || '{}'),
+        roomId: roomId,
+        timestamp: new Date().toISOString(),
+        chatType: effectiveChatType,
+        isOptimistic: true,
+        transactionId: effectiveTransactionId
+      };
+      
+      // Add guildId for guild messages
+      if (effectiveChatType === 'GUILD' && guildId) {
+        optimisticMessage.guildId = guildId;
+      }
+      
+      // Add optimistic message to state
+      console.log('[ChatContext] Adding optimistic message to state:', optimisticMessage);
+      setMessages(prev => [...prev, optimisticMessage]);
+      
+      // Send the message via API
+      console.log('[ChatContext] Sending message via ChatServices...');
+      const response = await sendChatMessage(roomId, content, effectiveChatType, effectiveTransactionId);
+      console.log('[ChatContext] Message send response:', response);
+      
+      // Replace optimistic message with real message
+      if (response) {
+        console.log('[ChatContext] Replacing optimistic message with real message');
+        const enhancedResponse = {
+          ...response,
+          fromCurrentUser: true,
+          chatType: effectiveChatType,
+          transactionId: effectiveTransactionId // Add transaction ID to track the message
+        };
+        
+        // Add guildId to the response if it's a guild message
+        if (effectiveChatType === 'GUILD' && guildId && !enhancedResponse.guildId) {
+          enhancedResponse.guildId = guildId;
+        }
+        
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === optimisticId ? enhancedResponse : msg
+          )
+        );
+      }
+      
+      // Return the message object from the response
+      return response;
+    } catch (error) {
+      console.error('[ChatContext] Error sending message:', error);
+      
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => !msg.isOptimistic || msg.content !== content));
+      
+      throw error;
     }
   }, [currentRoom]);
 
-  // Connect to WebSocket only when authenticated and in a non-login page
-  useEffect(() => {
-    // Only attempt to connect if authenticated
-    if (!isUserAuthenticated) {
-      // Make sure we're disconnected if not authenticated
+  // Delete a message
+  const deleteMessage = useCallback(async (messageId, roomId, uniqueId, transactionId) => {
+    if (!messageId || !roomId) {
+      throw new Error('Message ID and room ID are required');
+    }
+    
+    try {
+      // Generate transaction ID if not provided
+      const txId = transactionId || `ui-delete-${messageId}-${Date.now()}`;
+      
+      // Mark as processed to avoid duplicates
+      processedDeleteTransactionsRef.current.add(txId);
+      
+      // Call the API to delete the message
+      await deleteMessageService(messageId, roomId, uniqueId);
+      
+      // Also send WebSocket delete message for immediate update
       if (ChatWebSocketService.isConnected()) {
-        ChatWebSocketService.disconnect();
-        setWebSocketStatus('disconnected');
+        const deleteData = {
+          messageId: messageId,
+          roomId: roomId,
+          uniqueId: uniqueId,
+          type: 'delete',
+          chatType: currentRoom?.type || 'GLOBAL',
+          transactionId: txId
+        };
+        
+        await ChatWebSocketService.deleteMessage(deleteData);
       }
-      return;
-    }
-    
-    // Now we know user is authenticated, connect if disconnected
-    if (webSocketStatus === 'disconnected') {
-      setWebSocketStatus('connecting');
       
-      const connectToWebSocket = async () => {
-        try {
-          await ChatWebSocketService.connect();
-          setWebSocketStatus('connected');
-          console.log('WebSocket connection established successfully');
-          
-          // Once connected, set up global subscriptions
-          if (!subscriptionsRef.current.globalDelete) {
-            console.log('[ChatContext] Setting up global delete event subscription');
-            subscriptionsRef.current.globalDelete = ChatWebSocketService.subscribeToDeleteEvents(
-              'global', 
-              null, 
-              handleDeleteMessage
-            );
-          }
-        } catch (error) {
-          // Avoid showing too many connection attempt errors
-          if (!error.message.includes('Connection attempt already in progress')) {
-            console.error('Failed to connect to chat service:', error);
-          }
-          
-          // Still set status to connected if we're in fallback mode
-          // This ensures the UI doesn't keep trying to reconnect
-          if (error.message.includes('Connection attempt timed out')) {
-            console.warn('Operating in fallback mode with REST API');
-            // Don't set to disconnected, just leave in "connecting" state
-            // which will prevent further connection attempts
-          } else {
-            setWebSocketStatus('disconnected');
-          }
+      return true;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
+    }
+  }, [currentRoom]);
+
+  // Initialize WebSocket connection and set up global chat handler
+  useEffect(() => {
+    if (!isUserAuthenticated) return;
+    
+    // Attempt to connect WebSocket
+    ChatWebSocketService.connect()
+      .then(() => {
+        setWebSocketStatus('connected');
+        
+        // Set up global delete event subscription
+        if (!subscriptionsRef.current.globalDelete) {
+          subscriptionsRef.current.globalDelete = ChatWebSocketService.subscribeToDeleteEvents(
+            'global',
+            null,
+            handleDeleteMessage
+          );
         }
-      };
-      
-      connectToWebSocket();
-    }
+      })
+      .catch(error => {
+        console.error('Failed to connect to WebSocket:', error);
+        setWebSocketStatus('error');
+      });
     
-    // Setup event listeners for connection status changes
-    const handleOpen = () => {
-      setWebSocketStatus('connected');
-      // Setup global delete subscription on reconnection
-      if (!subscriptionsRef.current.globalDelete) {
-        console.log('[ChatContext] Setting up global delete event subscription after reconnection');
-        subscriptionsRef.current.globalDelete = ChatWebSocketService.subscribeToDeleteEvents(
-          'global', 
-          null, 
-          handleDeleteMessage
-        );
-      }
-    };
+    // Set up event listeners for connection status changes
+    const handleOpen = () => setWebSocketStatus('connected');
     const handleClose = () => setWebSocketStatus('disconnected');
-    const handleError = () => {
-      // Don't set to disconnected immediately, let the connect timeout handle it
-      console.warn('WebSocket error event received');
-    };
+    const handleError = () => setWebSocketStatus('error');
     
     window.addEventListener('ws:open', handleOpen);
     window.addEventListener('ws:close', handleClose);
     window.addEventListener('ws:error', handleError);
     
-    // Cleanup on unmount or auth change
+    // Cleanup function
     return () => {
-      // Remove event listeners
       window.removeEventListener('ws:open', handleOpen);
       window.removeEventListener('ws:close', handleClose);
       window.removeEventListener('ws:error', handleError);
@@ -591,9 +556,6 @@ export const ChatProvider = ({ children }) => {
       if (subscriptionsRef.current.message) {
         subscriptionsRef.current.message.unsubscribe();
       }
-      if (subscriptionsRef.current.typing) {
-        subscriptionsRef.current.typing.unsubscribe();
-      }
       if (subscriptionsRef.current.delete) {
         subscriptionsRef.current.delete.unsubscribe();
       }
@@ -601,12 +563,14 @@ export const ChatProvider = ({ children }) => {
         subscriptionsRef.current.globalDelete.unsubscribe();
       }
       
-      // Do not disconnect WebSocket on component unmount
-      // as it should persist across the application
-      // Only disconnect on logout which is handled elsewhere
+      // Remove any direct handlers
+      if (subscriptionsRef.current.directHandler) {
+        ChatWebSocketService.removeHandler(subscriptionsRef.current.directHandler);
+      }
     };
-  }, [webSocketStatus, isUserAuthenticated, handleDeleteMessage]);
+  }, [isUserAuthenticated, handleDeleteMessage]);
 
+  // Context value
   const value = {
     globalChatRoom,
     guildChatRooms,
@@ -615,20 +579,14 @@ export const ChatProvider = ({ children }) => {
     loading,
     error,
     webSocketStatus,
-    typingUsers,
-    fetchGlobalChatRoom: fetchGlobalRoom,
+    fetchGlobalRoom,
     fetchChatRoomByGuildId,
     switchRoom,
     sendMessage,
-    deleteMessage,
-    sendTypingStatus
+    deleteMessage
   };
 
-  return (
-    <ChatContext.Provider value={value}>
-      {children}
-    </ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 };
 
 export const useChat = () => useContext(ChatContext);

@@ -30,7 +30,7 @@ public class ChatMessage {
     private ChatRoom chatRoom;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "sender", nullable = false)
     private User sender;
 
     @Column(nullable = false)
@@ -39,11 +39,4 @@ public class ChatMessage {
     @Column(nullable = false)
     private Instant timestamp;
 
-    /**
-     * Get the chat room this message belongs to
-     * @return The chat room
-     */
-    public ChatRoom getRoom() {
-        return this.chatRoom;
-    }
 }

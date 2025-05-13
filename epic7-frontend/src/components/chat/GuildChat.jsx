@@ -56,11 +56,64 @@ const GuildChat = ({ guildId, guildName }) => {
         console.log(`Attempting to fetch guild chat room for guild ${guildId}...`);
         const roomData = await fetchGuildChatRoom(guildId);
         console.log(`Guild chat room loaded for guild ${guildId}:`, roomData);
+        
+        if (!roomData) {
+          throw new Error("Failed to get a valid chat room");
+        }
+        
+        if (!roomData.id) {
+          console.error("Chat room is missing an ID:", roomData);
+          throw new Error("Chat room is missing an ID");
+        }
+        
         setGuildRoom(roomData);
+        
+        // Ensure the WebSocket connection is established
+        const isWebSocketConnected = ChatWebSocketService.isConnected();
+        console.log(`WebSocket connection status before switching to guild room: ${isWebSocketConnected ? 'Connected' : 'Disconnected'}`);
+        
+        if (!isWebSocketConnected) {
+          try {
+            console.log('Attempting to connect WebSocket...');
+            await ChatWebSocketService.connect();
+            console.log('WebSocket connected successfully');
+          } catch (wsError) {
+            console.warn(`WebSocket connection issue:`, wsError);
+            // Continue anyway as the connection might already be active
+          }
+        }
         
         // Switch to this room in the chat context
         if (roomData) {
-          switchRoom(roomData);
+          // Make sure to pass both the room ID and type to switchRoom
+          console.log(`Switching to guild chat room ${roomData.id} with type GUILD...`);
+          const success = await switchRoom(roomData.id, 'GUILD');
+          
+          if (!success) {
+            console.error(`Failed to switch to guild chat room ${roomData.id}`);
+          } else {
+            console.log(`Successfully switched to guild chat room ${roomData.id}`);
+            
+            // Manually set up WebSocket subscription as a fallback
+            if (ChatWebSocketService.isConnected()) {
+              console.log(`Setting up direct guild chat WebSocket subscription for room ${roomData.id} as fallback...`);
+              const messageHandler = (data) => {
+                console.log(`[GuildChat] Received direct WebSocket message:`, data);
+                if (data && !messageSeenRef.current.has(data.id)) {
+                  messageSeenRef.current.add(data.id);
+                  // Process the message here
+                }
+              };
+              
+              // Store the subscription to clean up later
+              handlerIdRef.current = ChatWebSocketService.subscribeToGuildChat(
+                roomData.id, 
+                messageHandler
+              );
+            } else {
+              console.error('Cannot set up direct WebSocket subscription - connection is closed');
+            }
+          }
         }
       } catch (error) {
         console.error(`Error loading guild chat for guild ${guildId}:`, error);
@@ -147,6 +200,27 @@ const GuildChat = ({ guildId, guildName }) => {
       
       if (!messageData) return;
       
+      // Check for transaction ID to prevent duplicate processing
+      if (messageData.transactionId && ChatWebSocketService.hasProcessedTransaction(messageData.transactionId)) {
+        console.log(`[GuildChat] Skipping already processed message transaction: ${messageData.transactionId}`);
+        return;
+      }
+      
+      // Mark message as processed if it has a transaction ID
+      if (messageData.transactionId) {
+        ChatWebSocketService.markTransactionProcessed(messageData.transactionId);
+      }
+      
+      // Extract guildId from messageData or from guildRoom
+      const messageGuildId = messageData.guildId || messageData.groupId || (guildRoom && guildRoom.groupId);
+      const currentGuildId = guildId || (guildRoom && guildRoom.groupId);
+      
+      // Skip messages for other guilds if guildId is specified
+      if (messageGuildId && currentGuildId && messageGuildId !== currentGuildId) {
+        console.log(`[GuildChat] Skipping message for different guild: ${messageGuildId} vs ${currentGuildId}`);
+        return;
+      }
+      
       // Handle delete events first using the enhanced detection
       const isDeleteMessage = 
         // Standard delete type
@@ -218,9 +292,13 @@ const GuildChat = ({ guildId, guildName }) => {
       setLocalMessages(prev => {
         // First check if this is a confirmation of an optimistic message
         const optimisticIndex = prev.findIndex(m => 
-          m.isOptimistic && 
-          m.content === message.content && 
-          m.sender?.id === message.sender?.id
+          (m.isOptimistic && 
+           m.content === message.content && 
+           m.sender?.id === message.sender?.id) ||
+          // Also match by clientId if it was included
+          (m.isOptimistic && message.clientId && m.id === message.clientId) ||
+          // Also match by uniqueId if available
+          (m.uniqueId && message.uniqueId && m.uniqueId === message.uniqueId)
         );
         
         if (optimisticIndex !== -1) {
@@ -234,8 +312,24 @@ const GuildChat = ({ guildId, guildName }) => {
         }
         
         // Check if message already exists to avoid duplicates
-        const isDuplicate = prev.some(m => m.id === message.id);
-        if (isDuplicate) return prev;
+        const isDuplicate = prev.some(m => 
+          // Match by ID
+          (m.id && message.id && m.id.toString() === message.id.toString()) ||
+          // Match by uniqueId
+          (m.uniqueId && message.uniqueId && m.uniqueId === message.uniqueId) ||
+          // Match by clientId (from WebSocket)
+          (m.clientId && message.clientId && m.clientId === message.clientId) ||
+          // Match by content and sender within a short time window (likely duplicate)
+          (m.content === message.content && 
+           m.sender?.id === message.sender?.id &&
+           m.timestamp && message.timestamp &&
+           Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) < 3000)
+        );
+        
+        if (isDuplicate) {
+          console.log(`[GuildChat] Skipping duplicate message:`, message.id || message.uniqueId);
+          return prev;
+        }
         
         // Add the new message
         return [...prev, message];
@@ -293,6 +387,12 @@ const GuildChat = ({ guildId, guildName }) => {
       return;
     }
     
+    // Create a unique transaction ID to track this send operation
+    const transactionId = `send-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    
+    // Mark transaction as processed to prevent duplicate handling
+    ChatWebSocketService.markTransactionProcessed(transactionId);
+    
     // Create optimistic message
     const optimisticId = `temp-${Date.now()}`;
     const uniqueId = `msg-${optimisticId}-${Math.random().toString(36).substr(2, 9)}`;
@@ -307,61 +407,101 @@ const GuildChat = ({ guildId, guildName }) => {
       fromCurrentUser: true,
       isOptimistic: true,
       sending: true, // Mark as sending
-      chatType: "GUILD" // Explicitly mark as GUILD chat type
+      chatType: "GUILD", // Explicitly mark as GUILD chat type
+      guildId: guildId, // Ensure guild ID is included
+      transactionId // Add transaction ID for tracking
     };
     
     // Add optimistic message immediately
     setLocalMessages(prev => [...prev, optimisticMessage]);
     
-    // Send via WebSocket first for fastest delivery
+    // Track if we've already received a confirmation through any channel
+    let messageConfirmed = false;
+    
     try {
-      await ChatWebSocketService.sendMessage({
-        roomId: guildRoom.id,
-        content: content,
-        clientId: optimisticId, // Include the optimistic ID to match messages
-        chatType: "GUILD" // Explicitly set chat type to GUILD
-      });
+      // CHOOSE ONE PRIMARY CHANNEL:
+      // Either use WebSocket OR REST API, not both
       
-      // If no error, the message will be confirmed by the incoming WebSocket broadcast
-      // If there's no WebSocket response within 1s, we'll fall back to REST API
-      setTimeout(async () => {
-        const messageExists = localMessages.some(m => 
-          (m.id === optimisticId && !m.sending) || // Already got websocket confirmation
-          m.clientId === optimisticId // Or matched by client ID
-        );
-        
-        if (!messageExists) {
-          // WebSocket broadcast failed or is taking too long, try REST API as fallback
-          console.log('[GuildChat] WebSocket broadcast not received, falling back to REST API');
-          try {
-            await sendMessage(guildRoom.id, content, currentUser, "GUILD"); // Pass chat type to REST API call
-          } catch (error) {
-            console.error('[GuildChat] Failed to send message via REST API:', error);
-            // Mark the message as failed
-            setLocalMessages(prev => 
-              prev.map(m => m.id === optimisticId 
-                ? { ...m, sending: false, failed: true } 
-                : m
-              )
-            );
-          }
-        }
-      }, 1000); // Wait 1 second before falling back to REST API
-    } catch (wsError) {
-      console.error('[GuildChat] WebSocket message send failed:', wsError);
-      // WebSocket failed, try REST API immediately
+      // We'll use WebSocket as primary for lowest latency and only fall back to REST API
+      console.log(`[GuildChat] Sending message via WebSocket with transactionId: ${transactionId}`);
+      
       try {
-        await sendMessage(guildRoom.id, content, currentUser, "GUILD"); // Pass chat type to REST API call
-      } catch (restError) {
-        console.error('[GuildChat] Failed to send message via REST API:', restError);
-        // Mark the message as failed
-        setLocalMessages(prev => 
-          prev.map(m => m.id === optimisticId 
-            ? { ...m, sending: false, failed: true } 
-            : m
-          )
-        );
+        await ChatWebSocketService.sendMessage({
+          roomId: guildRoom.id,
+          content: content,
+          clientId: optimisticId, // Include the optimistic ID to match messages
+          chatType: "GUILD", // Explicitly set chat type to GUILD
+          guildId: guildId, // Include the guild ID directly
+          transactionId: transactionId // Include transaction ID
+        });
+        
+        // Wait for confirmation via WebSocket
+        // If no response within 3s, we'll fall back to REST API
+        setTimeout(async () => {
+          // Skip if we've already handled confirmation
+          if (messageConfirmed) return;
+          
+          // Check if message is already confirmed in local state
+          const isConfirmed = localMessages.some(m => 
+            (m.id !== optimisticId && !m.isOptimistic && m.uniqueId === uniqueId) || // Got confirmed message with same uniqueId
+            (m.id === optimisticId && !m.sending) || // Optimistic message marked as sent
+            (m.clientId === optimisticId && !m.isOptimistic) || // Or matched by client ID and not optimistic
+            (m.transactionId === transactionId && !m.isOptimistic) // Or matched by transaction ID and not optimistic
+          );
+          
+          if (!isConfirmed) {
+            console.log(`[GuildChat] WebSocket confirmation not received after 3s, falling back to REST API`);
+            messageConfirmed = true; // Mark as confirmed to prevent duplicate handling
+            
+            try {
+              // Only use REST API as a fallback
+              // Using correct parameter order: content, roomId, user, chatType, transactionId
+              await sendMessage(content, guildRoom.id, currentUser, "GUILD", transactionId);
+            } catch (restError) {
+              console.error('[GuildChat] Failed to send message via REST API fallback:', restError);
+              
+              // Mark the message as failed if it still exists in state
+              setLocalMessages(prev => 
+                prev.map(m => m.id === optimisticId 
+                  ? { ...m, sending: false, failed: true } 
+                  : m
+                )
+              );
+            }
+          }
+        }, 3000); // Wait 3 seconds before falling back to REST API
+        
+      } catch (wsError) {
+        console.error('[GuildChat] WebSocket message send failed:', wsError);
+        
+        // WebSocket failed, use REST API immediately
+        messageConfirmed = true; // Mark as confirmed to prevent duplicate handling
+        
+        try {
+          // Using correct parameter order: content, roomId, user, chatType, transactionId
+          await sendMessage(content, guildRoom.id, currentUser, "GUILD", transactionId);
+        } catch (restError) {
+          console.error('[GuildChat] Failed to send message via REST API:', restError);
+          
+          // Mark the message as failed
+          setLocalMessages(prev => 
+            prev.map(m => m.id === optimisticId 
+              ? { ...m, sending: false, failed: true } 
+              : m
+            )
+          );
+        }
       }
+    } catch (error) {
+      console.error('[GuildChat] Error sending guild message:', error);
+      
+      // Mark the message as failed
+      setLocalMessages(prev => 
+        prev.map(m => m.id === optimisticId 
+          ? { ...m, sending: false, failed: true } 
+          : m
+        )
+      );
     }
   };
 

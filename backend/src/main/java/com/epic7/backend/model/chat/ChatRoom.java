@@ -31,7 +31,7 @@ public class ChatRoom {
     private ChatType type; // GUILD, GLOBAL, FIGHT
 
     @Column(nullable = true)
-    private Long groupId; // ID of the guild or the fight if applicable
+    private Long groupId; // ID of the guild or the fight if applicable or null if global chat
 
     @ElementCollection
     @CollectionTable(name = "chat_room_users", joinColumns = @JoinColumn(name = "chat_room_id"))
@@ -41,5 +41,5 @@ public class ChatRoom {
     @ElementCollection
     @CollectionTable(name = "chat_room_admin", joinColumns = @JoinColumn(name = "chat_room_id"))
     @Column(name = "admin_user_id")
-    private List<Long> adminUserIds; // List of user IDs connected to this chat room
+    private List<Long> adminUserIds; // List of admin user IDs connected to this chat room
 }

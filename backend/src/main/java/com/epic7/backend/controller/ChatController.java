@@ -70,7 +70,9 @@ public class ChatController {
     @GetMapping("/rooms/global")
     public ResponseEntity<ApiResponseDTO> getGlobalChatRoom(HttpServletRequest request) {
         log.info("Getting global chat room");
-        User user = getUserFromRequest(request);
+
+        // Make sure the user is authenticated
+        getUserFromRequest(request);
         
         // Get or create the global chat room
         ChatRoom globalRoom = chatService.getOrCreateGlobalChatRoom();
@@ -85,56 +87,6 @@ public class ChatController {
             ApiResponseDTO.success(SUCCESS_CHAT_ROOM_FOUND, "Global chat room retrieved successfully", 
                 ChatRoomDTO.fromEntity(globalRoom))
         );
-    }
-    
-    /**
-     * Get a chat room by type and optional group ID
-     */
-    @GetMapping("/rooms/by-type")
-    public ResponseEntity<ApiResponseDTO> getChatRoomByType(
-            @RequestParam("type") String type,
-            @RequestParam(value = "groupId", required = false) Long groupId,
-            HttpServletRequest request) {
-        
-        log.info("Getting chat room by type: {} and groupId: {}", type, groupId);
-        User user = getUserFromRequest(request);
-        
-        ChatRoom chatRoom;
-        try {
-            ChatType roomType = ChatType.valueOf(type.toUpperCase());
-            
-            if (roomType == ChatType.GLOBAL) {
-                chatRoom = chatService.getOrCreateGlobalChatRoom();
-            } else {
-                if (groupId == null) {
-                    return ResponseEntity.badRequest().body(
-                        ApiResponseDTO.error(ERROR_MISSING_GROUP_ID, "Group ID is required for non-global chat rooms")
-                    );
-                }
-                
-                chatRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(roomType, groupId);
-            }
-            
-            if (chatRoom == null) {
-                return ResponseEntity.badRequest().body(
-                    ApiResponseDTO.error(ERROR_CHAT_ROOM_ERROR, "Could not retrieve chat room")
-                );
-            }
-            
-            return ResponseEntity.ok(
-                ApiResponseDTO.success(SUCCESS_CHAT_ROOM_FOUND, "Chat room retrieved successfully", 
-                    ChatRoomDTO.fromEntity(chatRoom))
-            );
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(
-                ApiResponseDTO.error(ERROR_INVALID_ROOM_TYPE, "Invalid chat room type: " + type)
-            );
-        } catch (Exception e) {
-            log.error("Error retrieving chat room", e);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération du salon de discussion."));
-        }
     }
     
     /**
@@ -157,7 +109,7 @@ public class ChatController {
                 );
             }
             
-            List<ChatMessage> messages = chatService.getChatRoomMessages(roomId, limit);
+            List<ChatMessage> messages = chatService.getRecentMessages(roomId, user.getId(), limit);
             List<ChatMessageDTO> messageDTOs = messages.stream()
                     .map(ChatMessageDTO::fromEntity)
                     .collect(Collectors.toList());
@@ -298,30 +250,7 @@ public class ChatController {
         }
     }
     
-    /**
-     * Get all available chat rooms for the authenticated user
-     */
-    @GetMapping("/rooms")
-    public ResponseEntity<ApiResponseDTO> getAllChatRooms(HttpServletRequest request) {
-        log.info("Getting all chat rooms");
-        User user = getUserFromRequest(request);
-        
-        try {
-            List<ChatRoom> chatRooms = chatService.getAllChatRoomsForUser(user.getId());
-            List<ChatRoomDTO> chatRoomDTOs = chatRooms.stream()
-                    .map(ChatRoomDTO::fromEntity)
-                    .collect(Collectors.toList());
-            
-            return ResponseEntity.ok(
-                ApiResponseDTO.success(SUCCESS_CHAT_ROOMS_FOUND, "Chat rooms retrieved successfully", chatRoomDTOs)
-            );
-        } catch (Exception e) {
-            log.error("Error retrieving chat rooms", e);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponseDTO.error(ERROR_SERVER, "Une erreur est survenue lors de la récupération des salons de discussion."));
-        }
-    }
+
     
     /**
      * Get a guild chat room for a specific guild ID
