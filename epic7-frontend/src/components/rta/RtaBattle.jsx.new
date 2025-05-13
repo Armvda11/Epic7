@@ -133,7 +133,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     
     if (selectedSkillId === skill.id) {
       const defaultTarget = battleState.participants.find(p => skill.action === 'HEAL' ? p.player : !p.player);
-      if (defaultTarget) useSkill(currentHero.id, skill.id, defaultTarget.id);
+      if (defaultTarget) useSkill(skill.id, defaultTarget.id);
     } else {
       setSelectedSkillId(skill.id);
       setSelectedSkillType(skill.action);
@@ -247,8 +247,8 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                     onClick={() => {
                       if (selectedSkillId && selectedSkillType === 'HEAL') {
                         console.log("Utilisation compétence sur allié:", { skillId: selectedSkillId, targetId: hero.id, hero });
-                        // S'assurer que l'ID est traité comme un nombre et inclure l'ID du héros actuel (currentHero.id)
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(hero.id));
+                        // S'assurer que l'ID est traité comme un nombre
+                        useSkill(Number(selectedSkillId), Number(hero.id));
                       }
                     }}
                   />
@@ -282,8 +282,8 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                           typeOfTargetId: typeof enemy.id,
                           enemy 
                         });
-                        // S'assurer que l'ID est traité comme un nombre et inclure l'ID du héros actuel (currentHero.id)
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(enemy.id));
+                        // S'assurer que l'ID est traité comme un nombre
+                        useSkill(Number(selectedSkillId), Number(enemy.id));
                       }
                     }}
                   />

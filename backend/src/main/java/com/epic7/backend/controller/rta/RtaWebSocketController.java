@@ -75,10 +75,43 @@ public class RtaWebSocketController {
             // Récupérer l'état actuel de la bataille
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
             
-            // Envoyer immédiatement l'état initial à tous les abonnés
-            messaging.convertAndSend(
-                "/topic/rta/state/" + battleId,
-                state
+            // Créer une copie personnalisée pour chaque joueur
+            BattleState player1State = new BattleState();
+            BattleState player2State = new BattleState();
+            
+            // Copier les propriétés importantes
+            player1State.setParticipants(state.getParticipants());
+            player1State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            player1State.setRoundCount(state.getRoundCount());
+            player1State.setFinished(state.isFinished());
+            player1State.setLogs(state.getLogs());
+            player1State.setCooldowns(state.getCooldowns());
+            player1State.setPlayer1Id(state.getPlayer1Id());
+            player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setCurrentUserId(state.getPlayer1Id()); // Indiquer que c'est le joueur 1
+            
+            // Copie pour le joueur 2
+            player2State.setParticipants(state.getParticipants());
+            player2State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            player2State.setRoundCount(state.getRoundCount());
+            player2State.setFinished(state.isFinished());
+            player2State.setLogs(state.getLogs());
+            player2State.setCooldowns(state.getCooldowns());
+            player2State.setPlayer1Id(state.getPlayer1Id());
+            player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setCurrentUserId(state.getPlayer2Id()); // Indiquer que c'est le joueur 2
+            
+            // Envoyer l'état personnalisé à chaque joueur
+            messaging.convertAndSendToUser(
+                user.getEmail(),
+                "/queue/rta/state/" + battleId,
+                player1State
+            );
+            
+            messaging.convertAndSendToUser(
+                resp.getOpponent().getEmail(),
+                "/queue/rta/state/" + battleId,
+                player2State
             );
             
             // Envoyer également le tour du premier joueur
@@ -104,20 +137,84 @@ public class RtaWebSocketController {
     @MessageMapping("/rta/action")
     public void action(SkillActionMessage msg, Principal principal) {
         String battleId = msg.getBattleId();
-        log.info("Action reçue de {} pour bataille {}: compétence {} sur cible {}", 
-                principal.getName(), battleId, msg.getSkillId(), msg.getTargetId());
+        Long skillId = msg.getSkillId();
+        Long targetId = msg.getTargetId();
+        
+        // Amélioration des logs pour un meilleur débogage
+        log.info("Action reçue de {} pour bataille {}: compétence {} (type: {}) sur cible {} (type: {})", 
+                principal.getName(), battleId, skillId, skillId != null ? skillId.getClass().getSimpleName() : "null", 
+                targetId, targetId != null ? targetId.getClass().getSimpleName() : "null");
+                
+        // Validation des paramètres
+        if (battleId == null || skillId == null || targetId == null) {
+            log.error("Paramètres invalides pour l'action: battleId={}, skillId={}, targetId={}", 
+                    battleId, skillId, targetId);
+            return;
+        }
 
         try {
             // 1) Appliquer la compétence
-            battleManager.applySkillAction(battleId, msg.getSkillId(), msg.getTargetId());
+            battleManager.applySkillAction(battleId, skillId, targetId);
+            log.info("Compétence appliquée avec succès");
 
             // 2) Récupérer l'état à jour
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
 
-            // 3) Diffuser l'état à tous les clients abonnés
-            messaging.convertAndSend(
-                "/topic/rta/state/" + battleId,
-                state
+            // 3) Créer des états personnalisés pour chaque joueur
+            User currentUser = userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            String currentUserId = currentUser.getId().toString();
+            
+            // Trouver l'autre joueur en fonction de l'ID
+            String otherPlayerId = currentUserId.equals(state.getPlayer1Id()) ? 
+                state.getPlayer2Id() : state.getPlayer1Id();
+                
+            // Trouver l'utilisateur correspondant à l'autre joueur
+            User otherUser = userRepository.findById(Long.parseLong(otherPlayerId))
+                .orElseThrow(() -> new RuntimeException("Adversaire non trouvé"));
+            
+            // Créer une copie personnalisée pour chaque joueur
+            BattleState player1State = new BattleState();
+            BattleState player2State = new BattleState();
+            
+            // Copier les propriétés importantes
+            player1State.setParticipants(state.getParticipants());
+            player1State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            player1State.setRoundCount(state.getRoundCount());
+            player1State.setFinished(state.isFinished());
+            player1State.setLogs(state.getLogs());
+            player1State.setCooldowns(state.getCooldowns());
+            player1State.setPlayer1Id(state.getPlayer1Id());
+            player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setCurrentUserId(state.getPlayer1Id());
+            
+            player2State.setParticipants(state.getParticipants());
+            player2State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            player2State.setRoundCount(state.getRoundCount());
+            player2State.setFinished(state.isFinished());
+            player2State.setLogs(state.getLogs());
+            player2State.setCooldowns(state.getCooldowns());
+            player2State.setPlayer1Id(state.getPlayer1Id());
+            player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setCurrentUserId(state.getPlayer2Id());
+            
+            // Envoyer l'état personnalisé à chaque joueur
+            User player1 = userRepository.findById(Long.parseLong(state.getPlayer1Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 1 non trouvé"));
+                
+            User player2 = userRepository.findById(Long.parseLong(state.getPlayer2Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 2 non trouvé"));
+                
+            messaging.convertAndSendToUser(
+                player1.getEmail(),
+                "/queue/rta/state/" + battleId,
+                player1State
+            );
+            
+            messaging.convertAndSendToUser(
+                player2.getEmail(),
+                "/queue/rta/state/" + battleId,
+                player2State
             );
 
             if (state.isFinished()) {

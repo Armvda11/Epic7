@@ -63,6 +63,10 @@ public class RtaBattleServiceImpl implements BattleManager {
         state.setRoundCount(1);
         state.setFinished(false);
         state.setLogs(new ArrayList<>(List.of("⚔️ Combat RTA démarré !")));
+        
+        // Stockage explicite des IDs des joueurs pour faciliter les vérifications côté client
+        state.setPlayer1Id(player1Id);
+        state.setPlayer2Id(player2Id);
 
         // Avancer jusqu'au premier tour joueur
         state = battleEngine.processUntilNextPlayer(state);
@@ -74,19 +78,50 @@ public class RtaBattleServiceImpl implements BattleManager {
 
     @Override
     public boolean applySkillAction(String battleId, Long skillId, Long targetId) {
+        if (battleId == null || skillId == null || targetId == null) {
+            throw new IllegalArgumentException("Paramètres invalides pour applySkillAction: " +
+                "battleId=" + battleId + ", skillId=" + skillId + ", targetId=" + targetId);
+        }
+        
         BattleState state = getBattleState(battleId);
+        if (state == null) {
+            throw new IllegalStateException("Bataille introuvable: " + battleId);
+        }
         
         // Vérifier si c'est bien au tour du joueur qui fait l'action
+        if (state.getCurrentTurnIndex() >= state.getParticipants().size()) {
+            state.getLogs().add("❌ Index de tour invalide: " + state.getCurrentTurnIndex());
+            return false;
+        }
+        
         BattleParticipant currentParticipant = state.getParticipants().get(state.getCurrentTurnIndex());
         
-        // Vérifier que la cible est valide
-        BattleParticipant targetParticipant = state.getParticipants().stream()
-                .filter(p -> p.getId().equals(targetId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Cible invalide: " + targetId));
+        // Logging amélioré pour le débogage
+        state.getLogs().add("ℹ️ Tentative d'utilisation de compétence " + skillId + " par " + 
+            currentParticipant.getName() + " sur cible " + targetId);
         
-        // Utiliser la compétence et obtenir le résultat
-        skillEngine.useSkillWithResult(state, skillId, targetId);
+        try {
+            // Vérification plus robuste que la cible est valide
+            BattleParticipant targetParticipant = null;
+            
+            for (BattleParticipant p : state.getParticipants()) {
+                if (p != null && p.getId() != null && p.getId().equals(targetId)) {
+                    targetParticipant = p;
+                    break;
+                }
+            }
+            
+            if (targetParticipant == null) {
+                state.getLogs().add("❌ Cible invalide: " + targetId);
+                return false;
+            }
+            
+            // Utiliser la compétence et obtenir le résultat
+            skillEngine.useSkillWithResult(state, skillId, targetId);
+        } catch (Exception e) {
+            state.getLogs().add("❌ Erreur lors de l'utilisation de la compétence: " + e.getMessage());
+            return false;
+        }
         
         // Vérifier si combat terminé
         if (checkBattleEnd(state)) {
