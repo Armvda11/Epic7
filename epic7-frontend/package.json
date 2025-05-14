@@ -9,7 +9,9 @@
     "build:css": "tailwindcss build src/index.css -o dist/styles.css",
     "lint": "eslint .",
     "convert-sprites": "node scripts/convert-sprites.cjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ws-test": "node test-websocket.js",
+    "ws-diagnose": "vite --config vite.config.js websocket-test.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
