@@ -133,7 +133,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     
     if (selectedSkillId === skill.id) {
       const defaultTarget = battleState.participants.find(p => skill.action === 'HEAL' ? p.player : !p.player);
-      if (defaultTarget) useSkill(currentHero.id, skill.id, defaultTarget.id);
+      if (defaultTarget) useSkill(skill.id, defaultTarget.id);
     } else {
       setSelectedSkillId(skill.id);
       setSelectedSkillType(skill.action);
@@ -161,33 +161,10 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     if (!battleState) return null;
     
     const total = battleState.participants.length;
-    const currentIdx = battleState.currentTurnIndex;
-    
-    // Vérifier que l'index actuel est valide
-    if (currentIdx < 0 || currentIdx >= total) {
-      console.error("Index de tour actuel invalide:", currentIdx);
-      return 0; // Retourner 0 par défaut
+    for (let i = 1; i < total; i++) {
+      const idx = (battleState.currentTurnIndex + i) % total;
+      if (battleState.participants[idx].currentHp > 0) return idx;
     }
-    
-    // Chercher le prochain participant vivant
-    for (let i = 1; i < total * 2; i++) { // Multiplié par 2 pour être sûr de faire un tour complet
-      const idx = (currentIdx + i) % total;
-      
-      // Vérifier que l'index calculé est valide
-      if (idx < 0 || idx >= total) {
-        console.error("Index calculé invalide:", idx);
-        continue;
-      }
-      
-      // Vérifier que le participant existe et est vivant
-      const participant = battleState.participants[idx];
-      if (participant && participant.currentHp > 0) {
-        console.log("Prochain tour:", participant.name, "à l'index", idx);
-        return idx;
-      }
-    }
-    
-    console.warn("Aucun participant vivant trouvé pour le prochain tour");
     return null;
   };
 
@@ -270,8 +247,8 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                     onClick={() => {
                       if (selectedSkillId && selectedSkillType === 'HEAL') {
                         console.log("Utilisation compétence sur allié:", { skillId: selectedSkillId, targetId: hero.id, hero });
-                        // S'assurer que l'ID est traité comme un nombre et inclure l'ID du héros actuel (currentHero.id)
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(hero.id));
+                        // S'assurer que l'ID est traité comme un nombre
+                        useSkill(Number(selectedSkillId), Number(hero.id));
                       }
                     }}
                   />
@@ -305,8 +282,8 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                           typeOfTargetId: typeof enemy.id,
                           enemy 
                         });
-                        // S'assurer que l'ID est traité comme un nombre et inclure l'ID du héros actuel (currentHero.id)
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(enemy.id));
+                        // S'assurer que l'ID est traité comme un nombre
+                        useSkill(Number(selectedSkillId), Number(enemy.id));
                       }
                     }}
                   />

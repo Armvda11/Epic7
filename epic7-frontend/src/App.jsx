@@ -42,7 +42,7 @@ function App() {
       </Routes>
 
       {/* Toast container en-dehors des Routes */}
-      <ToastContainer 
+      {/* <ToastContainer 
         position="top-center" 
         autoClose={5000}
         closeOnClick={true}
@@ -53,7 +53,7 @@ function App() {
           width: "auto",
           maxWidth: "500px"
         }}
-      />
+      /> */}
     </MailboxProvider>
   );
 }

@@ -44,8 +44,18 @@ public class ParticipantFactory {
                 totalAttack,
                 totalDefense,
                 totalSpeed,
-                true // joueur
+                true, // joueur
+                null  // userId sera défini dans le service RTA
         );
+    }
+    
+    /**
+     * Crée un participant à partir d'un PlayerHero avec l'ID de l'utilisateur (pour RTA).
+     */
+    public BattleParticipant fromPlayerHeroWithUserId(PlayerHero playerHero, String userId) {
+        BattleParticipant participant = fromPlayerHero(playerHero);
+        participant.setUserId(userId);
+        return participant;
     }
 
     /**
@@ -59,7 +69,8 @@ public class ParticipantFactory {
                 boss.getBaseAttack(),
                 boss.getBaseDefense(),
                 boss.getBaseSpeed(),
-                false // boss = ennemi
+                false, // boss = ennemi
+                null   // pas d'utilisateur associé
         );
     }
 }

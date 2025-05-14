@@ -20,4 +20,5 @@ public class BattleParticipant {
     private int defense;       // Défense
     private int speed;         // Vitesse
     private boolean isPlayer;  // true si héros du joueur, false si boss
-} 
+    private String userId;     // ID de l'utilisateur propriétaire du héros (pour RTA)
+}

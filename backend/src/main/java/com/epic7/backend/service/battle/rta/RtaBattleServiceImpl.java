@@ -2,6 +2,7 @@ package com.epic7.backend.service.battle.rta;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -35,15 +36,23 @@ public class RtaBattleServiceImpl implements BattleManager {
                                   List<Long> player2HeroIds) {
         // Construire les participants
         List<BattleParticipant> participants = new ArrayList<>();
+        
+        // Ajouter les héros du joueur 1 avec son ID
+        String player1Id = player1.getId().toString();
         for (Long id : player1HeroIds) {
             PlayerHero ph = playerHeroRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Héros introuvable : " + id));
-            participants.add(participantFactory.fromPlayerHero(ph));
+            BattleParticipant participant = participantFactory.fromPlayerHeroWithUserId(ph, player1Id);
+            participants.add(participant);
         }
+        
+        // Ajouter les héros du joueur 2 avec son ID
+        String player2Id = player2.getId().toString();
         for (Long id : player2HeroIds) {
             PlayerHero ph = playerHeroRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Héros introuvable : " + id));
-            participants.add(participantFactory.fromPlayerHero(ph));
+            BattleParticipant participant = participantFactory.fromPlayerHeroWithUserId(ph, player2Id);
+            participants.add(participant);
         }
 
         // Ordonner par vitesse et initialiser l'état
@@ -54,6 +63,10 @@ public class RtaBattleServiceImpl implements BattleManager {
         state.setRoundCount(1);
         state.setFinished(false);
         state.setLogs(new ArrayList<>(List.of("⚔️ Combat RTA démarré !")));
+        
+        // Stockage explicite des IDs des joueurs pour faciliter les vérifications côté client
+        state.setPlayer1Id(player1Id);
+        state.setPlayer2Id(player2Id);
 
         // Avancer jusqu'au premier tour joueur
         state = battleEngine.processUntilNextPlayer(state);
@@ -65,12 +78,163 @@ public class RtaBattleServiceImpl implements BattleManager {
 
     @Override
     public boolean applySkillAction(String battleId, Long skillId, Long targetId) {
-        BattleState state = getBattleState(battleId);
-        skillEngine.useSkillWithResult(state, skillId, targetId);
-        if (state.isFinished()) {
-            endRtaBattle(battleId, null);
+        if (battleId == null || skillId == null || targetId == null) {
+            throw new IllegalArgumentException("Paramètres invalides pour applySkillAction: " +
+                "battleId=" + battleId + ", skillId=" + skillId + ", targetId=" + targetId);
         }
+        
+        BattleState state = getBattleState(battleId);
+        if (state == null) {
+            throw new IllegalStateException("Bataille introuvable: " + battleId);
+        }
+        
+        // Vérifier si l'index de tour est valide et le corriger si besoin
+        if (state.getCurrentTurnIndex() < 0 || state.getCurrentTurnIndex() >= state.getParticipants().size()) {
+            state.getLogs().add("⚠️ Index de tour invalide: " + state.getCurrentTurnIndex() + ", correction...");
+            
+            // Trouver le premier héros vivant pour corriger l'index
+            for (int i = 0; i < state.getParticipants().size(); i++) {
+                if (state.getParticipants().get(i).getCurrentHp() > 0) {
+                    state.setCurrentTurnIndex(i);
+                    break;
+                }
+            }
+            
+            if (state.getCurrentTurnIndex() < 0 || state.getCurrentTurnIndex() >= state.getParticipants().size()) {
+                state.getLogs().add("❌ Impossible de trouver un héros vivant pour corriger l'index.");
+                return false;
+            }
+        }
+        
+        BattleParticipant currentParticipant = state.getParticipants().get(state.getCurrentTurnIndex());
+        
+        // Logging amélioré pour le débogage
+        state.getLogs().add("ℹ️ Tentative d'utilisation de compétence " + skillId + " par " + 
+            currentParticipant.getName() + " (ID: " + currentParticipant.getId() + ", userId: " + 
+            currentParticipant.getUserId() + ") sur cible " + targetId);
+        
+        try {
+            // Vérification plus robuste que la cible est valide
+            BattleParticipant targetParticipant = null;
+            
+            for (BattleParticipant p : state.getParticipants()) {
+                if (p != null && p.getId() != null && p.getId().equals(targetId)) {
+                    targetParticipant = p;
+                    break;
+                }
+            }
+            
+            if (targetParticipant == null) {
+                state.getLogs().add("❌ Cible invalide: " + targetId);
+                return false;
+            }
+            
+            // Utiliser la compétence et obtenir le résultat
+            skillEngine.useSkillWithResult(state, skillId, targetId);
+            state.getLogs().add("✅ Compétence " + skillId + " utilisée avec succès");
+        } catch (Exception e) {
+            state.getLogs().add("❌ Erreur lors de l'utilisation de la compétence: " + e.getMessage());
+            return false;
+        }
+        
+        // Vérifier si combat terminé en utilisant la logique spécifique aux combats RTA
+        if (checkBattleEnd(state)) {
+            state.getLogs().add("⚔️ Combat RTA terminé !");
+            state.setFinished(true);
+            return true;
+        }
+        
+        // Passer au joueur suivant avec une vérification
+        try {
+            battleEngine.nextTurn(state);
+            
+            // Vérification supplémentaire après le changement de tour
+            int newIndex = state.getCurrentTurnIndex();
+            if (newIndex < 0 || newIndex >= state.getParticipants().size()) {
+                state.getLogs().add("⚠️ L'index après nextTurn est invalide: " + newIndex + ", correction...");
+                state.setCurrentTurnIndex(0); // Reset à 0 par sécurité
+            } else {
+                BattleParticipant nextParticipant = state.getParticipants().get(newIndex);
+                if (nextParticipant.getCurrentHp() <= 0) {
+                    state.getLogs().add("⚠️ Le prochain participant est mort, nouvelle tentative...");
+                    battleEngine.nextTurn(state); // Essayer encore une fois
+                }
+            }
+        } catch (Exception e) {
+            state.getLogs().add("⚠️ Erreur lors du changement de tour: " + e.getMessage());
+            // Ne pas échouer complètement, essayer de continuer
+        }
+        
         return true;
+    }
+    
+    /**
+     * Vérifie si le combat est terminé (un camp a été éliminé).
+     */
+    /**
+     * Vérifie si un des deux joueurs a gagné dans le mode RTA (tous les héros de l'autre sont morts)
+     * @param state L'état actuel du combat
+     * @return true si un joueur a gagné, false sinon
+     */
+    private boolean checkBattleEnd(BattleState state) {
+        // Récupérer tous les userId uniques des participants
+        Set<String> userIds = state.getParticipants().stream()
+            .map(BattleParticipant::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        
+        if (userIds.size() != 2) {
+            // Cas anormal: il devrait y avoir exactement 2 joueurs
+            state.getLogs().add("⚠️ Nombre incorrect de joueurs dans la partie RTA: " + userIds.size());
+            return false;
+        }
+        
+        // Pour chaque joueur, vérifier s'il a encore des héros vivants
+        Map<String, Boolean> playerAliveStatus = new HashMap<>();
+        Map<String, String> playerNames = new HashMap<>();
+        
+        for (String userId : userIds) {
+            // Vérifier si le joueur a encore des héros vivants
+            boolean isAlive = state.getParticipants().stream()
+                .filter(p -> userId.equals(p.getUserId()))
+                .anyMatch(p -> p.getCurrentHp() > 0);
+            
+            playerAliveStatus.put(userId, isAlive);
+            
+            // Récupérer le nom d'un des héros pour afficher un nom à la place de l'ID
+            String playerName = state.getParticipants().stream()
+                .filter(p -> userId.equals(p.getUserId()))
+                .map(BattleParticipant::getName)
+                .findFirst()
+                .orElse("Joueur " + userId);
+                
+            playerNames.put(userId, playerName);
+        }
+        
+        // Vérifier si un des joueurs n'a plus de héros vivants
+        if (playerAliveStatus.containsValue(false)) {
+            // Trouver le gagnant
+            String winnerId = null;
+            
+            for (Map.Entry<String, Boolean> entry : playerAliveStatus.entrySet()) {
+                if (entry.getValue()) { // Ce joueur est vivant
+                    winnerId = entry.getKey();
+                    break;
+                }
+            }
+            
+            // Ajouter le résultat aux logs avec un meilleur message
+            if (winnerId != null) {
+                String winnerName = playerNames.get(winnerId);
+                state.getLogs().add("🏆 " + winnerName + " remporte la victoire!");
+            } else {
+                state.getLogs().add("⚠️ Match nul! Tous les héros sont morts.");
+            }
+            
+            return true;
+        }
+        
+        return false;
     }
 
     @Override

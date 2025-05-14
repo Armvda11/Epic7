@@ -8,8 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SkillActionMessage {
-    // qu’on aura reçu après avoir obtenu le battleId
-    private String battleId;
-    private Long skillId;
-    private Long targetId;
+    private String battleId;  // Identifiant de la bataille
+    private Long skillId;     // ID de la compétence utilisée
+    private Long targetId;    // ID de la cible (participant)
 }

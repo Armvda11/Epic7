@@ -108,4 +108,39 @@ public class Skill {
         return SkillCategory.ACTIVE.equals(this.category);
     }
 
+    /**
+     * Vérifie si la cible est valide pour cette compétence.
+     * @param actor Le combattant qui utilise la compétence
+     * @param target La cible potentielle
+     * @return true si la cible est valide, false sinon
+     */
+    public boolean isTargetMatching(com.epic7.backend.service.battle.model.BattleParticipant actor, 
+                                  com.epic7.backend.service.battle.model.BattleParticipant target) {
+        // Si le groupe de cible est null, aucune cible n'est valide
+        if (this.targetGroup == null) {
+            return false;
+        }
+        
+        // Analyse en fonction du groupe de cible
+        switch (this.targetGroup) {
+            case SELF:
+                // La compétence ne peut cibler que soi-même
+                return actor.equals(target);
+            case SINGLE_ENEMY:
+                // La compétence cible un ennemi unique (userId différent)
+                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+            case SINGLE_ALLY:
+                // La compétence cible un allié unique (même userId)
+                return !actor.equals(target) && actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+            case ALL_ALLIES:
+                // Pour les compétences qui affectent tous les alliés, on vérifie juste si c'est un allié
+                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+            case ALL_ENEMIES:
+                // Pour les compétences qui affectent tous les ennemis, on vérifie juste si c'est un ennemi
+                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+            default:
+                return false;
+        }
+    }
+
 }
