@@ -18,9 +18,14 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRarity, setSelectedRarity] = useState('');
   const [selectedElement, setSelectedElement] = useState('');
+  const [battleMode, setBattleMode] = useState('preparation'); // 'preparation', 'battle'
 
   const rarities = [...new Set(initialHeroes.map(h => h.rarity))].sort();
   const elements = [...new Set(initialHeroes.map(h => h.element))].sort();
+  
+  // Séparation des héros alliés (indices 0 et 1) et ennemis (indices 2 et 3)
+  const allyHeroes = selectedHeroes.slice(0, 2);
+  const enemyHeroes = selectedHeroes.slice(2, 4);
 
   
 
@@ -113,19 +118,80 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
 
         {/* Formation sélectionnée */}
         <div className="w-2/3 flex flex-col items-center gap-8">
-          <h2 className="text-xl font-bold">🎯 Formation de combat</h2>
+          <h2 className="text-xl font-bold">⚔️ Champ de bataille</h2>
           <div className="grid grid-cols-2 gap-6">
-            {[0, 1, 2, 3].map(i => (
-              <DroppableSlot key={i} slotId={i} hero={selectedHeroes[i]} onRemove={handleRemoveHero} />
-            ))}
+            <div className="col-span-2 mb-2 relative">
+              <h3 className="text-lg font-semibold text-green-400 mb-1">🛡️ Vos héros</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {[0, 1].map(i => (
+                  <DroppableSlot 
+                    key={i} 
+                    slotId={i} 
+                    hero={selectedHeroes[i]} 
+                    onRemove={handleRemoveHero} 
+                    isAlly={true}
+                  />
+                ))}
+              </div>
+              
+              {rtaMode && (
+                <div className="absolute top-0 right-0 bg-green-600 text-white text-xs rounded px-2 py-0.5">
+                  {allyHeroes.filter(Boolean).length}/2 sélectionnés
+                </div>
+              )}
+            </div>
+            
+            {rtaMode && (
+              <div className="col-span-2 mt-4 relative">
+                <h3 className="text-lg font-semibold text-red-400 mb-1">⚔️ Héros adverses (simulation)</h3>
+                <p className="text-xs text-gray-400 mb-2">
+                  Pour tester votre équipe contre différentes combinaisons d'adversaires.
+                  Ces héros ne seront pas utilisés dans le vrai combat RTA.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  {[2, 3].map(i => (
+                    <DroppableSlot 
+                      key={i} 
+                      slotId={i} 
+                      hero={selectedHeroes[i]} 
+                      onRemove={handleRemoveHero} 
+                      isEnemy={true}
+                    />
+                  ))}
+                </div>
+                
+                <div className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded px-2 py-0.5">
+                  {enemyHeroes.filter(Boolean).length}/2 sélectionnés
+                </div>
+              </div>
+            )}
+            
+            {!rtaMode && (
+              <div className="col-span-2 mt-4 relative">
+                <h3 className="text-lg font-semibold text-red-400 mb-1">⚔️ Héros adverses</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {[2, 3].map(i => (
+                    <DroppableSlot 
+                      key={i} 
+                      slotId={i} 
+                      hero={selectedHeroes[i]} 
+                      onRemove={handleRemoveHero} 
+                      isEnemy={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             onClick={onStart}
-            disabled={rtaMode ? selectedHeroes.filter(Boolean).length <2 : selectedHeroes.filter(Boolean).length < 1}
+            disabled={rtaMode 
+              ? allyHeroes.filter(Boolean).length < 2 
+              : allyHeroes.filter(Boolean).length < 1}
             className={`mt-6 px-8 py-3 rounded-xl font-bold transition transform duration-300 ${
-              (rtaMode && selectedHeroes.filter(Boolean).length !== 4) || 
-              (!rtaMode && selectedHeroes.filter(Boolean).length < 1)
+              (rtaMode && allyHeroes.filter(Boolean).length < 2) || 
+              (!rtaMode && allyHeroes.filter(Boolean).length < 1)
                 ? 'bg-gray-600 cursor-not-allowed opacity-50'
                 : rtaMode 
                   ? 'bg-purple-600 hover:bg-purple-700 hover:scale-105 shadow-lg'
@@ -133,11 +199,20 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
             }`}
           >
             {rtaMode 
-              ? '🔍 Rechercher un adversaire (4 héros requis)' 
-              : selectedHeroes.filter(Boolean).length > 0 
+              ? allyHeroes.filter(Boolean).length === 2
+                ? '🔍 Rechercher un adversaire en ligne' 
+                : `🔍 Sélectionnez 2 héros alliés (${allyHeroes.filter(Boolean).length}/2)`
+              : allyHeroes.filter(Boolean).length > 0 
                 ? '🚀 Lancer le combat' 
-                : '🚀 Sélectionnez au moins 1 héro'}
+                : '🚀 Sélectionnez au moins 1 héros allié'}
           </button>
+          
+          {rtaMode && (
+            <p className="text-sm text-gray-400 mt-2 text-center">
+              En mode combat en ligne (RTA), seuls vos héros alliés sont utilisés.
+              <br/>Le système vous trouvera un adversaire réel avec ses propres héros.
+            </p>
+          )}
         </div>
 
         <DragOverlay dropAnimation={null}>

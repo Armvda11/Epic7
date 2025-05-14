@@ -21,6 +21,13 @@ public class BattleState {
     private int roundCount = 1;
     private ShopItemType rewardType;
     private int rewardAmount;
+    
+    // Pour identifier clairement les joueurs dans le combat RTA
+    private String player1Id;  // ID du joueur 1
+    private String player2Id;  // ID du joueur 2
+    
+    // Stocke l'ID du joueur à qui cet état est envoyé (renseigné dans le contrôleur)
+    private transient String currentUserId;
 
     /**
      * Cooldowns par héros : Map<PlayerHeroId, Map<SkillId, cooldownRestant>>

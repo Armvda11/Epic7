@@ -20,7 +20,7 @@ import GuildChatPage from './pages/GuildChatPage';
 
 function App() {
   return (
-    <>
+    <MailboxProvider>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
@@ -44,8 +44,8 @@ function App() {
         </Route>
       </Routes>
 
-      {/* Global Toast container */}
-      <ToastContainer 
+      {/* Toast container en-dehors des Routes */}
+      {/* <ToastContainer 
         position="top-center" 
         autoClose={5000}
         closeOnClick={true}
@@ -56,8 +56,8 @@ function App() {
           width: "auto",
           maxWidth: "500px"
         }}
-      />
-    </>
+      /> */}
+    </MailboxProvider>
   );
 }
 

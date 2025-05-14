@@ -96,8 +96,14 @@ public class PlayerHeroService {
      * @param heroId L'ID du héros joueur.
      * @return Le héros joueur correspondant à l'ID, ou null s'il n'existe pas.
      */
+    @Transactional(readOnly = true)
     public PlayerHero findById(Long heroId) {
-        return playerHeroRepository.findById(heroId).orElse(null);
+        PlayerHero playerHero = playerHeroRepository.findById(heroId).orElse(null);
+        if (playerHero != null && playerHero.getHero() != null) {
+            // Force initialization des compétences pendant que la session est ouverte
+            playerHero.getHero().getSkills().size();
+        }
+        return playerHero;
     }
 
     /**
