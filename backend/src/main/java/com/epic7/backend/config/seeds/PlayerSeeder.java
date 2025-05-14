@@ -40,10 +40,10 @@ public class PlayerSeeder {
                     new PlayerHero(u1.get(), heroes.get(1)),
                     new PlayerHero(u1.get(), heroes.get(5)),
                     new PlayerHero(u1.get(), heroes.get(3)),
-                    new PlayerHero(u2.get(), heroes.get(0)),,
+                    new PlayerHero(u2.get(), heroes.get(0)),
                     new PlayerHero(u2.get(), heroes.get(1)),
                     new PlayerHero(u2.get(), heroes.get(5)),
-                    new PlayerHero(u2.get(), heroes.get(3))
+                    new PlayerHero(u2.get(), heroes.get(3)),
                     new PlayerHero(u3.get(), heroes.get(0)),
                     new PlayerHero(u3.get(), heroes.get(1)),
                     new PlayerHero(u3.get(), heroes.get(5)),
