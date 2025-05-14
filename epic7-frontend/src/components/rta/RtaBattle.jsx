@@ -161,10 +161,33 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     if (!battleState) return null;
     
     const total = battleState.participants.length;
-    for (let i = 1; i < total; i++) {
-      const idx = (battleState.currentTurnIndex + i) % total;
-      if (battleState.participants[idx].currentHp > 0) return idx;
+    const currentIdx = battleState.currentTurnIndex;
+    
+    // Vérifier que l'index actuel est valide
+    if (currentIdx < 0 || currentIdx >= total) {
+      console.error("Index de tour actuel invalide:", currentIdx);
+      return 0; // Retourner 0 par défaut
     }
+    
+    // Chercher le prochain participant vivant
+    for (let i = 1; i < total * 2; i++) { // Multiplié par 2 pour être sûr de faire un tour complet
+      const idx = (currentIdx + i) % total;
+      
+      // Vérifier que l'index calculé est valide
+      if (idx < 0 || idx >= total) {
+        console.error("Index calculé invalide:", idx);
+        continue;
+      }
+      
+      // Vérifier que le participant existe et est vivant
+      const participant = battleState.participants[idx];
+      if (participant && participant.currentHp > 0) {
+        console.log("Prochain tour:", participant.name, "à l'index", idx);
+        return idx;
+      }
+    }
+    
+    console.warn("Aucun participant vivant trouvé pour le prochain tour");
     return null;
   };
 

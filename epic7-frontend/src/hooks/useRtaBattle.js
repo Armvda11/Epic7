@@ -90,6 +90,47 @@ export default function useRtaBattle() {
           return;
         }
         
+        // Vérification et correction de l'indice de tour
+        if (state.currentTurnIndex < 0 || state.currentTurnIndex >= state.participants.length) {
+          console.error("Index de tour invalide:", state.currentTurnIndex);
+          
+          // Trouver un participant vivant pour corriger l'index
+          let validIndex = -1;
+          for (let i = 0; i < state.participants.length; i++) {
+            if (state.participants[i].currentHp > 0) {
+              validIndex = i;
+              break;
+            }
+          }
+          
+          if (validIndex >= 0) {
+            console.log("Correction de l'index de tour à:", validIndex);
+            state.currentTurnIndex = validIndex;
+          } else {
+            console.error("Impossible de trouver un participant vivant");
+          }
+        }
+        
+        // Vérifier si le participant actuel est vivant
+        const currentParticipant = state.participants[state.currentTurnIndex];
+        if (currentParticipant && currentParticipant.currentHp <= 0) {
+          console.error("Le participant actuel est mort, recherche d'un participant vivant");
+          
+          // Trouver le prochain participant vivant
+          let validIndex = -1;
+          for (let i = 0; i < state.participants.length; i++) {
+            if (state.participants[i].currentHp > 0) {
+              validIndex = i;
+              break;
+            }
+          }
+          
+          if (validIndex >= 0) {
+            console.log("Correction de l'index de tour à:", validIndex);
+            state.currentTurnIndex = validIndex;
+          }
+        }
+        
         // Vérifier si currentUserId est défini
         if (state.currentUserId) {
           console.log(`État personnalisé pour l'utilisateur ${state.currentUserId}`);
@@ -130,6 +171,12 @@ export default function useRtaBattle() {
           };
         }
         
+        // Repérer et nettoyer les participants null ou invalides
+        if (state.participants.some(p => p === null || p === undefined)) {
+          console.warn("Participants invalides détectés, nettoyage...");
+          state.participants = state.participants.filter(p => p !== null && p !== undefined);
+        }
+        
         // Debug complet de l'état reçu
         console.log("État de bataille complet:", JSON.stringify(state, null, 2));
         
@@ -137,19 +184,27 @@ export default function useRtaBattle() {
         setBattleState(state);
         
         // Déterminer qui doit jouer
-        const currentHero = state.participants[state.currentTurnIndex];
-        if (currentHero) {
-          setActiveHeroId(currentHero.id);
-          
-          // Déterminer si c'est notre tour (en utilisant userId)
-          const isMyHero = currentHero.userId === state.currentUserId;
-          setIsOurTurn(isMyHero);
-          
-          if (isMyHero) {
-            // toast.info('C\'est à votre tour de jouer!');
+        if (state.currentTurnIndex >= 0 && state.currentTurnIndex < state.participants.length) {
+          const currentHero = state.participants[state.currentTurnIndex];
+          if (currentHero) {
+            setActiveHeroId(currentHero.id);
+            
+            // Déterminer si c'est notre tour (en utilisant userId)
+            const isMyHero = currentHero.userId === state.currentUserId;
+            setIsOurTurn(isMyHero);
+            
+            console.log(`Tour actuel: ${currentHero.name} (${isMyHero ? 'MON TOUR' : 'TOUR ADVERSAIRE'})`);
+            
+            if (isMyHero) {
+              // toast.info('C\'est à votre tour de jouer!');
+            } else {
+              // toast.info(`Tour de l'adversaire (${currentHero.name})...`);
+            }
           } else {
-            // toast.info(`Tour de l'adversaire (${currentHero.name})...`);
+            console.error("currentHero est null bien que l'index soit valide");
           }
+        } else {
+          console.error("Impossible de déterminer le héros actuel, index invalide:", state.currentTurnIndex);
         }
       }
     });
@@ -186,6 +241,49 @@ export default function useRtaBattle() {
       webSocketService.disconnect();
     };
   }, []);
+  
+  // Mécanisme de détection de tour bloqué et heartbeat
+  useEffect(() => {
+    // Démarrer un heartbeat toutes les 25 secondes
+    const heartbeatInterval = setInterval(() => {
+      if (isConnected) {
+        webSocketService.sendHeartbeat();
+      }
+    }, 25000);
+    
+    // Vérifier si le tour est bloqué
+    const checkStuckTurn = setInterval(() => {
+      // Ne vérifier que pendant les phases de combat
+      if (phase !== 'battle' || !battleId || !battleState) return;
+      
+      // Récupérer les timestamps des derniers changements d'état
+      const lastStateUpdate = parseInt(sessionStorage.getItem(`battle_${battleId}_lastUpdate`) || '0');
+      const now = Date.now();
+      
+      // Si pas de mise à jour depuis plus de 20 secondes
+      if (lastStateUpdate > 0 && (now - lastStateUpdate) > 20000) {
+        console.warn("Aucune mise à jour d'état détectée depuis plus de 20 secondes, demande de rafraîchissement");
+        
+        // Demander un rafraîchissement de l'état
+        webSocketService.requestBattleState(battleId);
+        
+        // Mettre à jour le timestamp pour éviter les demandes trop fréquentes
+        sessionStorage.setItem(`battle_${battleId}_lastUpdate`, now.toString());
+      }
+    }, 10000); // Vérifier toutes les 10 secondes
+    
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(checkStuckTurn);
+    };
+  }, [isConnected, phase, battleId, battleState]);
+  
+  // Mise à jour du timestamp à chaque changement d'état
+  useEffect(() => {
+    if (battleState && battleId) {
+      sessionStorage.setItem(`battle_${battleId}_lastUpdate`, Date.now().toString());
+    }
+  }, [battleState, battleId]);
   
   // Rejoindre la file d'attente avec les héros sélectionnés
   const joinQueue = useCallback((heroIds) => {

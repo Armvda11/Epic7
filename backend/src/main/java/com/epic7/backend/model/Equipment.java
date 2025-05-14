@@ -10,7 +10,7 @@ import lombok.*;
  * Chaque équipement a un nom, un type, une rareté et des bonus associés.
  * @author hermas
  */
-// TODO : Ajouter une image pour l'équipement
+
 @Entity
 @Table(name = "equipment")
 @Getter

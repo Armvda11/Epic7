@@ -278,4 +278,94 @@ public class RtaWebSocketController {
             // Combat déjà terminé ou inexistant, rien à faire
         }
     }
+
+    /**
+     * Endpoint pour les heartbeats des clients
+     * Permet de maintenir la connexion WebSocket active
+     */
+    @MessageMapping("/rta/heartbeat")
+    public void heartbeat(Principal principal) {
+        // Log à un niveau debug pour ne pas surcharger les logs
+        log.debug("Heartbeat reçu de {}", principal.getName());
+    }
+    
+    /**
+     * Endpoint pour vérifier l'état d'un combat
+     * Permet aux clients de demander l'état actuel de la bataille
+     */
+    @MessageMapping("/rta/check-state")
+    public void checkState(String battleId, Principal principal) {
+        log.info("Vérification d'état demandée pour la bataille {} par {}", battleId, principal.getName());
+        
+        try {
+            User user = userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                
+            try {
+                // Casting explicite à BattleState
+                BattleState state = (BattleState) battleManager.getBattleState(battleId);
+                
+                if (state != null) {
+                    // Vérification et correction de l'état si nécessaire
+                    if (state.getParticipants() == null || state.getParticipants().isEmpty()) {
+                        log.error("État de bataille invalide (pas de participants): {}", battleId);
+                        messaging.convertAndSendToUser(
+                            principal.getName(),
+                            "/queue/rta/error", 
+                            "État de bataille invalide"
+                        );
+                        return;
+                    }
+                    
+                    // Vérifier si l'index de tour est valide
+                    int participantCount = state.getParticipants().size();
+                    if (state.getCurrentTurnIndex() < 0 || state.getCurrentTurnIndex() >= participantCount) {
+                        log.warn("Index de tour invalide ({}), correction...", state.getCurrentTurnIndex());
+                        
+                        // Trouver un héros vivant pour établir un nouvel index
+                        for (int i = 0; i < participantCount; i++) {
+                            if (state.getParticipants().get(i).getCurrentHp() > 0) {
+                                state.setCurrentTurnIndex(i);
+                                log.info("Index de tour corrigé à {}", i);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Ajouter userId pour personnaliser l'état
+                    state.setCurrentUserId(user.getId().toString());
+                    
+                    // Envoyer l'état corrigé
+                    messaging.convertAndSendToUser(
+                        principal.getName(),
+                        "/queue/rta/state", 
+                        state
+                    );
+                    
+                    log.info("État envoyé à {} pour la bataille {}", principal.getName(), battleId);
+                } else {
+                    log.warn("Bataille {} introuvable lors d'une vérification d'état", battleId);
+                    messaging.convertAndSendToUser(
+                        principal.getName(),
+                        "/queue/rta/error", 
+                        "Bataille introuvable"
+                    );
+                }
+            } catch (ClassCastException e) {
+                log.error("Erreur de casting de l'état de bataille: {}", e.getMessage());
+                messaging.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/rta/error", 
+                    "Erreur interne de type"
+                );
+            }
+        } catch (Exception e) {
+            log.error("Erreur lors de la vérification d'état: {}", e.getMessage(), e);
+            messaging.convertAndSendToUser(
+                principal.getName(),
+                "/queue/rta/error", 
+                "Erreur: " + e.getMessage()
+            );
+        }
+    }
 }

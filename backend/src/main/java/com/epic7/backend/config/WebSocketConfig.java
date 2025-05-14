@@ -64,7 +64,9 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
         // Point d'entrée pour la connexion STOMP des clients
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Autoriser toutes les origines pour le développement
-                .withSockJS();
+                .withSockJS()
+                .setHeartbeatTime(10000) // Heartbeat toutes les 10 secondes
+                .setDisconnectDelay(30000); // Attendre 30 secondes avant de déconnecter
     }
     
     @Override

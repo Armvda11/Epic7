@@ -55,12 +55,32 @@ public class BattleEngine {
     public void nextTurn(BattleState state) {
         int size = state.getParticipants().size();
         int currentIndex = state.getCurrentTurnIndex();
+        
+        // Log pour débogage
+        state.getLogs().add("ℹ️ Passage au tour suivant, index actuel: " + currentIndex);
 
-        for (int i = 1; i <= size; i++) {
+        // Vérifier si l'index actuel est valide
+        if (currentIndex < 0 || currentIndex >= size) {
+            state.getLogs().add("⚠️ Index de tour invalide, réinitialisation à 0");
+            currentIndex = 0;
+        }
+
+        // Compteur pour éviter une boucle infinie
+        int attempts = 0;
+
+        for (int i = 1; i <= size * 2; i++) {  // Multiplié par 2 pour s'assurer de faire un tour complet
             int nextIndex = (currentIndex + i) % size;
+            
+            // Vérifier si l'index est valide
+            if (nextIndex < 0 || nextIndex >= state.getParticipants().size()) {
+                state.getLogs().add("⚠️ Calcul d'index invalide: " + nextIndex + ", réinitialisation à 0");
+                nextIndex = 0;
+            }
+            
             BattleParticipant next = state.getParticipants().get(nextIndex);
 
-            if (next.getCurrentHp() > 0) {
+            // Passer au tour de ce héros s'il est vivant
+            if (next != null && next.getCurrentHp() > 0) {
                 if (nextIndex <= currentIndex) {
                     state.setRoundCount(state.getRoundCount() + 1);
                     state.getLogs().add("🔁 Début du tour " + state.getRoundCount());
@@ -69,11 +89,20 @@ public class BattleEngine {
                 state.setCurrentTurnIndex(nextIndex);
                 state.reduceCooldownsForHero(next.getId());
                 passiveSkillProcessor.handleTurnStartPassives(state, next);
+                
+                state.getLogs().add("👉 Au tour de " + next.getName() + " (index: " + nextIndex + ")");
                 return;
+            }
+            
+            attempts++;
+            if (attempts >= size * 2) {
+                state.getLogs().add("⚠️ Impossible de trouver un participant vivant après plusieurs tentatives");
+                break;
             }
         }
 
         // Aucun survivant => fin du combat
+        state.getLogs().add("❌ Aucun participant vivant trouvé, fin du combat");
         state.setFinished(true);
     }
 

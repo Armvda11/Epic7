@@ -88,17 +88,30 @@ public class RtaBattleServiceImpl implements BattleManager {
             throw new IllegalStateException("Bataille introuvable: " + battleId);
         }
         
-        // Vérifier si c'est bien au tour du joueur qui fait l'action
-        if (state.getCurrentTurnIndex() >= state.getParticipants().size()) {
-            state.getLogs().add("❌ Index de tour invalide: " + state.getCurrentTurnIndex());
-            return false;
+        // Vérifier si l'index de tour est valide et le corriger si besoin
+        if (state.getCurrentTurnIndex() < 0 || state.getCurrentTurnIndex() >= state.getParticipants().size()) {
+            state.getLogs().add("⚠️ Index de tour invalide: " + state.getCurrentTurnIndex() + ", correction...");
+            
+            // Trouver le premier héros vivant pour corriger l'index
+            for (int i = 0; i < state.getParticipants().size(); i++) {
+                if (state.getParticipants().get(i).getCurrentHp() > 0) {
+                    state.setCurrentTurnIndex(i);
+                    break;
+                }
+            }
+            
+            if (state.getCurrentTurnIndex() < 0 || state.getCurrentTurnIndex() >= state.getParticipants().size()) {
+                state.getLogs().add("❌ Impossible de trouver un héros vivant pour corriger l'index.");
+                return false;
+            }
         }
         
         BattleParticipant currentParticipant = state.getParticipants().get(state.getCurrentTurnIndex());
         
         // Logging amélioré pour le débogage
         state.getLogs().add("ℹ️ Tentative d'utilisation de compétence " + skillId + " par " + 
-            currentParticipant.getName() + " sur cible " + targetId);
+            currentParticipant.getName() + " (ID: " + currentParticipant.getId() + ", userId: " + 
+            currentParticipant.getUserId() + ") sur cible " + targetId);
         
         try {
             // Vérification plus robuste que la cible est valide
@@ -118,6 +131,7 @@ public class RtaBattleServiceImpl implements BattleManager {
             
             // Utiliser la compétence et obtenir le résultat
             skillEngine.useSkillWithResult(state, skillId, targetId);
+            state.getLogs().add("✅ Compétence " + skillId + " utilisée avec succès");
         } catch (Exception e) {
             state.getLogs().add("❌ Erreur lors de l'utilisation de la compétence: " + e.getMessage());
             return false;
@@ -130,8 +144,26 @@ public class RtaBattleServiceImpl implements BattleManager {
             return true;
         }
         
-        // Passer au joueur suivant
-        battleEngine.nextTurn(state);
+        // Passer au joueur suivant avec une vérification
+        try {
+            battleEngine.nextTurn(state);
+            
+            // Vérification supplémentaire après le changement de tour
+            int newIndex = state.getCurrentTurnIndex();
+            if (newIndex < 0 || newIndex >= state.getParticipants().size()) {
+                state.getLogs().add("⚠️ L'index après nextTurn est invalide: " + newIndex + ", correction...");
+                state.setCurrentTurnIndex(0); // Reset à 0 par sécurité
+            } else {
+                BattleParticipant nextParticipant = state.getParticipants().get(newIndex);
+                if (nextParticipant.getCurrentHp() <= 0) {
+                    state.getLogs().add("⚠️ Le prochain participant est mort, nouvelle tentative...");
+                    battleEngine.nextTurn(state); // Essayer encore une fois
+                }
+            }
+        } catch (Exception e) {
+            state.getLogs().add("⚠️ Erreur lors du changement de tour: " + e.getMessage());
+            // Ne pas échouer complètement, essayer de continuer
+        }
         
         return true;
     }

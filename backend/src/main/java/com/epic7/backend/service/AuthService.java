@@ -20,14 +20,6 @@ import java.util.UUID;
  * 
  * @author hermas
  */
-    // TODO : ajouter un système de rafraîchissement de token
-    // TODO : ajouter un système de révocation de token
-    // TODO : ajouter un système de blacklist de token
-    // TODO : ajouter un système de whitelist de token
-    // TODO : ajouter un système de vérification de l'IP de l'utilisateur
-    // TODO : ajouter un système de vérification de l'agent utilisateur de l'utilisateur
-    // TODO : ajouter un système de vérification de la géolocalisation de l'utilisateur
-    // TODO : ajouter un système de vérification de l'heure de connexion de l'utilisateur
 @Service
 public class AuthService {
 

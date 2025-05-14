@@ -358,6 +358,55 @@ class WebSocketService {
   }
 
   /**
+   * Demande une vérification de l'état de bataille au serveur
+   * Utile en cas de désynchronisation ou quand un héros ne prend pas son tour
+   * @param {string} battleId - ID de la bataille à vérifier
+   * @returns {Promise} - Promise résolue quand la demande est envoyée
+   */
+  requestBattleState(battleId) {
+    return new Promise((resolve, reject) => {
+      if (!this.connected || !this.stompClient) {
+        const error = new Error('WebSocket non connecté');
+        console.error(error);
+        reject(error);
+        return;
+      }
+      
+      if (!battleId) {
+        const error = new Error('ID de bataille non fourni');
+        console.error(error);
+        reject(error);
+        return;
+      }
+      
+      console.log(`Demande de vérification de l'état pour la bataille: ${battleId}`);
+      
+      try {
+        this.stompClient.send('/app/rta/check-state', {}, battleId);
+        console.log('Demande de vérification envoyée');
+        resolve();
+      } catch (error) {
+        console.error('Erreur lors de la demande de vérification d\'état:', error);
+        reject(error);
+      }
+    });
+  }
+  
+  /**
+   * Envoie un signal de heartbeat pour maintenir la connexion active
+   */
+  sendHeartbeat() {
+    if (!this.connected || !this.stompClient) return;
+    
+    try {
+      this.stompClient.send('/app/rta/heartbeat', {}, '');
+      console.debug('Heartbeat envoyé');
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du heartbeat:', error);
+    }
+  }
+
+  /**
    * S'abonne aux canaux de combat pour un battleId donné
    */
   _subscribeToBattleChannels(battleId) {
