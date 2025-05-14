@@ -1,3 +1,5 @@
+import chatErrorTranslations, { mergeChatTranslations } from './chatTranslations';
+
 const translations = {
   fr: {
     inventory: "Inventaire",
@@ -145,6 +147,18 @@ const translations = {
     noHeroesFound: "Aucun héro trouvé",
     playerHasNoHeroes: "Ce joueur n'a pas encore de héros dans sa collection",
     unknownHero: "Héros inconnu",
+
+    // Chat translations
+    globalChat: "Chat Global",
+    guildChat: "Chat de Guilde",
+    chat: "Chat",
+    typeMessage: "Tapez votre message...",
+    isTyping: "est en train d'écrire",
+    peopleTyping: "personnes écrivent",
+    deleteMessage: "Supprimer le message",
+    backToGuilds: "Retour aux guildes",
+    guildNotFound: "Guilde non trouvée",
+    loginRequiredForChat: "Vous devez être connecté pour utiliser le chat",
 
     // Mailbox translations
     inbox: "Boîte de réception",
@@ -410,6 +424,18 @@ const translations = {
     playerHasNoHeroes: "This player doesn't have any heroes in their collection yet",
     unknownHero: "Unknown hero",
 
+    // Chat translations
+    globalChat: "Global Chat",
+    guildChat: "Guild Chat",
+    chat: "Chat",
+    typeMessage: "Type your message...",
+    isTyping: "is typing",
+    peopleTyping: "people are typing",
+    deleteMessage: "Delete message",
+    backToGuilds: "Back to guilds",
+    guildNotFound: "Guild not found",
+    loginRequiredForChat: "You must be logged in to use the chat",
+    
     // Mailbox translations
     inbox: "Inbox",
     filter: "Filter",
@@ -525,5 +551,7 @@ const translations = {
 
 // Fonction utilitaire globale
 export const t = (key, lang = "fr") => {
-  return translations[lang]?.[key] || key;
+  // First try to find the key in the merged translations
+  const mergedTranslations = mergeChatTranslations(translations);
+  return mergedTranslations[lang]?.[key] || key;
 };

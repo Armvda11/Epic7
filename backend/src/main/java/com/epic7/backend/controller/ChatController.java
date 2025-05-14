@@ -23,6 +23,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Controller for handling WebSocket chat messages using STOMP.
@@ -308,6 +309,7 @@ public class ChatController {
      * @param principal The authenticated user
      */
     @MessageMapping("/chat.getRoom")
+    @Transactional
     public void getChatRoom(@Payload Map<String, Object> request, Principal principal) {
         if (principal == null) {
             log.error("Rejected unauthenticated room request");
@@ -340,25 +342,32 @@ public class ChatController {
             if ("GLOBAL".equalsIgnoreCase(type)) {
                 // Get or create global chat room
                 chatRoom = chatService.getOrCreateGlobalChatRoom();
-            } else if ("GUILD".equalsIgnoreCase(type) && groupId != null) {
-                // Get or create guild chat room
-                chatRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(ChatType.GUILD, groupId);
                 
-                // Check access rights for guild chat
-                if (chatRoom != null && !chatService.canUserAccessChat(user.getId(), chatRoom)) {
+                // If getting global room, make sure to fetch with user IDs loaded
+                if (chatRoom != null) {
+                    chatRoom = chatService.getChatRoomById(chatRoom.getId());
+                }
+            } else if (type != null && groupId != null) {
+                // For other types, we need the group ID
+                try {
+                    ChatType chatType = ChatType.valueOf(type.toUpperCase());
+                    chatRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(chatType, groupId);
+                    
+                    // Make sure to fetch with user IDs loaded
+                    if (chatRoom != null) {
+                        chatRoom = chatService.getChatRoomById(chatRoom.getId());
+                    }
+                } catch (IllegalArgumentException e) {
                     messagingTemplate.convertAndSendToUser(
                         principal.getName(),
                         responseQueue,
                         Map.of(
-                            "error", "GUILD_ACCESS_DENIED",
-                            "message", "You don't have access to this guild's chat"
+                            "error", "INVALID_TYPE",
+                            "message", "Invalid chat room type: " + type
                         )
                     );
                     return;
                 }
-            } else if ("FIGHT".equalsIgnoreCase(type) && groupId != null) {
-                // Get or create duel/fight chat room
-                chatRoom = chatService.getOrCreateChatRoomByTypeAndGroupId(ChatType.FIGHT, groupId);
             } else {
                 messagingTemplate.convertAndSendToUser(
                     principal.getName(),
@@ -415,6 +424,7 @@ public class ChatController {
      * @param principal The authenticated user
      */
     @MessageMapping("/chat.getMessages")
+    @Transactional
     public void getChatMessages(@Payload Map<String, Object> request, Principal principal) {
         if (principal == null) {
             log.error("Rejected unauthenticated message retrieval request");

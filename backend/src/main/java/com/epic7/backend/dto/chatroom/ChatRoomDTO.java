@@ -5,6 +5,7 @@ import com.epic7.backend.model.enums.ChatType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * DTO for ChatRoom information
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class ChatRoomDTO {
     private Long id;
     private String name;
@@ -31,7 +33,15 @@ public class ChatRoomDTO {
         dto.setGroupId(chatRoom.getGroupId());
         
         // Count members - for global rooms this is a placeholder
-        int count = (chatRoom.getUserIds() != null) ? chatRoom.getUserIds().size() : 0;
+        int count = 0;
+        try {
+            if (chatRoom.getUserIds() != null) {
+                count = chatRoom.getUserIds().size();
+            }
+        } catch (org.hibernate.LazyInitializationException e) {
+            // If the collection is not initialized and session is closed, default to 0
+            log.warn("Failed to access userIds for chat room {}: {}", chatRoom.getId(), e.getMessage());
+        }
         dto.setMemberCount(count);
         
         return dto;
@@ -44,8 +54,14 @@ public class ChatRoomDTO {
         ChatRoomDTO dto = fromEntity(chatRoom);
         
         // Check if user is admin
-        boolean isAdmin = chatRoom.getAdminUserIds() != null && 
-                        chatRoom.getAdminUserIds().contains(userId);
+        boolean isAdmin = false;
+        try {
+            if (chatRoom.getAdminUserIds() != null) {
+                isAdmin = chatRoom.getAdminUserIds().contains(userId);
+            }
+        } catch (org.hibernate.LazyInitializationException e) {
+            log.warn("Failed to access adminUserIds for chat room {}: {}", chatRoom.getId(), e.getMessage());
+        }
         dto.setAdmin(isAdmin);
         
         return dto;
