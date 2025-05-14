@@ -47,6 +47,7 @@ public class ShopItem {
 
     private int priceInGold;
 
+    @Builder.Default
     private Integer quantityPerPurchase = 1; // Quantité d'objets par achat
 
     private boolean limitedTime; // Indique si l'objet est en vente limitée dans le temps

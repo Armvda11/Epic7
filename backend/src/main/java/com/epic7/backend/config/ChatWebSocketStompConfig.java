@@ -2,6 +2,7 @@ package com.epic7.backend.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -15,13 +16,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
-public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
+public class ChatWebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
-    private final StompAuthenticationHandler stompAuthenticationHandler;
+    private final ChatStompAuthenticationHandler stompAuthenticationHandler;
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
+    public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
         // Enable a simple in-memory message broker for topics and queues
         config.enableSimpleBroker("/topic", "/queue");
         
@@ -30,19 +31,17 @@ public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // In development mode, don't use JWT interceptor to avoid authentication issues
-        // REMOVE THIS IN PRODUCTION AND USE PROPER AUTHENTICATION
+    public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
+        // Register STOMP endpoints with JWT authentication
         registry
             .addEndpoint("/ws-chat")
-            .setAllowedOriginPatterns("*")
-            // Authentication interceptor restored for production
+            .setAllowedOriginPatterns("*") // In production, consider restricting to specific origins
             .addInterceptors(jwtHandshakeInterceptor)
             .withSockJS(); // for fallback
     }
     
     @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
+    public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         // Add our authentication handler for all inbound messages
         registration.interceptors(stompAuthenticationHandler);
     }

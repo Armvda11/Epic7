@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.lang.NonNull;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.config.annotation.*;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -27,7 +27,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final Map<String, Map<String, WebSocketSession>> battleSessions = new ConcurrentHashMap<>();
 
     @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+    public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
         // Register battle WebSocket handler
         registry
         .addHandler(battleWebSocketHandler(), "/socket/battle")
@@ -38,14 +38,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public WebSocketHandler battleWebSocketHandler() {
         return new TextWebSocketHandler() {
             @Override
-            public void afterConnectionEstablished(WebSocketSession session) {
+            public void afterConnectionEstablished(@NonNull WebSocketSession session) {
                 log.info("WS connecté: {}", session.getId());
             }
 
             @Override
-            protected void handleTextMessage(WebSocketSession session, TextMessage msg) {
+            protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage msg) {
                 try {
-                    var payload = objectMapper.readValue(msg.getPayload(), Map.class);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> payload = objectMapper.readValue(msg.getPayload(), Map.class);
                     var type    = (String) payload.get("type");
                     switch (type) {
                         case "JOIN"      -> onJoin(session, payload);
@@ -60,7 +61,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
             }
 
             @Override
-            public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+            public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
                 log.info("WS fermé: {} [{}]", session.getId(), status);
                 // retire la session de toutes les batailles
                 battleSessions.values().forEach(m -> m.values().removeIf(s -> s.getId().equals(session.getId())));

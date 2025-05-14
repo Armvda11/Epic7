@@ -5,6 +5,8 @@ import java.util.Map;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
@@ -30,41 +32,23 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
     private final AuthService authService;
 
     @Override
-    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
-                                WebSocketHandler wsHandler, Map<String, Object> attributes) {
+    public boolean beforeHandshake(@NonNull ServerHttpRequest request, @NonNull ServerHttpResponse response,
+                                @NonNull WebSocketHandler wsHandler, @NonNull Map<String, Object> attributes) {
         log.info("Processing WebSocket handshake request");
         
         if (request instanceof ServletServerHttpRequest servletRequest) {
             // First try to extract token from Authorization header
             String token = jwtUtil.extractTokenFromHeader(servletRequest.getServletRequest());
-            
-            // If not found in header, try to get from the URL query parameter
-            if (token == null) {
-                String query = servletRequest.getServletRequest().getQueryString();
-                if (query != null && query.contains("token=")) {
-                    // Extract the token from the query string
-                    try {
-                        String[] queryParams = query.split("&");
-                        for (String param : queryParams) {
-                            if (param.startsWith("token=")) {
-                                token = java.net.URLDecoder.decode(
-                                    param.substring(6), // Remove "token="
-                                    java.nio.charset.StandardCharsets.UTF_8
-                                );
-                                log.info("Token extracted from URL query parameter");
-                                break;
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.error("Error extracting token from query string: {}", e.getMessage());
-                    }
-                }
-            }
-            
+
             if (token != null) {
                 try {
                     if (jwtUtil.validateToken(token)) {
                         String email = jwtUtil.extractEmail(token);
+                        if (email == null) {
+                            log.warn("WebSocket Authentication failed: No email found in token");
+                            return false;
+                        }
+                        
                         User user = authService.getUserByEmail(email);
                         
                         if (user != null) {
@@ -83,6 +67,8 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             } else {
                 log.warn("WebSocket connection without token");
             }
+        } else {
+            log.warn("WebSocket request is not a ServletServerHttpRequest");
         }
         
         log.warn("WebSocket handshake authentication failed");
@@ -90,8 +76,8 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
     }
 
     @Override
-    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, 
-                            WebSocketHandler wsHandler, Exception exception) {
+    public void afterHandshake(@NonNull ServerHttpRequest request, @NonNull ServerHttpResponse response, 
+                            @NonNull WebSocketHandler wsHandler, @Nullable Exception exception) {
         // Nothing to do after handshake
     }
 }

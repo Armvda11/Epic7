@@ -11,10 +11,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.epic7.backend.service.PlayerHeroService;
-
-
-
 /**
  * Représente un utilisateur du jeu.
  * Contient des informations sur le compte, les héros possédés, etc.

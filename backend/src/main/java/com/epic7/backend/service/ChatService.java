@@ -1,6 +1,5 @@
 package com.epic7.backend.service;
 
-import com.epic7.backend.dto.chatroom.ChatMessageDTO;
 import com.epic7.backend.event.ChatMessageEvent;
 import com.epic7.backend.model.Guild;
 import com.epic7.backend.model.User;
@@ -339,5 +338,19 @@ public class ChatService {
             // Create a new fight chat room
             return createFightChatRoom("Fight " + fightId.toString(), fightId, userIds);
         }
+    }
+
+    public boolean isUserAdminOfChatRoom(Long roomId, Long userId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Chat room not found"));
+        
+        return chatRoom.getAdminUserIds() != null && chatRoom.getAdminUserIds().contains(userId);
+    }
+
+    public boolean isMessageFromUser(Long messageId, Long userId) {
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        
+        return message.getSender().getId().equals(userId);
     }
 }

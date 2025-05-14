@@ -1,6 +1,5 @@
 package com.epic7.backend.dto.boss;
 
-import com.epic7.backend.model.ShopItem;
 import com.epic7.backend.model.enums.ShopItemType;
 
 import lombok.*;

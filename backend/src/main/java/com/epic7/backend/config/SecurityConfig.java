@@ -39,9 +39,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/combat/**").authenticated() // les combats sont ouverts
                 .requestMatchers("/api/user/me").permitAll() // Allow checking user status without authentication
                 // WebSocket endpoints - allow all for development (important for chat functionality)
-                .requestMatchers("/ws-chat/**").permitAll()
-                .requestMatchers("/topic/**").permitAll()
-                .requestMatchers("/app/**").permitAll()
+                .requestMatchers("/ws-chat/**").authenticated()
+                .requestMatchers("/topic/**").authenticated()
+                .requestMatchers("/app/**").authenticated()
                 .anyRequest().authenticated()               // tout le reste est protégé
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
