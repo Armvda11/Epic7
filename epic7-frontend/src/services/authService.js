@@ -71,13 +71,3 @@ export const getAuthHeaders = () => {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
-
-// Export default object with all functions
-export default {
-  login,
-  register,
-  logout,
-  getToken,
-  isAuthenticated,
-  getAuthHeaders
-};
