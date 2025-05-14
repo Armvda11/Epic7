@@ -35,7 +35,7 @@ export default function SummonPage() {
     const fetchActiveBanners = async () => {
       try {
         const response = await API.get("/summons/active-banners");
-        //console.log("Bannières actives récupérées :", response.data); // Log de la réponse
+        console.log("Bannières actives récupérées :", response.data);
         setActiveBanners(response.data);
       } catch (error) {
         console.error("Erreur lors de la récupération des bannières actives :", error);
@@ -49,22 +49,10 @@ export default function SummonPage() {
     const fetchOwnedHeroes = async () => {
       try {
         const heroes = await getOwnedHeroes();
-      //  console.log("Héros possédés récupérés :", heroes); // Log de la réponse
-        
-        // Vérifier si la réponse est un tableau
-        if (Array.isArray(heroes)) {
-          setOwnedHeroes(heroes);
-        } else if (heroes && heroes.data && Array.isArray(heroes.data)) {
-          // Si la réponse est un objet avec une propriété data qui est un tableau
-          setOwnedHeroes(heroes.data);
-        } else {
-          // Si le format est complètement différent, initialiser un tableau vide
-          console.error("Format de données inattendu pour les héros possédés:", heroes);
-          setOwnedHeroes([]);
-        }
+        console.log("Héros possédés récupérés :", heroes);
+        setOwnedHeroes(heroes);
       } catch (error) {
         console.error("Erreur lors de la récupération des héros possédés :", error);
-        setOwnedHeroes([]);
       }
     };
 
@@ -161,9 +149,9 @@ export default function SummonPage() {
                     />
                     <p className="text-xl font-bold mt-4">{result.name}</p>
                     <p className="text-lg">{result.rarity}</p>
+                    <p className="text-lg">{result.element}</p>
                     {result.type === "Hero" && (
                       <>
-                        <p className="text-lg">{result.element}</p>
                         <p className="text-lg text-green-500">
                           Niveau d'éveil : {result.awakeningLevel}
                         </p>
@@ -247,11 +235,7 @@ export default function SummonPage() {
             <h2 className="text-2xl font-bold mb-4">Héros de la bannière : {selectedBanner.name}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {bannerHeroes.map((hero) => {
-                // Vérifier que ownedHeroes est un tableau avant d'utiliser find
-                const ownedHero = Array.isArray(ownedHeroes) 
-                  ? ownedHeroes.find((h) => h && h.hero && h.hero.id === hero.id)
-                  : null;
-
+                const ownedHero = ownedHeroes.find((h) => h.hero.id === hero.id);
                 return (
                   <div key={hero.id} className="text-center flex flex-col items-center">
                     <img
