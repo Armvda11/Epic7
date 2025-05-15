@@ -17,6 +17,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     }
+  },
+  build: {
+    sourcemap: true,  // Generate source maps correctly
   }
 })
 

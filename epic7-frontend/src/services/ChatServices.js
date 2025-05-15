@@ -35,16 +35,49 @@ class ChatService {
       // Initialize the reconnector with a callback to handle reconnections
       chatSocketReconnector.init(() => {
         console.log('Reconnector triggered a reconnection');
+        
+        // Don't attempt reconnection if server shutdown is in progress
+        if (this._serverShutdownInProgress) {
+          console.log('Reconnection attempt suppressed - server shutdown in progress');
+          return;
+        }
+        
         // Try to re-establish the connection
         if (this.currentUser) {
+          // Set a flag to indicate we're in a reconnection process
+          this._isReconnecting = true;
+          
+          // Update UI if needed
+          if (typeof this.callbacks.onReconnecting === 'function') {
+            this.callbacks.onReconnecting();
+          }
+          
           chatWebSocketService.connect()
             .then(() => {
               console.log('Reconnection successful');
+              
               // Re-join any active rooms
               this._rejoinActiveRooms();
+              
+              // Reset the reconnecting flag
+              this._isReconnecting = false;
+              
+              // Notify that reconnection was successful
+              if (typeof this.callbacks.onReconnected === 'function') {
+                this.callbacks.onReconnected();
+              }
             })
             .catch(error => {
               console.error('Reconnection failed:', error);
+              
+              // Reset the reconnecting flag
+              this._isReconnecting = false;
+              
+              // Update UI for reconnection failure
+              if (typeof this.callbacks.onReconnectFailed === 'function') {
+                this.callbacks.onReconnectFailed(error);
+              }
+              
               // Dispatch a global error event
               const errorEvent = new CustomEvent('chatError', { detail: error });
               window.dispatchEvent(errorEvent);
@@ -54,6 +87,12 @@ class ChatService {
       
       // Listen for websocket reconnect failures
       window.addEventListener('websocketReconnectFailed', this._handleReconnectFailed);
+      
+      // Listen for websocket errors to provide user feedback
+      window.addEventListener('websocketError', this._handleWebSocketError);
+      
+      // Listen for server shutdown events
+      window.addEventListener('serverShutdown', this._handleServerShutdown);
       
       // Connecter au WebSocket
       chatWebSocketService.connect()
@@ -70,7 +109,21 @@ class ChatService {
           
           resolve();
         })
-        .catch(reject);
+        .catch(error => {
+          console.error('Initialization failed:', error);
+          
+          // Provide a more user-friendly error
+          const userError = {
+            ...error,
+            userMessage: 'Impossible de se connecter au service de discussion. Veuillez vérifier votre connexion internet et réessayer.'
+          };
+          
+          if (typeof this.callbacks.onError === 'function') {
+            this.callbacks.onError(userError);
+          }
+          
+          reject(userError);
+        });
     });
   }
 
@@ -99,6 +152,122 @@ class ChatService {
   }
   
   /**
+   * Handle WebSocket errors
+   * @param {CustomEvent} event - The error event
+   */
+  _handleWebSocketError = (event) => {
+    const error = event?.detail;
+    console.warn('WebSocket error detected in ChatService:', error);
+    
+    // Only process if we're initialized
+    if (!this.initialized) return;
+    
+    // Don't show all errors to the user, some will be handled automatically
+    if (error) {
+      // Handle connection closure errors differently
+      if (error.type === 'close' || error.code === 1006 || 
+          (error.message && (error.message.includes('closed') || error.message.includes('Lost connection')))) {
+        
+        console.log('Connection closure detected, reconnector will handle this');
+        
+        // Show a temporary status message if this wasn't during a reconnection
+        if (!this._isReconnecting && typeof this.callbacks.onConnectionIssue === 'function') {
+          this.callbacks.onConnectionIssue({
+            type: 'connection_lost',
+            message: 'Connexion au chat perdue. Tentative de reconnexion en cours...',
+            recoverable: true
+          });
+        }
+        
+        return;
+      }
+      
+      // Handle server errors that should be shown to the user
+      if (error.code === 'SERVER_ERROR' || error.code === 'HIBERNATE_ERROR_PERSISTENT') {
+        if (typeof this.callbacks.onError === 'function') {
+          this.callbacks.onError({
+            code: error.code,
+            message: error.message || 'Erreur serveur. Veuillez réessayer ultérieurement.',
+            details: error
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Handle server shutdown event
+   * @param {CustomEvent} event - The server shutdown event
+   */
+  _handleServerShutdown = (event) => {
+    console.warn('Server shutdown detected', event.detail);
+    
+    // Extract shutdown details
+    const { reason, timestamp, reconnectAfter } = event.detail;
+    const reconnectTime = reconnectAfter || 30000; // Default to 30 seconds
+    
+    // Notify users about the shutdown
+    if (typeof this.callbacks.onServerShutdown === 'function') {
+      this.callbacks.onServerShutdown({
+        message: `Le serveur est en cours de maintenance. Reconnexion automatique dans ${Math.ceil(reconnectTime/1000)} secondes.`,
+        reason,
+        timestamp,
+        reconnectAfter: reconnectTime
+      });
+    }
+    
+    // Cleanup existing connection
+    chatWebSocketService.disconnect();
+    
+    // Set a flag so we don't try to reconnect immediately
+    this._serverShutdownInProgress = true;
+    
+    // Schedule a reconnection attempt after the specified time
+    console.log(`Scheduling reconnection in ${reconnectTime/1000} seconds...`);
+    this._shutdownReconnectTimer = setTimeout(() => {
+      console.log('Attempting to reconnect after server shutdown');
+      this._serverShutdownInProgress = false;
+      
+      // Only attempt reconnection if we're still initialized
+      if (this.initialized && this.currentUser) {
+        // Inform user we're trying to reconnect
+        if (typeof this.callbacks.onReconnecting === 'function') {
+          this.callbacks.onReconnecting();
+        }
+        
+        // Try to reconnect
+        chatWebSocketService.connect()
+          .then(() => {
+            console.log('Reconnection after server shutdown successful');
+            
+            // Reset the reconnector
+            chatSocketReconnector.resetRetryCount();
+            
+            // Re-join any active rooms
+            this._rejoinActiveRooms();
+            
+            // Notify about successful reconnection
+            if (typeof this.callbacks.onReconnected === 'function') {
+              this.callbacks.onReconnected();
+            }
+          })
+          .catch(error => {
+            console.error('Reconnection after server shutdown failed:', error);
+            
+            // Notify about the failure
+            if (typeof this.callbacks.onError === 'function') {
+              this.callbacks.onError({
+                code: 'RECONNECT_AFTER_SHUTDOWN_FAILED',
+                message: 'La reconnexion a échoué après la maintenance du serveur. Veuillez actualiser la page.',
+                details: error
+              });
+            }
+          });
+      }
+    }, reconnectTime);
+  }
+
+  /**
    * Rejoins any active chat rooms after a reconnection
    */
   _rejoinActiveRooms() {
@@ -111,6 +280,11 @@ class ChatService {
     }
     
     console.log(`Rejoining ${activeRooms.length} active rooms:`, activeRooms);
+    
+    // Track successful rejoins for reporting
+    let successCount = 0;
+    let failCount = 0;
+    const roomPromises = [];
     
     activeRooms.forEach(roomId => {
       let type, groupId;
@@ -129,10 +303,11 @@ class ChatService {
       if (type) {
         console.log(`Rejoining ${type} room with groupId:`, groupId);
         
-        // Use the internal WebSocket service method to rejoin
-        chatWebSocketService._joinChat(type, groupId)
+        // Create a promise for each room join attempt
+        const roomPromise = chatWebSocketService._joinChat(type, groupId)
           .then(() => {
             console.log(`Successfully rejoined ${type} room`);
+            successCount++;
             
             // Update the message list for this room
             chatWebSocketService.getMessages(type, groupId);
@@ -141,10 +316,48 @@ class ChatService {
             if (typeof this.callbacks.onRoomJoined === 'function') {
               this.callbacks.onRoomJoined(roomId);
             }
+            
+            return { roomId, success: true };
           })
           .catch(error => {
             console.error(`Failed to rejoin ${type} room:`, error);
+            failCount++;
+            return { roomId, success: false, error };
           });
+          
+        roomPromises.push(roomPromise);
+      }
+    });
+    
+    // Handle the overall rejoin process results
+    Promise.allSettled(roomPromises).then(results => {
+      console.log(`Room rejoin process complete: ${successCount} succeeded, ${failCount} failed`);
+      
+      // Notify about overall rejoin status
+      if (typeof this.callbacks.onRoomsRejoined === 'function') {
+        this.callbacks.onRoomsRejoined({
+          total: activeRooms.length,
+          success: successCount,
+          failed: failCount
+        });
+      }
+      
+      // If we had failures but some successes, we can consider it a partial recovery
+      if (failCount > 0 && successCount > 0) {
+        console.log('Partial recovery achieved - some rooms were successfully rejoined');
+      } 
+      // If everything failed, we might want to notify the user
+      else if (failCount > 0 && successCount === 0) {
+        console.error('Failed to rejoin any rooms - connection may be compromised');
+        
+        // Notify about the failure
+        if (typeof this.callbacks.onError === 'function') {
+          this.callbacks.onError({
+            code: 'REJOIN_COMPLETE_FAILURE',
+            message: 'Impossible de rejoindre les salons de discussion. La connexion pourrait être compromise.',
+            rooms: activeRooms
+          });
+        }
       }
     });
   }
@@ -444,14 +657,38 @@ class ChatService {
    * Se déconnecte du chat
    */
   disconnect() {
+    // Only cleanup if we're initialized
+    if (!this.initialized) return;
+
+    console.log('Chat service disconnecting...');
+    
     // Remove event listeners
     window.removeEventListener('websocketReconnectFailed', this._handleReconnectFailed);
+    window.removeEventListener('websocketError', this._handleWebSocketError);
+    window.removeEventListener('serverShutdown', this._handleServerShutdown);
+    
+    // Clear any shutdown reconnect timer
+    if (this._shutdownReconnectTimer) {
+      clearTimeout(this._shutdownReconnectTimer);
+      this._shutdownReconnectTimer = null;
+    }
+    
+    // Reset shutdown flags
+    this._serverShutdownInProgress = false;
     
     // Cleanup the reconnector
     chatSocketReconnector.cleanup();
     
+    // Cancel any pending reconnection
+    this._isReconnecting = false;
+    
     // Déconnecter du WebSocket
-    chatWebSocketService.disconnect();
+    try {
+      chatWebSocketService.disconnect();
+    } catch (e) {
+      console.warn('Error during WebSocket disconnect:', e);
+      // Continue with cleanup regardless
+    }
     
     // Réinitialiser les données
     this.rooms.clear();
@@ -459,6 +696,8 @@ class ChatService {
     this.typingUsers.clear();
     this.initialized = false;
     this.currentUser = null;
+    
+    console.log('Chat service disconnected');
   }
 }
 

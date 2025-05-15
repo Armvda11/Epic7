@@ -27,6 +27,7 @@ constructor() {
     this.activeRooms = new Set(); // Ensemble des salons actifs
     this.lastRoomRequest = null; // Dernière demande de salon
     this.roomRequestHistory = {}; // Historique des demandes de salon
+    this.roomInfo = {}; // Store room information including numeric IDs
     
     // Error recovery
     this.recoveryAttempts = {}; // Compteur de tentatives de récupération par salon
@@ -273,237 +274,282 @@ connect() {
  * S'abonne au canal d'erreurs personnelles
  */
 _subscribeToErrorChannel() {
-    if (!this.stompClient || !this.connected) {
-    console.warn("Cannot subscribe to error channel: no STOMP client or not connected");
-    return;
-    }
-    
-    try {
-    // Verify client connection state
-    if (!this.stompClient.connected) {
-        console.warn("STOMP client not in connected state, delaying error channel subscription");
-        setTimeout(() => this._subscribeToErrorChannel(), 500);
-        return;
-    }
-    
-    // S'abonner au canal d'erreurs personnelles
+  if (!this.connected || !this.stompClient) return;
+  
+  try {
     const subscription = this.stompClient.subscribe(
-        `/user/queue/errors`,
-        (message) => {
+      `/user/queue/chat/error`,
+      (frame) => {
         try {
-            const payload = JSON.parse(message.body);
-            console.error('Erreur WebSocket:', payload);
-            
-            // Invoquer le callback onError s'il existe
-            if (typeof this.callbacks.onError === 'function') {
+          const payload = JSON.parse(frame.body);
+          
+          // Check if this is a server shutdown notification
+          if (this._handleServerShutdown(frame)) {
+            return;
+          }
+          
+          console.error('Erreur reçue du serveur:', payload);
+          
+          // Check for server shutdown indicators in error messages
+          if (payload.code === 'SERVER_STOPPING' || 
+              payload.message?.includes('server shutting down') ||
+              payload.message?.includes('server shutdown')) {
+            this._handleServerShutdown({body: JSON.stringify({...payload, type: 'SHUTDOWN'})});
+            return;
+          }
+          
+          if (typeof this.callbacks.onError === 'function') {
             this.callbacks.onError(payload);
-            }
+          }
         } catch (error) {
-            console.error('Erreur lors du parsing d\'un message d\'erreur:', error);
+          console.error('Erreur lors du parsing d\'un message d\'erreur:', error);
         }
-        }
+      }
     );
     
     this.subscriptions.errorChannel = subscription;
-    } catch (error) {
+  } catch (error) {
     console.error('Erreur lors de l\'abonnement au canal d\'erreurs:', error);
     
     // On essaie de se reconnecter automatiquement
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        console.log(`Tentative de reconnexion automatique (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-        
-        // Utiliser un délai croissant
-        const delay = this.reconnectAttempts === 1 ? this.initialReconnectDelay : this.extendedReconnectDelay;
-        
-        setTimeout(() => {
+      this.reconnectAttempts++;
+      console.log(`Tentative de reconnexion automatique (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+      
+      // Utiliser un délai croissant
+      const delay = this.reconnectAttempts === 1 ? this.initialReconnectDelay : this.extendedReconnectDelay;
+      
+      setTimeout(() => {
         // Only disconnect if we're still connected
         if (this.connected) {
-            this.disconnect();
+          this.disconnect();
         }
         this.connect().catch(console.error);
-        }, delay);
+      }, delay);
     }
-    }
+  }
 }
 
 /**
  * S'abonne aux canaux personnels pour les notifications et confirmations
  */
 _subscribeToPersonalChannels() {
-    if (!this.stompClient || !this.connected) {
-    console.warn("Cannot subscribe to personal channels: no STOMP client or not connected");
-    return;
-    }
-    
-    try {
-    // Verify client connection state
-    if (!this.stompClient.connected) {
-        console.warn("STOMP client not in connected state, delaying personal channels subscription");
-        setTimeout(() => this._subscribeToPersonalChannels(), 500);
-        return;
-    }
-    
-    // Canal pour les confirmations d'envoi de message
-    const confirmSubscription = this.stompClient.subscribe(
-        `/user/queue/chat/confirm`,
-        (message) => {
+  if (!this.connected || !this.stompClient) return;
+  
+  try {
+    // S'abonner au canal des messages personnels
+    const messageSubscription = this.stompClient.subscribe(
+      `/user/queue/chat/messages`,
+      (frame) => {
         try {
-            const payload = JSON.parse(message.body);
-            console.log('Confirmation envoi de message:', payload);
-            
+          const payload = JSON.parse(frame.body);
+          
+          // Check if this is a server shutdown notification
+          if (this._handleServerShutdown(frame)) {
+            return;
+          }
+          
+          // Invoquer le callback onMessage s'il existe
+          if (typeof this.callbacks.onMessage === 'function') {
+            if (payload.message) {
+              this.callbacks.onMessage(payload.message, payload.type, payload.groupId);
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors du parsing d\'un message:', error);
+        }
+      }
+    );
+    
+    // S'abonner au canal des confirmations
+    const confirmSubscription = this.stompClient.subscribe(
+      `/user/queue/chat/confirm`,
+      (frame) => {
+        try {
+          const payload = JSON.parse(frame.body);
+          
+          // Check if this is a server shutdown notification
+          if (this._handleServerShutdown(frame)) {
+            return;
+          }
+          
+          // Handle message confirmations
+          if (payload.type === 'MESSAGE_SENT' && payload.status === 'SUCCESS') {
             // Invoquer le callback onMessageConfirm s'il existe
             if (typeof this.callbacks.onMessageConfirm === 'function') {
-            this.callbacks.onMessageConfirm(payload);
+              this.callbacks.onMessageConfirm(payload);
             }
-        } catch (error) {
-            console.error('Erreur lors du parsing d\'une confirmation:', error);
-        }
-        }
-    );
-    
-    // Canal pour les confirmations de suppression de message
-    const deleteSubscription = this.stompClient.subscribe(
-        `/user/queue/chat/delete`,
-        (message) => {
-        try {
-            const payload = JSON.parse(message.body);
-            console.log('Confirmation suppression de message:', payload);
-            
+          } 
+          else if (payload.type === 'MESSAGE_DELETED') {
             // Invoquer le callback onDeleteConfirm s'il existe
             if (typeof this.callbacks.onDeleteConfirm === 'function') {
-            this.callbacks.onDeleteConfirm(payload);
+              this.callbacks.onDeleteConfirm(payload);
             }
+          }
         } catch (error) {
-            console.error('Erreur lors du parsing d\'une confirmation de suppression:', error);
+          console.error('Erreur lors du parsing d\'une confirmation:', error);
         }
-        }
+      }
     );
     
-    // Canal pour les informations de salon
-    const roomsSubscription = this.stompClient.subscribe(
-        `/user/queue/chat/rooms`,
-        (message) => {
+    // S'abonner au canal des informations de salon
+    const roomInfoSubscription = this.stompClient.subscribe(
+      `/user/queue/chat/roomInfo`,
+      (frame) => {
         try {
-            const payload = JSON.parse(message.body);
-            console.log('Informations salon reçues:', payload);
+          const payload = JSON.parse(frame.body);
+          
+          // Check if this is a server shutdown notification
+          if (this._handleServerShutdown(frame)) {
+            return;
+          }
+          
+          // Handle Hibernate lazy loading errors specifically
+          if (payload.status === 'ERROR') {
+            console.warn('Erreur de récupération des infos de salon:', payload);
             
-            // Vérifier si c'est un message d'erreur du serveur
-            if (isServerErrorMessage(payload)) {
-            console.warn('Erreur serveur détectée dans la réponse de la salle:', payload);
-            
-            // Si c'est une erreur Hibernate de lazy loading, tenter une récupération
             if (isHibernateLazyLoadingError(payload.message)) {
-                console.log('Erreur Hibernate lazy loading détectée...');
+              console.log('Erreur Hibernate lazy loading détectée...');
+              
+              // Generate room key for tracking retry attempts
+              const roomKey = this.lastRoomRequest 
+                ? (this.lastRoomRequest.groupId 
+                  ? `${this.lastRoomRequest.type.toLowerCase()}.${this.lastRoomRequest.groupId}` 
+                  : 'global')
+                : 'unknown';
+              
+              // Check if room is already in circuit breaker state
+              const recoveryData = this.recoveryAttempts && this.recoveryAttempts[roomKey];
+              if (recoveryData && recoveryData.count >= 5) {
+                console.warn(`Circuit breaker déjà activé pour ${roomKey} après ${recoveryData.count} tentatives. Aucune nouvelle récupération.`);
                 
-                // Generate room key for tracking retry attempts
-                const roomKey = this.lastRoomRequest 
-                  ? (this.lastRoomRequest.groupId 
-                    ? `${this.lastRoomRequest.type.toLowerCase()}.${this.lastRoomRequest.groupId}` 
-                    : 'global')
-                  : 'unknown';
-                
-                // Check if room is already in circuit breaker state
-                const recoveryData = this.recoveryAttempts && this.recoveryAttempts[roomKey];
-                if (recoveryData && recoveryData.count >= 5) {
-                  console.warn(`Circuit breaker déjà activé pour ${roomKey} après ${recoveryData.count} tentatives. Aucune nouvelle récupération.`);
-                  
-                  if (typeof this.callbacks.onError === 'function') {
-                    this.callbacks.onError({
-                      code: 'HIBERNATE_ERROR_PERSISTENT',
-                      message: `Erreur persistante de chargement du salon de discussion. Veuillez réessayer ultérieurement.`,
-                      details: payload
-                    });
-                  }
-                  return;
-                }
-                
-                // Attempt recovery with circuit breaker pattern
-                recoverFromHibernateError(this, payload).then((result) => {
-                  const { success, retryCount, reason } = result;
-                  
-                  if (success && retryCount < 5) {
-                    console.log(`Récupération automatique initiée (tentative ${retryCount}/5)`);
-                  } else {
-                    console.warn(`Échec de la récupération automatique: ${reason || 'limite de tentatives atteinte'}`);
-                    
-                    // If recovery failed due to circuit breaker or max retries, notify user
-                    if (reason === 'circuit_breaker' || retryCount >= 5) {
-                      if (typeof this.callbacks.onError === 'function') {
-                        this.callbacks.onError({
-                          code: 'HIBERNATE_ERROR_MAX_RETRY',
-                          message: `Échec de chargement du salon de discussion après plusieurs tentatives. Veuillez réessayer ultérieurement.`,
-                          details: payload
-                        });
-                      }
-                    }
-                  }
-                });
-                return;
-            } else {
-                // For other server errors, notify user
                 if (typeof this.callbacks.onError === 'function') {
                   this.callbacks.onError({
-                    code: 'SERVER_ERROR',
-                    message: payload.message || 'Erreur serveur lors du chargement du salon',
+                    code: 'HIBERNATE_ERROR_MAX_RETRY',
+                    message: `Erreur persistante de chargement du salon de discussion. Veuillez réessayer ultérieurement.`,
                     details: payload
                   });
                 }
                 return;
-            }
-            }
-            
-            // Reset recovery counter if we successfully got room info
-            if (this.lastRoomRequest) {
-              const roomKey = this.lastRoomRequest.groupId 
-                ? `${this.lastRoomRequest.type.toLowerCase()}.${this.lastRoomRequest.groupId}` 
-                : 'global';
+              }
               
-              resetRecoveryAttempts(this, roomKey);
+              // Attempt recovery with circuit breaker pattern
+              recoverFromHibernateError(this, payload).then((result) => {
+                const { success, retryCount, reason } = result;
+                
+                if (success && retryCount < 5) {
+                  console.log(`Récupération automatique initiée (tentative ${retryCount}/5)`);
+                } else {
+                  if (retryCount >= 5) {
+                    console.error(`Échec de la récupération après ${retryCount} tentatives.`);
+                    
+                    if (typeof this.callbacks.onError === 'function') {
+                      this.callbacks.onError({
+                        code: 'HIBERNATE_ERROR_PERSISTENT',
+                        message: 'Échec de la récupération après plusieurs tentatives. Veuillez rafraîchir la page.',
+                        details: { reason, retryCount }
+                      });
+                    }
+                  }
+                }
+              });
+              
+              return;
+            } else {
+              // Other type of error
+              console.error('Erreur serveur lors du chargement du salon:', payload);
+              
+              if (typeof this.callbacks.onError === 'function') {
+                this.callbacks.onError({
+                  code: 'SERVER_ERROR',
+                  message: payload.message || 'Erreur serveur lors du chargement du salon',
+                  details: payload
+                });
+              }
+              return;
             }
+          }
+          
+          // Reset recovery counter if we successfully got room info
+          if (this.lastRoomRequest) {
+            const roomKey = this.lastRoomRequest.groupId 
+              ? `${this.lastRoomRequest.type.toLowerCase()}.${this.lastRoomRequest.groupId}` 
+              : 'global';
             
-            // Invoquer le callback onRoomInfo s'il existe
-            if (typeof this.callbacks.onRoomInfo === 'function') {
-              this.callbacks.onRoomInfo(payload);
+            resetRecoveryAttempts(this, roomKey);
+            
+            // Store the numeric room ID from server response for this room key
+            if (payload.data && payload.data.id) {
+              console.log(`Received numeric room ID for ${roomKey}: ${payload.data.id}`);
+              
+              // Store the numeric ID in the roomInfo map
+              this.roomInfo[roomKey] = {
+                numericId: payload.data.id,
+                name: payload.data.name,
+                type: payload.data.type,
+                timestamp: new Date().getTime()
+              };
+              
+              // Also store the numeric ID with the subscription if it exists
+              if (this.subscriptions[roomKey]) {
+                this.subscriptions[roomKey].numericId = payload.data.id;
+              }
             }
+          }
+          
+          // Invoquer le callback onRoomInfo s'il existe
+          if (typeof this.callbacks.onRoomInfo === 'function') {
+            this.callbacks.onRoomInfo(payload);
+          }
         } catch (error) {
-            console.error('Erreur lors du parsing d\'informations salon:', error);
+          console.error('Erreur lors du parsing des informations de salon:', error);
         }
-        }
+      }
     );
     
-    // Canal pour les messages
-    const messagesSubscription = this.stompClient.subscribe(
-        `/user/queue/chat/messages`,
-        (message) => {
+    // S'abonner au canal de réception des messages
+    const messagesReceivedSubscription = this.stompClient.subscribe(
+      `/user/queue/chat/messagesReceived`,
+      (frame) => {
         try {
-            const payload = JSON.parse(message.body);
-            console.log('Messages reçus:', payload);
-            
-            // Invoquer le callback onMessagesReceived s'il existe
-            if (typeof this.callbacks.onMessagesReceived === 'function') {
+          const payload = JSON.parse(frame.body);
+          
+          // Check if this is a server shutdown notification
+          if (this._handleServerShutdown(frame)) {
+            return;
+          }
+          
+          // Invoquer le callback onMessagesReceived s'il existe
+          if (typeof this.callbacks.onMessagesReceived === 'function') {
             this.callbacks.onMessagesReceived(payload);
-            }
+          }
         } catch (error) {
-            console.error('Erreur lors du parsing de messages:', error);
+          console.error('Erreur lors du parsing des messages reçus:', error);
         }
-        }
+      }
     );
     
-    this.subscriptions.confirmChannel = confirmSubscription;
-    this.subscriptions.deleteChannel = deleteSubscription;
-    this.subscriptions.roomsChannel = roomsSubscription;
-    this.subscriptions.messagesChannel = messagesSubscription;
-    } catch (error) {
+    // Stocker les abonnements
+    this.subscriptions.personalChannels = {
+      messages: messageSubscription,
+      confirm: confirmSubscription,
+      roomInfo: roomInfoSubscription,
+      messagesReceived: messagesReceivedSubscription
+    };
+    
+    console.log('Abonnement aux canaux personnels réussi');
+  } catch (error) {
     console.error('Erreur lors de l\'abonnement aux canaux personnels:', error);
     
-    // On essaie de se reconnecter automatiquement en cas d'erreur
-    setTimeout(() => {
-        if (this.connected) {
-        this._subscribeToPersonalChannels();
-        }
-    }, 1000);
+    // Notifier l'erreur
+    if (typeof this.callbacks.onError === 'function') {
+      this.callbacks.onError({
+        code: 'SUBSCRIPTION_ERROR',
+        message: 'Erreur lors de l\'abonnement aux canaux personnels',
+        details: error
+      });
     }
+  }
 }
 
 /**
@@ -662,14 +708,15 @@ _doJoinChat(type, groupId, resolve, reject) {
         }
         );
         
-        // Stocker les abonnements pour pouvoir les annuler plus tard
-        this.subscriptions[roomId] = {
-        messages: messageSubscription,
-        typing: typingSubscription
-        };
-        
-        // Ajouter le salon à l'ensemble des salons actifs
-        this.activeRooms.add(roomId);
+    // Stocker les abonnements pour pouvoir les annuler plus tard
+    this.subscriptions[roomId] = {
+      messages: messageSubscription,
+      typing: typingSubscription,
+      numericId: null  // Will be populated when we receive room info
+    };
+    
+    // Ajouter le salon à l'ensemble des salons actifs
+    this.activeRooms.add(roomId);
     }
     
     // Demander les messages récents
@@ -755,7 +802,7 @@ getMessages(type, groupId = null, limit = 50, retryCount = 0) {
 
 /**
  * Demander les messages récents d'un salon par son ID
- * @param {number} roomId - ID du salon
+ * @param {string} roomId - Identifiant logique du salon (e.g., 'global', 'guild.123')
  * @param {number} limit - Nombre maximum de messages à récupérer
  */
 getMessagesByRoomId(roomId, limit = 50) {
@@ -766,10 +813,17 @@ getMessagesByRoomId(roomId, limit = 50) {
     
     return new Promise((resolve, reject) => {
     try {
-        // Envoyer la demande de messages
+        // Get the numeric ID
+        const numericRoomId = this._getNumericRoomId(roomId);
+        
+        if (!numericRoomId) {
+          console.error(`Numeric ID not found for room ${roomId}. Message retrieval will likely fail.`);
+        }
+        
+        // Envoyer la demande de messages avec l'ID numérique
         this.stompClient.send('/app/chat.getMessages', {}, JSON.stringify({
-        roomId: roomId,
-        limit: limit
+          roomId: numericRoomId || roomId, // Fallback to string ID if numeric not available
+          limit: limit
         }));
         
         // La réponse sera traitée par le callback onMessagesReceived
@@ -782,8 +836,133 @@ getMessagesByRoomId(roomId, limit = 50) {
 }
 
 /**
+ * Get the numeric ID for a room
+ * @private
+ * @param {string} roomId - The logical room ID ('global', 'guild.123', etc.)
+ * @returns {number|null} - The numeric room ID from the server, or null if not found
+ */
+_getNumericRoomId(roomId) {
+  // First check in roomInfo which is the most reliable source
+  if (this.roomInfo[roomId] && this.roomInfo[roomId].numericId) {
+    return this.roomInfo[roomId].numericId;
+  }
+  
+  // Fallback to checking in subscriptions
+  if (this.subscriptions[roomId] && this.subscriptions[roomId].numericId) {
+    return this.subscriptions[roomId].numericId;
+  }
+  
+  console.warn(`No numeric ID found for room ${roomId}`);
+  return null;
+}
+
+/**
+ * Vérifie si nous avons des informations valides pour un salon
+ * @param {string} roomId - Identifiant logique du salon
+ * @returns {boolean} - True si nous avons des informations valides
+ */
+_hasValidRoomInfo(roomId) {
+  // Check if we have numeric ID in roomInfo
+  if (this.roomInfo[roomId] && this.roomInfo[roomId].numericId) {
+    return true;
+  }
+  
+  // Check if we have numeric ID in subscriptions
+  if (this.subscriptions[roomId] && this.subscriptions[roomId].numericId) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Demande les informations d'un salon si nécessaire
+ * @param {string} roomId - Identifiant logique du salon
+ * @returns {Promise} - Promise résolue quand les informations sont disponibles
+ */
+_ensureRoomInfo(roomId) {
+  return new Promise((resolve, reject) => {
+    if (this._hasValidRoomInfo(roomId)) {
+      resolve(this._getNumericRoomId(roomId));
+      return;
+    }
+    
+    // We don't have valid room info, request it
+    console.log(`Requesting room info for ${roomId}`);
+    
+    // Parse the room ID to get type and groupId
+    let type, groupId;
+    
+    if (roomId === 'global') {
+      type = 'GLOBAL';
+      groupId = null;
+    } else if (roomId.startsWith('guild.')) {
+      type = 'GUILD';
+      groupId = parseInt(roomId.split('.')[1], 10);
+    } else if (roomId.startsWith('fight.')) {
+      type = 'FIGHT';
+      groupId = parseInt(roomId.split('.')[1], 10);
+    } else {
+      reject(new Error(`Invalid room ID format: ${roomId}`));
+      return;
+    }
+    
+    // Create a timeout to reject if we don't get room info
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timeout getting room info for ${roomId}`));
+    }, 5000);
+    
+    // Create a one-time listener for room info
+    const originalCallback = this.callbacks.onRoomInfo;
+    
+    this.callbacks.onRoomInfo = (payload) => {
+      // Call the original callback if it exists
+      if (originalCallback) {
+        originalCallback(payload);
+      }
+      
+      // Check if this is the room info we're waiting for
+      if (payload.data && 
+          ((type === 'GLOBAL' && payload.data.type === 'GLOBAL') ||
+           (type !== 'GLOBAL' && payload.data.type === type && payload.data.groupId === groupId))) {
+        
+        clearTimeout(timeout);
+        
+        // Restore the original callback
+        this.callbacks.onRoomInfo = originalCallback;
+        
+        resolve(payload.data.id);
+      }
+    };
+    
+    // Request room info
+    try {
+      // Prepare the payload for the room request
+      const payload = { type };
+      
+      if (groupId != null) {
+        payload.groupId = groupId;
+      }
+      
+      // Send the room request
+      this.stompClient.send('/app/chat.getRoom', {}, JSON.stringify(payload));
+      
+      // Save the last room request
+      this.lastRoomRequest = { type, groupId };
+    } catch (error) {
+      clearTimeout(timeout);
+      
+      // Restore the original callback
+      this.callbacks.onRoomInfo = originalCallback;
+      
+      reject(error);
+    }
+  });
+}
+
+/**
  * Envoyer un message dans un salon
- * @param {number} roomId - ID du salon
+ * @param {string} roomId - Identifiant logique du salon (e.g., 'global', 'guild.123')
  * @param {string} content - Contenu du message
  * @returns {Promise} - Promise résolue quand le message est envoyé
  */
@@ -793,29 +972,39 @@ sendMessage(roomId, content) {
     }
     
     return new Promise((resolve, reject) => {
-    try {
-        // Préparer le payload
-        const payload = {
-        roomId: roomId,
-        content: content
-        };
-        
-        // Envoyer le message
-        this.stompClient.send('/app/chat.sendMessage', {}, JSON.stringify(payload));
-        
-        // La confirmation sera traitée par le callback onMessageConfirm
-        resolve();
-    } catch (error) {
-        console.error('Erreur lors de l\'envoi du message:', error);
-        reject(error);
-    }
+      // Ensure we have room info before sending the message
+      this._ensureRoomInfo(roomId)
+        .then(numericRoomId => {
+          try {
+            // Préparer le payload avec l'ID numérique du salon
+            const payload = {
+              roomId: numericRoomId,
+              content: content
+            };
+            
+            console.log(`Sending message to room ${roomId} with numeric ID ${numericRoomId}:`, payload);
+            
+            // Envoyer le message
+            this.stompClient.send('/app/chat.sendMessage', {}, JSON.stringify(payload));
+            
+            // La confirmation sera traitée par le callback onMessageConfirm
+            resolve();
+          } catch (error) {
+            console.error('Erreur lors de l\'envoi du message:', error);
+            reject(error);
+          }
+        })
+        .catch(error => {
+          console.error(`Failed to get room info for ${roomId}:`, error);
+          reject(new Error(`Cannot send message - failed to get room info: ${error.message}`));
+        });
     });
 }
 
 /**
  * Supprimer un message
  * @param {number} messageId - ID du message à supprimer
- * @param {number} roomId - ID du salon
+ * @param {string} roomId - Identifiant logique du salon (e.g., 'global', 'guild.123')
  * @returns {Promise} - Promise résolue quand le message est supprimé
  */
 deleteMessage(messageId, roomId) {
@@ -825,11 +1014,20 @@ deleteMessage(messageId, roomId) {
     
     return new Promise((resolve, reject) => {
     try {
-        // Préparer le payload
+        // Get the numeric ID
+        const numericRoomId = this._getNumericRoomId(roomId);
+        
+        if (!numericRoomId) {
+          console.error(`Numeric ID not found for room ${roomId}. Message deletion will likely fail.`);
+        }
+        
+        // Préparer le payload avec l'ID numérique du salon
         const payload = {
-        messageId: messageId,
-        roomId: roomId
+          messageId: messageId,
+          roomId: numericRoomId || roomId // Fallback to string ID if numeric not available
         };
+        
+        console.log(`Deleting message ${messageId} from room ${roomId} with numeric ID ${numericRoomId}`);
         
         // Envoyer la demande de suppression
         this.stompClient.send('/app/chat.deleteMessageDirect', {}, JSON.stringify(payload));
@@ -845,27 +1043,36 @@ deleteMessage(messageId, roomId) {
 
 /**
  * Envoyer une notification de frappe
- * @param {number} roomId - ID du salon
+ * @param {string} roomId - Identifiant logique du salon (e.g., 'global', 'guild.123')
  * @param {boolean} isTyping - État de la frappe (true = en train de taper)
  */
 sendTypingStatus(roomId, isTyping) {
     if (!this.stompClient || !this.stompClient.connected) {
-    console.error('Non connecté au WebSocket pour sendTypingStatus');
-    return;
+      console.error('Non connecté au WebSocket pour sendTypingStatus');
+      return;
     }
     
-    try {
-    // Préparer le payload
-    const payload = {
-        roomId: roomId,
-        typing: isTyping
-    };
-    
-    // Envoyer la notification
-    this.stompClient.send('/app/chat.typing', {}, JSON.stringify(payload));
-    } catch (error) {
-    console.error('Erreur lors de l\'envoi de la notification de frappe:', error);
-    }
+    // Ensure we have room info before sending the typing status
+    this._ensureRoomInfo(roomId)
+      .then(numericRoomId => {
+        try {
+          // Préparer le payload avec l'ID numérique du salon
+          const payload = {
+            roomId: numericRoomId,
+            typing: isTyping
+          };
+          
+          console.log(`Sending typing status for room ${roomId} with numeric ID ${numericRoomId}:`, payload);
+          
+          // Envoyer la notification
+          this.stompClient.send('/app/chat.typing', {}, JSON.stringify(payload));
+        } catch (error) {
+          console.error('Erreur lors de l\'envoi de la notification de frappe:', error);
+        }
+      })
+      .catch(error => {
+        console.error(`Failed to get room info for typing status in ${roomId}:`, error);
+      });
 }
 
 /**
@@ -970,6 +1177,9 @@ disconnect() {
     this.roomRequestHistory = {};
     this.lastRoomRequest = null;
     
+    // Clear room info storage
+    this.roomInfo = {};
+    
     // Se déconnecter du serveur
     if (this.stompClient) {
       if (this.stompClient.connected) {
@@ -1051,6 +1261,57 @@ _finalizeDisconnect() {
     }
     
     console.log('Déconnexion du Chat WebSocket terminée');
+}
+
+/**
+ * Détecte et gère une fermeture propre initiée par le serveur
+ * @param {Object} frame - Trame STOMP contenant le message de fermeture
+ * @private
+ */
+_handleServerShutdown(frame) {
+  try {
+    // Parse the message if needed
+    const payload = typeof frame.body === 'string' ? JSON.parse(frame.body) : frame.body;
+    
+    console.warn('Server-initiated shutdown detected:', payload);
+    
+    // If this is a clean shutdown message, handle it gracefully
+    if (payload && (
+        payload.type === 'SHUTDOWN' || 
+        payload.type === 'SERVER_STOPPING' ||
+        (payload.message && payload.message.includes('shutdown'))
+    )) {
+      console.log('Processing clean server shutdown...');
+      
+      // Clear all room subscriptions - the server is going down
+      this.activeRooms.clear();
+      
+      // Notify any listeners about this event
+      if (typeof this.callbacks.onServerShutdown === 'function') {
+        this.callbacks.onServerShutdown(payload);
+      }
+      
+      // Disconnect gracefully without aggressive reconnection attempts
+      this.disconnect();
+      
+      // Dispatch a custom event to alert other components
+      const shutdownEvent = new CustomEvent('serverShutdown', { 
+        detail: { 
+          reason: payload.message || 'Server is shutting down',
+          timestamp: new Date().toISOString(),
+          reconnectAfter: payload.reconnectAfter || 30000 // Default 30 seconds
+        } 
+      });
+      window.dispatchEvent(shutdownEvent);
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error processing potential shutdown message:', error);
+    return false;
+  }
 }
 }
 

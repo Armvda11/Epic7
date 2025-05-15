@@ -521,4 +521,64 @@ public class ChatController {
             );
         }
     }
+
+    /**
+     * Handles client clean disconnect notifications.
+     * Allows clients to inform the server they're disconnecting intentionally.
+     *
+     * @param payload The disconnect payload with optional reason
+     * @param principal The authenticated user
+     */
+    @MessageMapping("/chat.disconnect")
+    public void handleDisconnect(@Payload Map<String, String> payload, Principal principal) {
+        if (principal == null) {
+            log.info("Received anonymous disconnect notification");
+            return;
+        }
+        
+        String reason = payload.getOrDefault("reason", "client_initiated");
+        log.info("Received clean disconnect from {}, reason: {}", principal.getName(), reason);
+        
+        // You could perform additional cleanup here if needed,
+        // such as updating user status, sending notifications to other users, etc.
+        
+        // We don't need to explicitly disconnect the user as Spring will handle
+        // the WebSocket session cleanup automatically
+    }
+
+    /**
+     * Subscribes to server shutdown events and notifies clients
+     * This method will be called by a Spring EventListener
+     */
+    public void notifyClientsOfShutdown() {
+        log.info("Notifying all connected chat clients of server shutdown");
+        
+        try {
+            // Send a message to all connected clients
+            messagingTemplate.convertAndSend(
+                "/topic/chat/system", 
+                Map.of(
+                    "type", "SHUTDOWN",
+                    "message", "Server is shutting down for maintenance. Please reconnect in a few minutes.",
+                    "reconnectAfter", 30000 // Suggest clients wait 30 seconds before reconnecting
+                )
+            );
+            
+            // Also send to user queues to ensure delivery
+            // This will be picked up by the client's error and message handlers
+            messagingTemplate.convertAndSend(
+                "/user/queue/chat/error", 
+                Map.of(
+                    "code", "SERVER_STOPPING",
+                    "type", "SHUTDOWN",
+                    "message", "Server is shutting down for maintenance. Please reconnect in a few minutes.",
+                    "reconnectAfter", 30000
+                )
+            );
+            
+            log.info("Shutdown notifications sent to all chat clients");
+        } catch (Exception e) {
+            log.error("Error sending shutdown notifications", e);
+        }
+    }
 }
