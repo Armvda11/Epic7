@@ -36,8 +36,6 @@ const Dashboard = () => {
   const searchInputRef = useRef(null);
 
 
-
-
   //  Chargement des infos utilisateur
   useEffect(() => {
     const loadUser = async () => {
@@ -123,16 +121,19 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const menuItems = [
-    { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
-    { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
-    { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
-    { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
-    { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
-    { label: t("battle", language), icon: <FaCrosshairs size={28} /> ,action: () => navigate("/rta")},
-    { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
-    { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
-  ];
+const leftMenuItems = [
+  { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
+  { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
+  { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
+  { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
+];
+
+const rightMenuItems = [
+  { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
+  { label: t("battle", language), icon: <FaCrosshairs size={28} />, action: () => navigate("/rta") },
+  { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
+  { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
+];
   if (!user) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
@@ -142,9 +143,39 @@ const Dashboard = () => {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6 relative">
+    <main className="absolute inset-0 bg-cover bg-center overflow-hidden" style={{ backgroundImage: "url('splashArt.webp')" }}>
+    <header className="flex justify-between items-center px-6 py-3">
+      
+      {/* Avatar (à gauche) */}
+      <div className="flex items-center gap-4 w-full md:w-auto">
+          <button
+            onClick={() => setShowProfile(true)}
+            className="w-full max-w-xs p-4 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
+          >
+            <article className="flex items-center gap-4">
+              <img src = {heroImg("mavuika")} alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = heroImgUnknown;
+                }}
+              />
+              <div>
+                <h2 className="text-xl font-bold">{user.username}</h2>
+                <p className="text-sm text-black-600 dark:text-orange-300">{t("level", language)} {user.level}</p>
+              </div>
+            </article>
+          </button>
 
-      {/* Panneau de paramètres modale */}
+        {showProfile && (<ProfileCard user={user} onClose={() => setShowProfile(false)} />)}
+
+        {/* Bouton flottant pour ouvrir les paramètres */}    
+        <button
+          onClick={() => setShowSettings(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
+        >
+          ⚙️
+        </button>
+
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
           <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
@@ -153,70 +184,38 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      </div>
+      
 
-      {/*  Boîte de réception modale */}
-      {showMailbox && (
+      {/* Ressources + Boîte de réception + Barre de recherche */}
+      <div className="flex items-center gap-6">
+        
+        {/* Barre des ressources (compacte, à droite) */}
+        <aside className="bg-black bg-opacity-40 px-4 py-2 rounded-lg flex gap-4 text-white text-sm">
+          <p>💰 {user.gold}</p>
+          <p>💎 {user.diamonds}</p>
+          <p>⚡ {user.energy}</p>
+        </aside>
+
+        {/* Boîte de réception (à droite de la barre des ressources) */}
+        <button
+          onClick={() => setShowMailbox(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
+        >
+          📬
+        </button>
+
+        {showMailbox && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="absolute inset-0" onClick={() => setShowMailbox(false)} />
+          <div className="absolute inset-0" onClick={() => setShowMailbox(false)} /> 
           <div className="relative z-50">
             <MailboxOverlay onClose={() => setShowMailbox(false)} />
           </div>
         </div>
       )}
 
-      {/* Modal de résultats de recherche */}
-      {showSearchResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="absolute inset-0" onClick={resetSearch} />
-          <div className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative z-50">
-            <h2 className="text-2xl font-bold mb-4">{t("searchResults", language)}</h2>
-            {searchResults.length > 0 ? (
-              <ul className="space-y-4">
-                {searchResults.map((player) => (
-                  <li
-                    key={player.id}
-                    className="p-4 bg-purple-50 dark:bg-[#3a3660] rounded-lg hover:bg-purple-100 dark:hover:bg-[#4a4680] cursor-pointer transition"
-                    onClick={() => navigateToProfile(player.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={player.avatar || heroImgUnknown}
-                        alt={player.username}
-                        className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-600 object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = heroImgUnknown;
-                        }}
-                      />
-                      <div>
-                        <p className="font-bold">{player.username}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{t("level", language)} {player.level}</p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-center py-4">{t("noPlayerWithName", language) || `No player with name "${searchTerm}" found`}</p>
-            )}
-            <button
-              onClick={resetSearch}
-              className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-            >
-              {t("close", language)}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/*  Carte de profil flottante */}
-      {showProfile && <ProfileCard user={user} onClose={() => setShowProfile(false)} />}
-
-      {/*  Mini carte profil et barre de recherche */}
-      <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-        {/* Barre de recherche */}
-        <form
-          onSubmit={handleSearchSubmit}
+        {/* Barre de recherche (à droite de la boîte mail) */}
+        <form onSubmit={handleSearchSubmit}
           className="w-full md:w-1/2 relative"
         >
           <input
@@ -275,72 +274,35 @@ const Dashboard = () => {
           )}
         </form>
 
-        {/* Profile buttons */}
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <button
-            onClick={() => setShowMailbox(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg z-10"
-            aria-label="Ouvrir la boîte de réception"
-          >
-            <span className="text-2xl">📬</span>
-          </button>
-          <button
-            onClick={() => setShowProfile(true)}
-            className="w-full max-w-xs p-4 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
-          >
-            <article className="flex items-center gap-4">
-              <img src = {heroImg("mavuika")} alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = heroImgUnknown;
-                }}
-              />
-              <div>
-                <h2 className="text-xl font-bold">{user.username}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">{t("level", language)} {user.level}</p>
-              </div>
-            </article>
+      </div>
+    </header>
 
-            <aside className="mt-4 grid grid-cols-3 gap-2 text-sm text-center">
-              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">💰 {user.gold}</p>
-              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">💎 {user.diamonds}</p>
-              <p className="bg-purple-50 dark:bg-[#3a3660] p-2 rounded-lg">⚡ {user.energy}</p>
-            </aside>
-          </button>
+      {/* Disposition des menus */}
+      <section className="flex justify-between gap-6 px-10">
+        {/* Menu de gauche */}
+        <div className="absolute left-0 flex flex-col gap-2 w-1/6">
+          {leftMenuItems.map((item, index) => (
+            <MenuTile key={index} label={item.label} icon={item.icon} onClick={item.action} index={index} />
+          ))}
         </div>
-      </header>
 
-      {/*  Titre d'accueil */}
-      <section className="text-center mb-10">
-        <h1 className="text-3xl font-bold">
-          {t("welcome", language)}, <span className="text-purple-500 dark:text-purple-300">{user.username}</span>
-        </h1>
+        {/* Menu de droite */}
+        <div className="absolute right-0 flex flex-col gap-2 w-1/6">
+          {rightMenuItems.map((item, index) => (
+            <MenuTile key={index} label={item.label} icon={item.icon} onClick={item.action} index={index} />
+          ))}
+        </div>
       </section>
 
-      {/*  Menu principal */}
-      <section className="grid grid-cols-2 md:grid-cols-3 gap-6" aria-label="Main Navigation">
-        {menuItems.map((item, index) => (
-          <MenuTile key={index} label={item.label} icon={item.icon} onClick={item.action}
-            index={index}
-          />
-        ))}
-      </section>
-
-      {/*  Déconnexion */}
-      <footer className="mt-12 text-center">
-        <button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition"
-        >
-          {t("logout", language)}
+      {/* Déconnexion */}
+      <footer className="absolute bottom-6 left-4 text-center">
+        <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition">
+          Déconnexion
         </button>
       </footer>
-      {/* Bouton flottant pour ouvrir les paramètres */}
-      <button onClick={() => setShowSettings(true)} className="fixed bottom-6 right-6 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg z-50" aria-label="Ouvrir les paramètres">
-        <span className="text-2xl">⚙️</span>
-      </button>
     </main>
   );
 };
+
 
 export default Dashboard;
