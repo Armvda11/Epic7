@@ -16,6 +16,7 @@ export default function SummonPage() {
   const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
   const navigate = useNavigate();
 
+  
   // Récupérer le nombre de gemmes de l'utilisateur
   useEffect(() => {
     const fetchUserDiamonds = async () => {
