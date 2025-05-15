@@ -35,7 +35,9 @@ public class ChatMessageDTO {
         dto.setRoomId(message.getChatRoom().getId());
         dto.setContent(message.getContent());
         dto.setTimestamp(message.getTimestamp().toString());
-        dto.setSender(message.getSender().toString());
+        
+        // Use the username field instead of toString() to ensure proper format
+        dto.setSender(message.getSender().getUsername());
         
         return dto;
     }

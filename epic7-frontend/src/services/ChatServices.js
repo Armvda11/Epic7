@@ -462,14 +462,29 @@ class ChatService {
     
     // Événement: Réception de messages
     chatWebSocketService.on('onMessagesReceived', (response) => {
+      console.log('Messages received:', response);
+      
       if (response.status === 'SUCCESS' && response.data) {
         const messages = response.data;
-        const roomId = messages.length > 0 ? messages[0].roomId : null;
+        console.log('Message data:', messages);
         
-        if (roomId) {
-          // Stocker les messages dans le stockage local
-          this._setMessages(roomId, messages);
+        // If we have an array of messages
+        if (Array.isArray(messages) && messages.length > 0) {
+          // Try to get roomId from the first message
+          const roomId = messages[0].roomId;
+          
+          if (roomId) {
+            console.log(`Storing ${messages.length} messages for room ${roomId}`);
+            // Stocker les messages dans le stockage local
+            this._setMessages(roomId, messages);
+          } else {
+            console.error('No roomId found in messages:', messages);
+          }
+        } else {
+          console.warn('No messages found in response:', response);
         }
+      } else {
+        console.warn('Invalid message response:', response);
       }
       
       // Invoquer le callback onMessagesLoaded s'il existe
@@ -509,7 +524,10 @@ class ChatService {
    * @param {Object} message - Le message à ajouter
    */
   _addMessage(message) {
+    if (!message) return;
+    
     const roomId = message.roomId;
+    if (!roomId) return;
     
     if (!this.messages.has(roomId)) {
       this.messages.set(roomId, []);
@@ -517,15 +535,56 @@ class ChatService {
     
     const messages = this.messages.get(roomId);
     
+    // Normalize the message format
+    const normalizedMessage = this._normalizeMessageFormat(message);
+    
     // Vérifier si le message existe déjà (éviter les doublons)
-    const exists = messages.some(m => m.id === message.id);
+    const exists = messages.some(m => m.id === normalizedMessage.id);
     
     if (!exists) {
-      messages.push(message);
+      messages.push(normalizedMessage);
       
       // Trier les messages par date
-      messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      messages.sort((a, b) => {
+        try {
+          return new Date(a.timestamp) - new Date(b.timestamp);
+        } catch (e) {
+          return 0; // Keep the order unchanged if there's an error
+        }
+      });
     }
+  }
+  
+  /**
+   * Normalizes message format to ensure consistent structure
+   * @param {Object} message - The message to normalize
+   * @returns {Object} - The normalized message
+   */
+  _normalizeMessageFormat(message) {
+    // Create a copy to avoid modifying the original
+    const normalizedMessage = { ...message };
+    
+    // Handle sender formatting
+    if (typeof message.sender === 'string') {
+      // If sender is just a string, convert to object with username
+      normalizedMessage.sender = {
+        username: message.sender,
+        id: message.senderId || message.sender // Use senderId if available or fallback to string
+      };
+    } else if (!message.sender) {
+      // If sender is missing, add a placeholder
+      normalizedMessage.sender = {
+        username: 'Unknown',
+        id: 'unknown'
+      };
+    }
+    
+    // Make sure timestamp exists and is valid
+    if (!message.timestamp || isNaN(new Date(message.timestamp).getTime())) {
+      normalizedMessage.timestamp = new Date().toISOString();
+    }
+    
+    return normalizedMessage;
   }
 
   /**
@@ -534,10 +593,27 @@ class ChatService {
    * @param {Array} messages - Les messages à stocker
    */
   _setMessages(roomId, messages) {
-    // Trier les messages par date
-    const sortedMessages = [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    if (!roomId || !Array.isArray(messages)) return;
     
-    this.messages.set(roomId, sortedMessages);
+    // Normalize all messages
+    const normalizedMessages = messages.map(msg => this._normalizeMessageFormat(msg));
+    
+    // Trier les messages par date
+    try {
+      const sortedMessages = [...normalizedMessages].sort((a, b) => {
+        try {
+          return new Date(a.timestamp) - new Date(b.timestamp);
+        } catch (e) {
+          return 0;
+        }
+      });
+      
+      this.messages.set(roomId, sortedMessages);
+    } catch (e) {
+      console.error('Error sorting messages:', e);
+      // If sorting fails, just store them as is
+      this.messages.set(roomId, normalizedMessages);
+    }
   }
 
   /**

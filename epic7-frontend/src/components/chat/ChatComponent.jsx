@@ -130,12 +130,33 @@ const ChatComponent = ({ roomType, guildId = null }) => {
 
   // Helper function to format messages by date groups
   const formatMessages = () => {
-    if (!messages.length) return [];
+    if (!messages || !messages.length) return [];
+    
+    // Make sure we're working with valid message objects
+    const validMessages = messages.filter(message => 
+      message && 
+      (typeof message.content === 'string') && 
+      (message.timestamp || message.id)
+    );
+    
+    if (validMessages.length === 0) return [];
     
     // Group messages by date
-    const groupedMessages = messages.reduce((groups, message) => {
-      const date = new Date(message.timestamp);
-      const dateString = date.toLocaleDateString();
+    const groupedMessages = validMessages.reduce((groups, message) => {
+      // Safely handle invalid dates
+      let dateString;
+      try {
+        // Check if timestamp is valid
+        if (!message.timestamp || isNaN(new Date(message.timestamp).getTime())) {
+          dateString = 'Unknown Date';
+        } else {
+          const date = new Date(message.timestamp);
+          dateString = date.toLocaleDateString();
+        }
+      } catch (e) {
+        console.warn('Invalid date format:', message.timestamp);
+        dateString = 'Unknown Date';
+      }
       
       if (!groups[dateString]) {
         groups[dateString] = [];
@@ -154,7 +175,21 @@ const ChatComponent = ({ roomType, guildId = null }) => {
 
   // Check if a message is from the current user
   const isOwnMessage = (message) => {
-    return message.sender?.id === user?.id;
+    if (!message || !user) return false;
+    
+    // Handle different message formats
+    // If sender is a string (backend format)
+    if (typeof message.sender === 'string') {
+      // Compare with user email or username
+      return message.sender === user.email || message.sender === user.username;
+    }
+    
+    // If sender is an object (frontend expected format)
+    if (message.sender && typeof message.sender === 'object') {
+      return message.sender.id === user.id;
+    }
+    
+    return false;
   };
 
   // Check if chat is ready
@@ -220,24 +255,33 @@ const ChatComponent = ({ roomType, guildId = null }) => {
       
       {/* Messages container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {formatMessages().map((group) => (
-          <div key={group.date} className="space-y-2">
+        {formatMessages().map((group, groupIndex) => (
+          <div key={`group-${group.date}-${groupIndex}`} className="space-y-2">
             {/* Date separator */}
             <div className="text-center">
               <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full">
-                {new Date(group.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
+                {group.date === 'Unknown Date' ? 
+                  t("unknownDate", language) || "Unknown Date" : 
+                  (() => {
+                    try {
+                      return new Date(group.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      });
+                    } catch (e) {
+                      return group.date;
+                    }
+                  })()
+                }
               </span>
             </div>
             
             {/* Messages in this date group */}
-            {group.messages.map((message) => (
+            {group.messages.map((message, messageIndex) => (
               <div 
-                key={message.id} 
+                key={message.id ? `msg-${message.id}` : `msg-${group.date}-${messageIndex}`} 
                 className={`flex ${isOwnMessage(message) ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
@@ -250,7 +294,9 @@ const ChatComponent = ({ roomType, guildId = null }) => {
                   {/* Message sender name (not shown for own messages) */}
                   {!isOwnMessage(message) && (
                     <div className="font-bold text-sm text-purple-700 dark:text-purple-400">
-                      {message.sender?.username || 'Unknown'}
+                      {typeof message.sender === 'string' 
+                        ? message.sender 
+                        : message.sender?.username || t("unknownUser", language) || "Unknown"}
                     </div>
                   )}
                   
@@ -261,7 +307,15 @@ const ChatComponent = ({ roomType, guildId = null }) => {
                   
                   {/* Message timestamp */}
                   <div className="text-xs text-right mt-1 opacity-70">
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {(() => {
+                      try {
+                        return message.timestamp && !isNaN(new Date(message.timestamp).getTime()) ?
+                          new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
+                          t("unknownTime", language) || "Unknown time";
+                      } catch (e) {
+                        return t("unknownTime", language) || "Unknown time";
+                      }
+                    })()}
                     
                     {/* Delete button for own messages */}
                     {isOwnMessage(message) && (

@@ -111,6 +111,13 @@ const handleError = useCallback((error) => {
 }, []);
 
 const handleMessageReceived = useCallback((message) => {
+    console.log('Message received in context:', message);
+    // Don't add the message if it doesn't have required fields
+    if (!message || !message.content) {
+        console.warn('Received invalid message:', message);
+        return;
+    }
+    
     setMessages((prevMessages) => [...prevMessages, message]);
 }, []);
 

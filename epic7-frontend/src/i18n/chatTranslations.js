@@ -16,7 +16,14 @@ const chatErrorTranslations = {
     pleaseRefresh: "Veuillez actualiser la page",
     messageNotDelivered: "Message non livré",
     cannotJoinRoom: "Impossible de rejoindre le salon",
-    chatUnavailable: "Chat temporairement indisponible"
+    chatUnavailable: "Chat temporairement indisponible",
+    unknownDate: "Date inconnue",
+    unknownTime: "Heure inconnue",
+    unknownUser: "Utilisateur inconnu",
+    typeMessage: "Tapez un message...",
+    isTyping: "est en train d'écrire",
+    peopleTyping: "personnes écrivent",
+    deleteMessage: "Supprimer ce message"
   },
   en: {
     chatError: "Chat Error",
@@ -34,7 +41,14 @@ const chatErrorTranslations = {
     pleaseRefresh: "Please refresh the page",
     messageNotDelivered: "Message not delivered",
     cannotJoinRoom: "Cannot join chat room",
-    chatUnavailable: "Chat temporarily unavailable"
+    chatUnavailable: "Chat temporarily unavailable",
+    unknownDate: "Unknown date",
+    unknownTime: "Unknown time",
+    unknownUser: "Unknown user",
+    typeMessage: "Type a message...",
+    isTyping: "is typing",
+    peopleTyping: "people are typing",
+    deleteMessage: "Delete this message"
   }
 };
 

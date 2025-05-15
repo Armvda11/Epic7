@@ -100,6 +100,8 @@ public class ChatController {
             
             // Convert to DTO for sending back to clients
             ChatMessageDTO messageDTO = ChatMessageDTO.fromEntity(savedMessage);
+            
+            log.debug("Sending message to destination: {} - Message: {}", getDestinationByRoomType(chatRoom), messageDTO);
 
             // Send to the appropriate destination based on chat room type
             String destination = getDestinationByRoomType(chatRoom);
@@ -334,7 +336,7 @@ public class ChatController {
             }
         }
         
-        String responseQueue = "/queue/chat/rooms";
+        String responseQueue = "/queue/chat/roomInfo";
         
         try {
             ChatRoom chatRoom = null;
@@ -393,7 +395,10 @@ public class ChatController {
             }
             
             // Convert to DTO and send back to the user
-            ChatRoomDTO chatRoomDTO = ChatRoomDTO.fromEntity(chatRoom);
+            ChatRoomDTO chatRoomDTO = ChatRoomDTO.fromEntity(chatRoom, user.getId());
+            
+            log.info("Sending room info to {}", principal.getName());
+            
             messagingTemplate.convertAndSendToUser(
                 principal.getName(),
                 responseQueue,
@@ -405,13 +410,14 @@ public class ChatController {
             );
             
         } catch (Exception e) {
-            log.error("Error retrieving chat room: {}", e.getMessage(), e);
+            log.error("Error retrieving chat room: {} - {}", e.getClass().getName(), e.getMessage(), e);
             messagingTemplate.convertAndSendToUser(
                 principal.getName(),
                 responseQueue,
                 Map.of(
                     "error", "INTERNAL_SERVER_ERROR",
-                    "message", "An error occurred while retrieving the chat room: " + e.getMessage()
+                    "message", "An error occurred while retrieving the chat room: " + e.getMessage(),
+                    "errorType", e.getClass().getSimpleName()
                 )
             );
         }
@@ -538,6 +544,21 @@ public class ChatController {
         
         String reason = payload.getOrDefault("reason", "client_initiated");
         log.info("Received clean disconnect from {}, reason: {}", principal.getName(), reason);
+        
+        // Send acknowledgment message
+        try {
+            messagingTemplate.convertAndSendToUser(
+                principal.getName(),
+                "/queue/chat/confirm",
+                Map.of(
+                    "status", "SUCCESS",
+                    "message", "Disconnect notification received",
+                    "type", "DISCONNECT_ACKNOWLEDGED"
+                )
+            );
+        } catch (Exception e) {
+            log.warn("Error sending disconnect acknowledgment to {}: {}", principal.getName(), e.getMessage());
+        }
         
         // You could perform additional cleanup here if needed,
         // such as updating user status, sending notifications to other users, etc.
