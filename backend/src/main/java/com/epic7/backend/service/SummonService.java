@@ -9,8 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service de gestion des invocations de héros dans le jeu.
@@ -137,6 +139,30 @@ public class SummonService {
     @Transactional(readOnly = true)
     public Optional<Banner> getBannerById(Long bannerId) {
         return bannerRepository.findById(bannerId);
+    }
+
+    /**
+     * Récupère tous les héros disponibles
+     */
+    @Transactional(readOnly = true)
+    public ArrayList<Hero> getAllHeroes() {
+        ArrayList<Banner> allBanners = getActiveBanner();
+        Set<Hero> uniqueHeroes = new HashSet<>(); // pour éviter les doublons
+        for (Banner banner : allBanners) {
+            uniqueHeroes.addAll(banner.getFeaturedHeroes()); // Ajoute les héros sans doublon
+        }
+        return new ArrayList<>(uniqueHeroes); // Convertit le Set en ArrayList
+        }
+    /**
+     * Récupère le héros le plus rare d'une bannière
+     * @param banner La bannière à partir de laquelle récupérer le héros
+     * @return Le héros le plus rare de la bannière
+     */
+    @Transactional(readOnly = true)
+    public Hero getMostRareHero(Banner banner) {
+        return banner.getFeaturedHeroes().stream()
+                .max((hero1, hero2) -> hero1.getRarity().compareTo(hero2.getRarity()))
+                .orElse(null);
     }
     
 }

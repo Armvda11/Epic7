@@ -112,6 +112,44 @@ public class SummonController {
         return ResponseEntity.ok(bannerOpt.get().getFeaturedHeroes().toArray());
     }
 
+    /** 
+     * Récupère tous les héros disponibles. 
+     */
+    @GetMapping("/all-heroes")
+    public ResponseEntity<?> getAllHeroes() {
+        ArrayList<Hero> allHeroes = summonService.getAllHeroes();
+        if (allHeroes.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Aucun héros trouvé."
+            ));
+        }
+        return ResponseEntity.ok(allHeroes.toArray());
+    }
+
+    /**
+     * Récupère le héros le plus rare d'une bannière.   
+     * @param bannerId L'ID d'une bannière à récupérer.
+     * @return Un objet Hero si trouvé, sinon une valeur vide.
+     */
+    @GetMapping("/{bannerId}/rarest-hero")
+    public ResponseEntity<?> getRarestHero(@PathVariable Long bannerId) {
+        Optional<Banner> bannerOpt = summonService.getBannerById(bannerId);
+        if (bannerOpt.isEmpty()) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Bannière non trouvée."
+            ));
+        }
+        Hero rarestHero = summonService.getMostRareHero(bannerOpt.get());
+        if (rarestHero == null) {
+            return ResponseEntity.ok().body(Map.of(
+                "error", true,
+                "message", "❌ Aucun héros trouvé."
+            ));
+        }
+        return ResponseEntity.ok(rarestHero);
+    }
     /**
      * Récupère les équipements d'une bannière spécifique.
      */

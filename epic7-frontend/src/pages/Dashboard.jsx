@@ -11,7 +11,7 @@ import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
 
 import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,FaStar } from "react-icons/fa";
-
+import {getAllHeroes} from "../services/summonService";
 // Cette page affiche le tableau de bord de l'utilisateur
 // Elle affiche les informations de l'utilisateur, un menu de navigation
 // et un bouton de déconnexion
@@ -35,6 +35,10 @@ const Dashboard = () => {
   const searchTimeoutRef = useRef(null);
   const searchInputRef = useRef(null);
 
+  const [allHeroes, setAllHeroes] = useState([]); // État pour stocker tous les héros
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);  // État pour l'index du héros actuel
+  const [videoSource, setVideoSource] = useState(""); // État pour la source de la vidéo
+  const videoRef = useRef(null);  // Référence pour la vidéo
 
   //  Chargement des infos utilisateur
   useEffect(() => {
@@ -50,6 +54,76 @@ const Dashboard = () => {
     };
     loadUser();
   }, [navigate]);
+
+  // Charger les héros des bannières actives
+  useEffect(() => {
+    const fetchHeroes = async () => {
+      try {
+        const heroes = await getAllHeroes();
+        setAllHeroes(heroes);
+        console.log("Héros récupérés :", heroes);
+      } catch (error) {
+        console.error("Erreur de récupération des héros :", error);
+        setAllHeroes([]);
+      }
+    };
+    fetchHeroes();
+  }, [navigate]);
+  
+  // Vérifie si la vidéo existe
+  const checkVideoExists = async (videoUrl) => {
+    try {
+      const response = await fetch(videoUrl, { method: "GET" });
+      const contentType = response.headers.get("Content-Type");
+      if (!response.ok || response.status === 404 || !contentType?.includes("video")) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Erreur réseau :", error);
+      return false;
+    }
+  };
+
+  // mettre la vidéo du héros actuel
+  useEffect(() => {
+    if (currentHeroIndex >= allHeroes.length) {
+      setCurrentHeroIndex(0); // Réinitialiser l'index si on dépasse le nombre de héros
+    }
+    if (allHeroes.length > 0) {
+      const findNextAvailableHero = async (index, attempts = 0) => {
+        if (attempts >= allHeroes.length) {
+          console.warn("Attention pas de vidéos de héros !");
+          return;
+        }
+
+        const heroName = allHeroes[index].name.toLowerCase().replace(/\s+/g, "-");
+        const videoUrl = `/epic7-Hero/Animation/${heroName}.mp4`;
+        const exists = await checkVideoExists(videoUrl);
+
+        if (exists) {
+          setVideoSource(videoUrl);
+          setCurrentHeroIndex(index);
+        } else {
+          const nextIndex = (index + 1) % allHeroes.length;
+          findNextAvailableHero(nextIndex, attempts + 1); // Passe au prochain héros
+        }
+      };
+
+      findNextAvailableHero(currentHeroIndex);
+    }
+  }, [currentHeroIndex, allHeroes]);
+
+
+  // passer à la vidéo suivante après la fin de la vidéo actuelle
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.onended = () => {
+        setCurrentHeroIndex((prevIndex) => (prevIndex + 1) % allHeroes.length);
+      };
+    }
+  }, [videoSource, allHeroes]);
+
 
   // Fonction de recherche avec debounce
   const handleSearchChange = (e) => {
@@ -294,6 +368,20 @@ const rightMenuItems = [
         </div>
       </section>
 
+      {/* Animation de héros */}
+      <div className="absolute bottom-4 right-1 w-[300px] h-[100px]">
+        {videoSource && (
+          <video
+            key={`${videoSource}-${Date.now()}`}  autoPlay muted // clé unique pour forcer le rechargement de la vidéo
+            className="w-full h-full rounded-lg shadow-lg object-cover"
+            ref={videoRef}
+          >
+            <source src={videoSource} type="video/mp4" />
+          </video>
+        )}
+      </div>
+
+
       {/* Déconnexion */}
       <footer className="absolute bottom-6 left-4 text-center">
         <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition">
@@ -303,6 +391,5 @@ const rightMenuItems = [
     </main>
   );
 };
-
 
 export default Dashboard;
