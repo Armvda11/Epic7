@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 public class ChatMessageDTO {
     private Long id;
     private Long roomId;
+    private Long senderId;
     private String sender;
     private String content;
     private String timestamp;
@@ -38,6 +39,7 @@ public class ChatMessageDTO {
         
         // Use the username field instead of toString() to ensure proper format
         dto.setSender(message.getSender().getUsername());
+        dto.setSenderId(message.getSender().getId());
         
         return dto;
     }

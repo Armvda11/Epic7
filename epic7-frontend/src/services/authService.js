@@ -11,18 +11,52 @@ const USER_ID_KEY = "userId"; // Ajout d'une clé pour l'ID utilisateur
 export const login = async (email, password) => {
   try {
     const response = await API.post("/auth/login", { email, password });
-    const { token, id, ...rest } = response.data;
+    const { token, id, message } = response.data;
 
     if (!token) throw new Error("Token manquant");
+    
+    
+    console.log(`Login successful: ${message}`);
+    console.log(`Received user ID: ${id} (${typeof id})`);
+    
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_EMAIL_KEY, email);
     
-    // Stocker l'ID utilisateur pour le combat RTA
+    // Store the user ID in a single location
     if (id) {
-      localStorage.setItem(USER_ID_KEY, id);
+      console.log(`Storing user ID: ${id} (${typeof id})`);
+      // Ensure ID is stored as string for consistency between systems
+      const idString = id.toString();
+      localStorage.setItem(USER_ID_KEY, idString);
+    } else {
+      console.warn("Login successful but no user ID was provided by the server");
+      // Attempt immediate ID retrieval via the profile API
+      try {
+        const profileResponse = await API.get("/user/me");
+        if (profileResponse.data && profileResponse.data.id) {
+          const userId = profileResponse.data.id.toString();
+          localStorage.setItem(USER_ID_KEY, userId);
+          console.log(`Retrieved and stored user ID: ${userId} from profile`);
+        } else {
+          // If still no ID, try the lookup endpoint as a last resort
+          const lookupResponse = await API.get("/user/lookup", {
+            params: { email }
+          });
+          
+          if (lookupResponse.data && lookupResponse.data.id) {
+            const userId = lookupResponse.data.id.toString();
+            localStorage.setItem(USER_ID_KEY, userId);
+            console.log(`Retrieved and stored user ID: ${userId} from lookup`);
+          } else {
+            console.warn("Could not retrieve user ID from any source");
+          }
+        }
+      } catch (profileError) {
+        console.error("Failed to retrieve user ID:", profileError);
+      }
     }
 
-    return { token, id, ...rest };
+    return { token, id, message };
   } catch (error) {
     throw new Error(error.response?.data?.message || "Erreur de connexion");
   }
@@ -44,9 +78,12 @@ export const register = async (email, password) => {
  * Déconnexion : supprime le token et les informations utilisateur.
  */
 export const logout = () => {
+  // Clear all auth tokens
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_EMAIL_KEY);
   localStorage.removeItem(USER_ID_KEY);
+  
+  console.log('User logged out - all identification cleared');
 };
 
 /**

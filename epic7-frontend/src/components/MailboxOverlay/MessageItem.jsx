@@ -4,6 +4,7 @@ import { useMailboxContext } from "../../context/MailboxContext";
 import { acceptFriendRequest, declineFriendRequest } from "../../services/userService";
 import { useSettings } from "../../context/SettingsContext";
 import { retrieveItemsFromMessage } from "../../services/mailboxService";
+import { isCurrentUser, getCurrentUserId } from "../../utils/userUtils";
 
 const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) => {
     const { getMessageDetails, markMessageAsRead } = useMailboxContext();
@@ -43,14 +44,9 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
     const { id, title, content, sender, date } = message;
     
     const handleAcceptFriend = async () => {
-        // Get the sender ID from the detailed message or the original message
-        const senderId = detailedMessage?.data?.senderId || 
-                        detailedMessage?.senderId || 
-                        message.data?.senderId || 
-                        message.senderId;
+        // Get the sender ID using our helper function
+        const senderId = extractSenderId(message, detailedMessage);
         
-        console.log("Accept Friend - Detailed Message:", detailedMessage);
-        console.log("Accept Friend - Message:", message);
         console.log("Accept Friend - Using Sender ID:", senderId);
         
         if (!senderId) {
@@ -86,14 +82,9 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
     };
     
     const handleDeclineFriend = async () => {
-        // Get the sender ID from the detailed message or the original message
-        const senderId = detailedMessage?.data?.senderId || 
-                        detailedMessage?.senderId || 
-                        message.data?.senderId || 
-                        message.senderId;
+        // Get the sender ID using our helper function
+        const senderId = extractSenderId(message, detailedMessage);
         
-        console.log("Decline Friend - Detailed Message:", detailedMessage);
-        console.log("Decline Friend - Message:", message);
         console.log("Decline Friend - Using Sender ID:", senderId);
         
         if (!senderId) {
@@ -131,55 +122,29 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
     const handleDelete = async (e) => {
         e.stopPropagation(); // Prevent triggering the onSelect handler
         
-        if (deleteConfirm) {
-            // Si c'est une demande d'ami, refuser automatiquement la demande avant de supprimer
-            if (message.isFriendRequest) {
-                console.log("Friend request message to delete - Full message data:", JSON.stringify(message, null, 2));
-                
-                // Try various paths to find senderId
-                let senderId = null;
-                
-                if (detailedMessage) {
-                    console.log("Detailed message available:", JSON.stringify(detailedMessage, null, 2));
+        if (deleteConfirm) {                // Si c'est une demande d'ami, refuser automatiquement la demande avant de supprimer
+                if (message.isFriendRequest) {
+                    console.log("Friend request message to delete");
                     
-                    // Try to find senderId in detailed message
-                    if (detailedMessage.senderId) senderId = detailedMessage.senderId;
-                    else if (detailedMessage.data?.senderId) senderId = detailedMessage.data.senderId;
-                    else if (detailedMessage.sender?.id) senderId = detailedMessage.sender.id;
-                    else if (detailedMessage.senderInfo?.id) senderId = detailedMessage.senderInfo.id;
-                }
-                
-                // If not found in detailedMessage, check the message object
-                if (!senderId) {
-                    if (message.senderId) senderId = message.senderId;
-                    else if (message.data?.senderId) senderId = message.data.senderId;
-                    else if (message.sender?.id) senderId = message.sender.id;
-                    else if (message.senderInfo?.id) senderId = message.senderInfo.id;
-                    // Try to extract from senderName if it contains numeric ID (common format: "Username (123)")
-                    else if (message.senderName) {
-                        const idMatch = message.senderName.match(/\((\d+)\)$/);
-                        if (idMatch && idMatch[1]) {
-                            senderId = parseInt(idMatch[1], 10);
+                    // Use our helper function to extract sender ID
+                    let senderId = extractSenderId(message, detailedMessage);
+                    
+                    console.log("Extracted sender ID:", senderId);
+                    
+                    // If sender ID is found, decline the friend request
+                    if (senderId) {
+                        try {
+                            setActionLoading(true);
+                            console.log("Attempting to decline friend request from sender ID:", senderId);
+                            
+                            const result = await declineFriendRequest(senderId, { handleErrorLocally: true });
+                            console.log("Friend request automatically declined when message deleted:", result);
+                        } catch (err) {
+                            console.error("Error automatically declining friend request:", err);
+                            // Continue with deletion even if declining fails
+                        } finally {
+                            setActionLoading(false);
                         }
-                    }
-                }
-                
-                console.log("Extracted sender ID:", senderId);
-                
-                // If sender ID is found, decline the friend request
-                if (senderId) {
-                    try {
-                        setActionLoading(true);
-                        console.log("Attempting to decline friend request from sender ID:", senderId);
-                        
-                        const result = await declineFriendRequest(senderId, { handleErrorLocally: true });
-                        console.log("Friend request automatically declined when message deleted:", result);
-                    } catch (err) {
-                        console.error("Error automatically declining friend request:", err);
-                        // Continue with deletion even if declining fails
-                    } finally {
-                        setActionLoading(false);
-                    }
                 } else {
                     // If no sender ID was found, attempt to fetch message details first
                     if (!showFullMessage && !detailedMessage) {
@@ -265,6 +230,38 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
         } finally {
             setRetrieveLoading(false);
         }
+    };
+    
+    // Helper function to extract sender ID from message objects
+    const extractSenderId = (message, detailedMessage) => {
+        // Try all possible paths to find a valid sender ID
+        
+        // First check the detailed message if available
+        if (detailedMessage) {
+            if (detailedMessage.senderId) return detailedMessage.senderId;
+            if (detailedMessage.data?.senderId) return detailedMessage.data.senderId;
+            if (detailedMessage.sender?.id) return detailedMessage.sender.id;
+            if (detailedMessage.senderInfo?.id) return detailedMessage.senderInfo.id;
+        }
+        
+        // Then check the regular message
+        if (message) {
+            if (message.senderId) return message.senderId;
+            if (message.data?.senderId) return message.data.senderId;
+            if (message.sender?.id) return message.sender.id;
+            if (message.senderInfo?.id) return message.senderInfo.id;
+            
+            // Try to extract from senderName if it contains numeric ID (e.g., "Username (123)")
+            if (message.senderName) {
+                const idMatch = message.senderName.match(/\((\d+)\)$/);
+                if (idMatch && idMatch[1]) {
+                    return parseInt(idMatch[1], 10);
+                }
+            }
+        }
+        
+        // No sender ID found
+        return null;
     };
     
     // Pour l'affichage en mode liste

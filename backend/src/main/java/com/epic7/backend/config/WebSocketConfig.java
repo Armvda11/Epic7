@@ -70,6 +70,7 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
         // Point d'entrée pour la connexion STOMP des clients
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Autoriser toutes les origines pour le développement
+                .setAllowedOrigins("http://localhost:5173")
                 .withSockJS()
                 .setHeartbeatTime(10000) // Heartbeat toutes les 10 secondes
                 .setDisconnectDelay(30000); // Attendre 30 secondes avant de déconnecter
@@ -79,11 +80,36 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
             @Override
+            @SuppressWarnings("unchecked")
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
                 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
                     log.info("Tentative de connexion WebSocket STOMP");
+                    
+                    // Try to get user ID from query parameters
+                    String userId = null;
+                    try {
+                        // Extract any query parameters from the StompHeaderAccessor
+                        if (accessor.getSessionAttributes() != null) {
+                            // The SockJS handshake stores query parameters in the session
+                            Map<String, String[]> parameterMap = 
+                                (Map<String, String[]>) accessor.getSessionAttributes().get("javax.servlet.request.parameter_map");
+                            
+                            if (parameterMap != null && parameterMap.containsKey("userId")) {
+                                String[] userIds = parameterMap.get("userId");
+                                if (userIds != null && userIds.length > 0) {
+                                    userId = userIds[0];
+                                    log.info("User ID extracted from query parameters: {}", userId);
+                                    
+                                    // Store the userId in the headers for later use
+                                    accessor.setNativeHeader("X-User-Id", userId);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("Error extracting userId from query parameters", e);
+                    }
                     
                     // Extraire le token JWT du header Authorization
                     List<String> authHeaders = accessor.getNativeHeader("Authorization");

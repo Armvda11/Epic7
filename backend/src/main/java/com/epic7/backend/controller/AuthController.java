@@ -16,7 +16,10 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(
+    origins = "http://localhost:5173", 
+    allowedHeaders = {"Authorization", "Content-Type", "X-User-Id", "x-user-id"}
+)
 public class AuthController {
 
     private final AuthService authService;
@@ -43,8 +46,8 @@ public class AuthController {
         String email = request.get("email");
         String password = request.get("password");
 
-        return authService.loginAndGetToken(email, password)
-                .map(token -> ResponseEntity.ok(Map.of("message", "Connexion réussie", "token", token)))
+        return authService.authenticateAndGetUserInfo(email, password)
+                .map(userInfo -> ResponseEntity.ok(userInfo))
                 .orElse(ResponseEntity.badRequest().body(Map.of("message", "Échec de l'authentification")));
     }
 

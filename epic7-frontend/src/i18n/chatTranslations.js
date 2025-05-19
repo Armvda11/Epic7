@@ -23,7 +23,14 @@ const chatErrorTranslations = {
     typeMessage: "Tapez un message...",
     isTyping: "est en train d'écrire",
     peopleTyping: "personnes écrivent",
-    deleteMessage: "Supprimer ce message"
+    deleteMessage: "Supprimer ce message",
+    adminDeleteMessage: "Admin : Supprimer ce message",
+    remove: "Supprimer",
+    retrying: "Tentative de reconnexion...",
+    retryCountdown: "Nouvelle tentative dans",
+    seconds: "secondes",
+    retryAttempt: "Tentative",
+    retryNow: "Réessayer maintenant"
   },
   en: {
     chatError: "Chat Error",
@@ -48,7 +55,14 @@ const chatErrorTranslations = {
     typeMessage: "Type a message...",
     isTyping: "is typing",
     peopleTyping: "people are typing",
-    deleteMessage: "Delete this message"
+    deleteMessage: "Delete this message",
+    adminDeleteMessage: "Admin: Delete this message",
+    remove: "Remove",
+    retrying: "Attempting to reconnect...",
+    retryCountdown: "Retrying in",
+    seconds: "seconds",
+    retryAttempt: "Retry attempt",
+    retryNow: "Retry Now"
   }
 };
 

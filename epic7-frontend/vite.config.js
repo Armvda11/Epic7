@@ -19,7 +19,28 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: true,  // Generate source maps correctly
+    sourcemap: false,  // Disable source maps completely for production builds
+  },
+  server: {
+    proxy: {
+      // redirige les appels HTTP REST
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      // redirige les WebSockets STOMP (/ws)
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+    hmr: {
+      overlay: {
+        errors: true,
+        warnings: false,  // Don't show warnings in the overlay
+      },
+    },
   }
 })
 

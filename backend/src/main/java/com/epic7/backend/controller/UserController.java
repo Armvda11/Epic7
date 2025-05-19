@@ -17,6 +17,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
+@CrossOrigin(
+    origins = "http://localhost:5173", 
+    allowedHeaders = {"Authorization", "Content-Type", "X-User-Id", "x-user-id"}
+)
 public class UserController {
 
     private final JwtUtil jwtUtil;
@@ -42,6 +46,7 @@ public class UserController {
             userService.updateEnergy(user); // Mise à jour à la volée
 
             return ResponseEntity.ok(new UserProfileResponse(
+                    user.getId(),
                     user.getUsername(),
                     user.getLevel(),
                     user.getGold(),
@@ -215,5 +220,58 @@ public class UserController {
         String token = jwtUtil.extractTokenFromHeader(request);
         User user = authService.getUserByEmail(jwtUtil.extractEmail(token));
         return ResponseEntity.ok(user.getDiamonds());
+    }
+    
+    /**
+     * Endpoint for looking up user ID by email
+     * Used for ID recovery in chat contexts
+     */
+    @GetMapping("/lookup")
+    public ResponseEntity<?> lookupUserByEmail(HttpServletRequest request, @RequestParam String email) {
+        try {
+            // Basic security: Require authentication and only allow lookup of own email
+            String token = jwtUtil.extractTokenFromHeader(request);
+            if (token == null) {
+                return ResponseEntity.status(401).body(Map.of(
+                    "success", false,
+                    "message", "Authentication required"
+                ));
+            }
+            
+            String authenticatedEmail = jwtUtil.extractEmail(token);
+            
+            // Only allow lookup of own email or if caller is admin
+            User caller = authService.getUserByEmail(authenticatedEmail);
+            boolean isAdmin = caller != null && caller.getEmail() != null && 
+                (caller.getEmail().contains("admin") || caller.getUsername().equals("admin"));
+                
+            if (!email.equals(authenticatedEmail) && !isAdmin) {
+                return ResponseEntity.status(403).body(Map.of(
+                    "success", false,
+                    "message", "You can only lookup your own user information"
+                ));
+            }
+            
+            // Now perform the lookup
+            User user = authService.getUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "message", "User not found"
+                ));
+            }
+            
+            // Return minimal info needed for ID recovery
+            return ResponseEntity.ok(Map.of(
+                "id", user.getId(),
+                "username", user.getUsername(),
+                "email", user.getEmail()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "message", "Error looking up user: " + e.getMessage()
+            ));
+        }
     }
 }

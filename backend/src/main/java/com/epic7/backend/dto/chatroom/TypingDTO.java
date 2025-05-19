@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class TypingDTO {
     private String user;
+    // Permet de marquer le début et la fin de l'utilisateur qui écrit
     private boolean typing;
     private Long roomId;
 }

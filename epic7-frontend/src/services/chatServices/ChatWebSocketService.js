@@ -1,9 +1,10 @@
 // Service WebSocket pour les discussions en temps réel
-import axios from '../api/axiosInstance';
+import axios from '../../api/axiosInstance';
 import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
 import { isHibernateLazyLoadingError, isServerErrorMessage } from './chatErrorUtils';
 import { recoverFromHibernateError, getRecoveryDelay, resetRecoveryAttempts } from './chatRecoveryUtils';
+import { getUserId } from '../authService';
 
 class ChatWebSocketService {
   constructor() {
@@ -83,6 +84,18 @@ class ChatWebSocketService {
       
       console.log(`Connexion Chat WebSocket via SockJS à: ${sockJsUrl}`);
 
+      // Prepare WebSocket URL with user ID as a query parameter
+      const userId = getUserId();
+      let wsUrl = sockJsUrl;
+      
+      if (userId) {
+        // Add userId as a query parameter instead of a header to avoid CORS issues
+        console.log('Adding user ID as query parameter:', userId);
+        wsUrl = `${sockJsUrl}?userId=${encodeURIComponent(userId.toString())}`;
+      } else {
+        console.warn('No user ID available for WebSocket connection. User identity may not be properly tracked.');
+      }
+
       try {
         // Clean up any existing connections first
         if (this.stompClient && this.connected) {
@@ -95,7 +108,7 @@ class ChatWebSocketService {
         }
         
         // Créer une connexion SockJS
-        const socket = new SockJS(sockJsUrl);
+        const socket = new SockJS(wsUrl); // Use the URL with userId query parameter
         this.socket = socket;
         
         // Monitor sockJS connection events
@@ -133,7 +146,7 @@ class ChatWebSocketService {
         
         // Créer un factory pour le client STOMP avec reconnexion automatique
         const stompFactory = () => {
-          return Stomp.over(() => new SockJS(sockJsUrl));
+          return Stomp.over(() => new SockJS(wsUrl)); // Use the URL with userId query parameter
         };
         
         // Initialiser le client STOMP avec le factory
@@ -860,7 +873,9 @@ class ChatWebSocketService {
         const numericRoomId = this._getNumericRoomId(roomId);
         
         if (!numericRoomId) {
-          console.error(`Numeric ID not found for room ${roomId}. Message retrieval will likely fail.`);
+          console.warn(`No numeric ID available for room ${roomId}, using original ID`);
+        } else {
+          console.log(`Using numeric ID ${numericRoomId} for room ${roomId}`);
         }
         
         // Envoyer la demande de messages avec l'ID numérique
@@ -885,18 +900,35 @@ class ChatWebSocketService {
    * @returns {number|null} - The numeric room ID from the server, or null if not found
    */
   _getNumericRoomId(roomId) {
-    // First check in roomInfo which is the most reliable source
+    // Case 1: If roomId is already a numeric ID, just return it
+    if (!isNaN(roomId) && typeof roomId !== 'object') {
+      return Number(roomId);
+    }
+    
+    // Case 2: Check in roomInfo which is the most reliable source
     if (this.roomInfo[roomId] && this.roomInfo[roomId].numericId) {
       return this.roomInfo[roomId].numericId;
     }
 
-    // Fallback to checking in subscriptions
+    // Case 3: Check if we can find room by numeric ID in roomInfo values
+    for (const key in this.roomInfo) {
+      if (this.roomInfo[key].numericId === Number(roomId)) {
+        return Number(roomId);
+      }
+    }
+    
+    // Case 4: Fallback to checking in subscriptions
     if (this.subscriptions[roomId] && this.subscriptions[roomId].numericId) {
       return this.subscriptions[roomId].numericId;
     }
 
+    // For global chat room, if numeric ID is 1, return it directly (common default)
+    if (roomId === 'global' || roomId === 'GLOBAL') {
+      return 1; // Default global room ID is often 1
+    }
+
     console.warn(`No numeric ID found for room ${roomId}`);
-    return null;
+    return Number(roomId) || null; // Last resort: try to convert to number or return null
   }
 
   /**
@@ -1042,6 +1074,38 @@ class ChatWebSocketService {
               content: content
             };
             
+            // Always include the user ID in the payload for message ownership
+            const userId = getUserId();
+            if (userId) {
+              payload.userId = userId.toString(); // Ensure it's a string (backend uses Long)
+              payload.senderId = userId.toString(); // Add explicit senderId for consistency
+              console.log(`Including user ID ${userId} in message payload`);
+            } else {
+              console.warn('No user ID available for message sending - attempting recovery');
+              
+              // Try to recover ID from other sources as a fallback
+              try {
+                const recoveredId = 
+                  localStorage.getItem('userId') || 
+                  localStorage.getItem('currentUserId') || 
+                  localStorage.getItem('epic7UserId');
+                  
+                if (recoveredId) {
+                  payload.userId = recoveredId.toString();
+                  payload.senderId = recoveredId.toString();
+                  console.log(`Using recovered ID for message: ${recoveredId}`);
+                } else {
+                  // Last resort: generate a temporary ID and warn about it
+                  const tempId = `fallback-${Date.now()}`;
+                  payload.userId = tempId;
+                  payload.senderId = tempId;
+                  console.warn(`Using temporary fallback ID: ${tempId}`);
+                }
+              } catch (e) {
+                console.error('Error recovering user ID:', e);
+              }
+            }
+            
             console.log(`Sending message to room ${roomId} with numeric ID ${numericRoomId}:`, payload);
             
             // Envoyer le message
@@ -1078,7 +1142,9 @@ class ChatWebSocketService {
         const numericRoomId = this._getNumericRoomId(roomId);
         
         if (!numericRoomId) {
-          console.error(`Numeric ID not found for room ${roomId}. Message deletion will likely fail.`);
+          console.warn(`No numeric ID available for room ${roomId}, using original ID for message deletion`);
+        } else {
+          console.log(`Using numeric ID ${numericRoomId} for deleting message in room ${roomId}`);
         }
         
         // Préparer le payload avec l'ID numérique du salon
@@ -1329,19 +1395,24 @@ class ChatWebSocketService {
    * @param {Object} frame - Trame STOMP contenant le message de fermeture
    * @private
    */
+  /**
+   * Handles server shutdown notifications
+   * Only logs a warning when an actual shutdown is detected
+   * @param {Object} frame - The message frame
+   * @returns {boolean} - true if this was a shutdown message, false otherwise
+   */
   _handleServerShutdown(frame) {
     try {
       // Parse the message if needed
       const payload = typeof frame.body === 'string' ? JSON.parse(frame.body) : frame.body;
       
-      console.warn('Server-initiated shutdown detected:', payload);
-      
       // If this is a clean shutdown message, handle it gracefully
       if (payload && (
           payload.type === 'SHUTDOWN' || 
           payload.type === 'SERVER_STOPPING' ||
-          (payload.message && payload.message.includes('shutdown'))
+          (payload.message && typeof payload.message === 'string' && payload.message.includes('shutdown'))
       )) {
+        console.warn('Server-initiated shutdown detected:', payload);
         console.log('Processing clean server shutdown...');
         
         // Clear all room subscriptions - the server is going down

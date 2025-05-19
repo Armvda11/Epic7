@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,6 +44,26 @@ public class AuthService {
         return userRepository.findByEmail(email)
                 .filter(user -> passwordEncoder.matches(rawPassword, user.getPassword()))
                 .map(user -> jwtUtil.generateToken(email));
+    }
+    
+    /**
+     * Authentifie l'utilisateur et retourne ses informations incluant son ID et token
+     * @param email
+     * @param rawPassword
+     * @return Map contenant le token et l'ID utilisateur
+     */
+    public Optional<Map<String, Object>> authenticateAndGetUserInfo(String email, String rawPassword) {
+        return userRepository.findByEmail(email)
+                .filter(user -> passwordEncoder.matches(rawPassword, user.getPassword()))
+                .map(user -> {
+                    String token = jwtUtil.generateToken(email);
+                    Map<String, Object> responseMap = Map.of(
+                        "message", "Connexion réussie", 
+                        "token", token,
+                        "id", user.getId()
+                    );
+                    return responseMap;
+                });
     }
 
     /**

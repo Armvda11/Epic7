@@ -76,7 +76,9 @@ public class WebSecurityConfig {
             "Content-Type", 
             "Access-Control-Allow-Origin",
             "Access-Control-Allow-Methods",
-            "Access-Control-Allow-Headers"
+            "Access-Control-Allow-Headers",
+            "X-User-Id",  // Added X-User-Id header
+            "x-user-id"   // Also include lowercase version for case-insensitivity
         ));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);

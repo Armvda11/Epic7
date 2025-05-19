@@ -30,6 +30,21 @@ class ChatService {
         return;
       }
       
+      // Validate user object and add logging
+      if (!user) {
+        console.error('No user provided to ChatService.initialize()');
+        reject(new Error('User object is required'));
+        return;
+      }
+      
+      // Log user object for debugging
+      console.log('ChatService initializing with user:', {
+        id: user.id,
+        hasEmail: !!user.email,
+        idType: typeof user.id,
+        isFallback: user.id?.toString().startsWith('fallback-') || false
+      });
+      
       this.currentUser = user;
       
       // Initialize the reconnector with a callback to handle reconnections
@@ -655,7 +670,24 @@ class ChatService {
    * @param {string} content - Contenu du message
    * @returns {Promise} - Promise résolue quand le message est envoyé
    */
+  /**
+   * Envoie un message dans un salon
+   * @param {string} roomId - ID du salon
+   * @param {string} content - Contenu du message
+   * @returns {Promise} - Promise résolue quand le message est envoyé
+   */
   sendMessage(roomId, content) {
+    // Get the current user ID to ensure it's included with the message
+    const userId = this.currentUser?.id || getUserId();
+    
+    // Log the user ID being used for message ownership tracking
+    if (userId) {
+      console.log(`Sending message with explicit user ID: ${userId}`);
+    } else {
+      console.warn('No user ID available for message sending - ownership detection may not work correctly');
+    }
+    
+    // Pass the message to the WebSocket service
     return chatWebSocketService.sendMessage(roomId, content);
   }
 
@@ -774,6 +806,54 @@ class ChatService {
     this.currentUser = null;
     
     console.log('Chat service disconnected');
+  }
+
+  /**
+   * Récupère les informations sur un salon de chat
+   * @param {string} roomId - ID du salon de chat
+   * @returns {Object} - Données du salon ou un objet vide
+   */
+  getRoomData(roomId) {
+    // Try to get room data from WebSocketService
+    try {
+      const roomInfo = chatWebSocketService.roomInfo || {};
+      
+      if (roomInfo[roomId]) {
+        return roomInfo[roomId];
+      }
+      
+      // For global chat, provide basic info with admin status based on user role
+      if (roomId === 'global' || roomId === 'GLOBAL') {
+        // You would normally get this from your user details
+        // Here we're just using a placeholder implementation
+        const userEmail = this.currentUser?.email || "";
+        const isAdmin = userEmail.includes('admin') || false;
+        
+        return {
+          id: 1,
+          name: 'Global Chat',
+          type: 'GLOBAL',
+          isAdmin
+        };
+      }
+      
+      // For guild chats, extract guild ID and provide basic info
+      if (roomId && roomId.includes('guild') && this.currentUser) {
+        const guildId = roomId.split('.')[1];
+        // In a real implementation, you'd check if the user is a guild admin
+        
+        return {
+          id: guildId,
+          name: `Guild Chat ${guildId}`,
+          type: 'GUILD',
+          isAdmin: false // Default to false, would be determined by backend
+        };
+      }
+    } catch (error) {
+      console.warn('Error getting room data:', error);
+    }
+    
+    return {};
   }
 }
 

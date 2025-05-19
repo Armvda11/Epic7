@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getToken, logout } from "../services/authService";
+import { getToken, logout, getUserId } from "../services/authService";
 import { createRoot } from "react-dom/client";
 import Notification from "../components/common/Notification";
 import React from "react";
@@ -57,6 +57,12 @@ const API = axios.create({
 API.interceptors.request.use((config) => {
   const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  
+  // Include user ID in a custom header if it exists (for logging/debugging)
+  const userId = getUserId();
+  if (userId && config.includeSenderId) {
+    config.headers['X-User-Id'] = userId;
+  }
   
   // Allow components to skip global error handling
   if (config.skipGlobalErrorHandling === undefined) {
