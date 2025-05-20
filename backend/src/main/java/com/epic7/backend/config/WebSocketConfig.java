@@ -54,7 +54,7 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     }
     
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
+    public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
         // Destinations des topics (canaux de diffusion)
         config.enableSimpleBroker("/topic", "/queue");
         
@@ -66,7 +66,7 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     }
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
+    public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         // Point d'entrée pour la connexion STOMP des clients
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Autoriser toutes les origines pour le développement
@@ -77,11 +77,11 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     }
     
     @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
+    public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
             @Override
             @SuppressWarnings("unchecked")
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
+            public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
                 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {

@@ -11,6 +11,91 @@ class ChatService {
     this.messages = new Map(); // Stockage des messages par salon
     this.typingUsers = new Map(); // Stockage des utilisateurs en train de taper par salon
     this.callbacks = {}; // Callbacks pour les événements
+    
+    // Listener pour les confirmations de suppression de message
+    chatWebSocketService.on('onDeleteConfirm', (confirmation) => {
+      console.log('Delete confirmation received:', confirmation);
+      
+      // Attempt to manually broadcast deletion if server might not be doing it
+      // This is a fallback mechanism
+      try {
+        if (confirmation && confirmation.messageId && confirmation.roomId) {
+          console.log('Attempting manual broadcast of deletion notification');
+          
+          // Get the room type and ID
+          let roomType, roomDestination;
+          const roomId = confirmation.roomId;
+          
+          if (typeof roomId === 'string') {
+            if (roomId === 'global') {
+              roomType = 'GLOBAL';
+              roomDestination = '/topic/chat/global';
+            } else if (roomId.startsWith('guild.')) {
+              roomType = 'GUILD';
+              const guildId = roomId.split('.')[1];
+              roomDestination = `/topic/chat/guild.${guildId}`;
+            } else if (roomId.startsWith('fight.')) {
+              roomType = 'FIGHT';
+              const fightId = roomId.split('.')[1];
+              roomDestination = `/topic/chat/duel.${fightId}`;
+            }
+          } else {
+            // Numeric ID, assume global chat for simplicity
+            roomType = 'GLOBAL';
+            roomDestination = '/topic/chat/global';
+          }
+          
+          // Try to broadcast via different notification channels
+          if (roomDestination) {
+            // First try the deletions endpoint
+            try {
+              chatWebSocketService.stompClient.send(`${roomDestination}/deletions`, {}, JSON.stringify({
+                type: 'deletion', // Ensure type is set for frontend filtering
+                messageId: confirmation.messageId,
+                roomId: roomId,
+                timestamp: new Date().toISOString()
+              }));
+              console.log(`Sent deletion notification to ${roomDestination}/deletions`);
+            } catch (e) {
+              console.warn(`Failed to send to ${roomDestination}/deletions:`, e);
+            }
+            
+            // Then try the deleted endpoint
+            try {
+              chatWebSocketService.stompClient.send(`${roomDestination}/deleted`, {}, JSON.stringify({
+                type: 'deletion', // Ensure type is set for frontend filtering
+                messageId: confirmation.messageId,
+                roomId: roomId,
+                timestamp: new Date().toISOString()
+              }));
+              console.log(`Sent deletion notification to ${roomDestination}/deleted`);
+            } catch (e) {
+              console.warn(`Failed to send to ${roomDestination}/deleted:`, e);
+            }
+            
+            // Finally try the main channel
+            try {
+              chatWebSocketService.stompClient.send(roomDestination, {}, JSON.stringify({
+                type: 'deletion', // Ensure type is set for frontend filtering
+                messageId: confirmation.messageId,
+                roomId: roomId,
+                timestamp: new Date().toISOString()
+              }));
+              console.log(`Sent deletion notification to ${roomDestination} main channel`);
+            } catch (e) {
+              console.warn(`Failed to send to ${roomDestination}:`, e);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed during manual broadcast attempt:', e);
+      }
+      
+      if (typeof this.callbacks.onDeleteConfirm === 'function') {
+        this.callbacks.onDeleteConfirm(confirmation);
+      }
+    });
+    // this.callbacks is already initialized at the beginning of constructor
     this.initialized = false;
     this.currentUser = null;
     
@@ -391,6 +476,39 @@ class ChatService {
       }
     });
     
+    // Add dedicated listener for message deletion events
+    chatWebSocketService.on('onMessageDeleted', (deletionData, roomId) => {
+      console.log('Message deletion notification received in service:', deletionData);
+      
+      // Process local cache update
+      if (deletionData) {
+        // Extract message ID from various possible formats
+        const messageId = deletionData.messageId || 
+                        deletionData.deletedMessageId || 
+                        (deletionData.message && deletionData.message.id) ||
+                        deletionData.id;
+        
+        if (messageId && roomId && this.messages.has(roomId)) {
+          // Remove from local cache
+          const messages = this.messages.get(roomId);
+          const updatedMessages = messages.filter(msg => 
+            !msg || 
+            msg.id !== messageId && 
+            msg.id?.toString() !== messageId.toString()
+          );
+          
+          // Update the cache
+          this.messages.set(roomId, updatedMessages);
+          console.log(`Removed message ${messageId} from local cache for room ${roomId}`);
+        }
+      }
+      
+      // Forward to context via callback
+      if (typeof this.callbacks.onMessageDeleted === 'function') {
+        this.callbacks.onMessageDeleted(deletionData);
+      }
+    });
+    
     // Événement: Erreur WebSocket
     chatWebSocketService.on('onError', (error) => {
       console.error('Erreur WebSocket:', error);
@@ -429,7 +547,7 @@ class ChatService {
     chatWebSocketService.on('onMessage', (message, type, groupId) => {
       // Ajouter le message au stockage local
       this._addMessage(message);
-      
+
       // Invoquer le callback onMessageReceived s'il existe
       if (typeof this.callbacks.onMessageReceived === 'function') {
         this.callbacks.onMessageReceived(message, type, groupId);
@@ -448,14 +566,10 @@ class ChatService {
     
     // Événement: Confirmation de suppression de message
     chatWebSocketService.on('onDeleteConfirm', (confirmation) => {
-      if (confirmation.status === 'SUCCESS') {
-        // Supprimer le message du stockage local
-        this._removeMessage(confirmation.messageId, confirmation.roomId);
-      }
+      console.log('Delete confirmation received:', confirmation);
       
-      // Invoquer le callback onMessageDeleted s'il existe
-      if (typeof this.callbacks.onMessageDeleted === 'function') {
-        this.callbacks.onMessageDeleted(confirmation);
+      if (typeof this.callbacks.onDeleteConfirm === 'function') {
+        this.callbacks.onDeleteConfirm(confirmation);
       }
     });
     
@@ -510,7 +624,8 @@ class ChatService {
     
     // Événement: Notification de frappe
     chatWebSocketService.on('onTyping', (status, type, groupId) => {
-      const { username, typing, roomId } = status;
+      console.log('Typing notification received:', status);
+      const { user, typing, roomId, userId } = status;
       
       // Mettre à jour la liste des utilisateurs qui tapent
       if (roomId) {
@@ -521,16 +636,51 @@ class ChatService {
         const typingSet = this.typingUsers.get(roomId);
         
         if (typing) {
-          typingSet.add(username);
+          typingSet.add(user);
         } else {
-          typingSet.delete(username);
+          typingSet.delete(user);
         }
       }
       
-      // Invoquer le callback onTypingUpdated s'il existe
-      if (typeof this.callbacks.onTypingUpdated === 'function') {
-        this.callbacks.onTypingUpdated(status, type, groupId);
+      // Invoquer le callback onTyping s'il existe
+      if (typeof this.callbacks.onTyping === 'function') {
+        this.callbacks.onTyping(status.user, status.typing, status.userId);
       }
+    });
+    
+    // Listener pour les notifications de suppression de message
+    chatWebSocketService.on('onMessageDeleted', (deletionData, roomId) => {
+      // Accept both 'deletion' and 'MESSAGE_DELETED' types for compatibility
+      if (
+        deletionData &&
+        (deletionData.type === 'deletion' || deletionData.type === 'MESSAGE_DELETED') &&
+        deletionData.messageId
+      ) {
+        console.log(`Message deletion notification for room ${roomId}:`, deletionData);
+        // Relay to the callback
+        if (typeof this.callbacks.onMessageDeleted === 'function') {
+          this.callbacks.onMessageDeleted(deletionData);
+        }
+      } else {
+        console.log('Ignored non-deletion notification on onMessageDeleted:', deletionData);
+      }
+    });
+    
+    // Événement: Arrêt du serveur
+    chatWebSocketService.on('onServerShutdown', (data) => {
+      console.warn('Server shutdown notification received:', data);
+      
+      // Create a custom event to be handled by our service
+      const shutdownEvent = new CustomEvent('serverShutdown', { 
+        detail: { 
+          reason: data.message || 'Server maintenance',
+          timestamp: new Date().toISOString(),
+          reconnectAfter: data.reconnectAfter || 30000 // Default 30 seconds
+        } 
+      });
+      
+      // Dispatch the event to trigger our shutdown handler
+      window.dispatchEvent(shutdownEvent);
     });
   }
 

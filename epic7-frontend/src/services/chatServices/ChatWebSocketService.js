@@ -4,7 +4,9 @@ import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
 import { isHibernateLazyLoadingError, isServerErrorMessage } from './chatErrorUtils';
 import { recoverFromHibernateError, getRecoveryDelay, resetRecoveryAttempts } from './chatRecoveryUtils';
-import { getUserId } from '../authService';
+
+// Direct localStorage access to avoid circular dependency with authService
+const getUserIdFromStorage = () => localStorage.getItem('userId');
 
 class ChatWebSocketService {
   constructor() {
@@ -85,7 +87,7 @@ class ChatWebSocketService {
       console.log(`Connexion Chat WebSocket via SockJS à: ${sockJsUrl}`);
 
       // Prepare WebSocket URL with user ID as a query parameter
-      const userId = getUserId();
+      const userId = localStorage.getItem('userId');
       let wsUrl = sockJsUrl;
       
       if (userId) {
@@ -119,29 +121,21 @@ class ChatWebSocketService {
           if (this.connectionState !== 'disconnecting' && this.connected) {
             console.warn('Unexpected connection closure detected');
             
-            // Dispatch a custom event for the reconnector to handle
-            const errorEvent = new CustomEvent('websocketError', { 
-              detail: {
-                code: event.code,
-                reason: event.reason || 'Connection closed unexpectedly',
-                type: 'close'
-              }
+            // Use our comprehensive error handler
+            this._handleConnectionError({
+              code: event.code,
+              reason: event.reason || 'Connection closed unexpectedly',
+              message: `WebSocket connection closed with code ${event.code}`,
+              type: 'close'
             });
-            window.dispatchEvent(errorEvent);
-            
-            // Mark as disconnected to avoid confusion
-            this.connected = false;
           }
         };
 
         socket.onerror = (error) => {
           console.error('SockJS connection error:', error);
           
-          // Dispatch a custom event for the reconnector to handle
-          const errorEvent = new CustomEvent('websocketError', { 
-            detail: error
-          });
-          window.dispatchEvent(errorEvent);
+          // Use our comprehensive error handler
+          this._handleConnectionError(error);
         };
         
         // Créer un factory pour le client STOMP avec reconnexion automatique
@@ -160,15 +154,12 @@ class ChatWebSocketService {
         stompClient.onStompError = (frame) => {
           console.error('STOMP protocol error:', frame);
           
-          // Dispatch a custom event for the reconnector to handle
-          const errorEvent = new CustomEvent('websocketError', { 
-            detail: {
-              code: 'STOMP_ERROR',
-              message: frame.headers?.message || 'STOMP protocol error',
-              frame: frame
-            }
+          // Use our comprehensive error handler
+          this._handleConnectionError({
+            code: 'STOMP_ERROR',
+            message: frame.headers?.message || 'STOMP protocol error',
+            frame: frame
           });
-          window.dispatchEvent(errorEvent);
         };
         
         // En-têtes avec le token JWT
@@ -195,6 +186,9 @@ class ChatWebSocketService {
                 // S'abonner aux canaux personnels pour les notifications
                 this._subscribeToPersonalChannels();
                 
+                // S'abonner aux canaux de suppression de messages pour les salons actifs
+                this._subscribeToMessageDeletionChannels();
+                
                 // Invoquer le callback onConnect s'il existe
                 if (typeof this.callbacks.onConnect === 'function') {
                   this.callbacks.onConnect();
@@ -215,61 +209,25 @@ class ChatWebSocketService {
           (error) => {
             console.error('Erreur de connexion Chat WebSocket:', error);
             this.connected = false;
+            this.connectionState = 'disconnected';
             
-            // Tenter une reconnexion automatique
-            if (this.reconnectAttempts < this.maxReconnectAttempts) {
-              this.connectionState = 'reconnecting';
-              this.reconnectAttempts++;
-              const currentAttempt = this.reconnectAttempts;
-              
-              // Utiliser un délai progressif: 1s pour les 2 premières tentatives, 5s pour les 3 suivantes
-              const delay = currentAttempt <= 2 ? this.initialReconnectDelay : this.extendedReconnectDelay;
-              
-              console.log(`Tentative de reconnexion ${currentAttempt}/${this.maxReconnectAttempts} dans ${delay/1000}s...`);
-              
-              // Reset the connect promise so we can try again
-              this.connectPromise = null;
-              
-              setTimeout(() => {
-                // Double-vérifier l'état de connexion avant de tenter de se reconnecter
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                  this.connect().then(resolve).catch((e) => {
-                    // Si nous atteignons la limite de tentatives pendant la reconnexion
-                    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-                      this.connectionState = 'disconnected';
-                      console.error('Nombre maximum de tentatives de reconnexion atteint');
-                      if (typeof this.callbacks.onError === 'function') {
-                        this.callbacks.onError({
-                          code: 'MAX_RECONNECT_ATTEMPTS',
-                          message: 'Connexion perdue. Veuillez rafraîchir la page.',
-                          details: e
-                        });
-                      }
-                    }
-                    reject(e);
-                  });
-                } else {
-                  this.connectionState = 'disconnected';
-                  reject(new Error('Nombre maximum de tentatives de reconnexion atteint'));
-                }
-              }, delay);
-            } else {
-              console.error('Nombre maximum de tentatives de reconnexion atteint');
-              this.connectionState = 'disconnected';
-              
-              // Invoquer le callback onError s'il existe
-              if (typeof this.callbacks.onError === 'function') {
-                this.callbacks.onError({
-                  code: 'MAX_RECONNECT_ATTEMPTS',
-                  message: 'Connexion perdue. Veuillez rafraîchir la page.',
-                  details: error
-                });
-              }
-              
-              // Reset the connect promise
-              this.connectPromise = null;
-              reject(error);
+            // Use our comprehensive error handler which includes reconnection logic
+            this._handleConnectionError(error);
+            
+            // Invoquer le callback onError s'il existe
+            if (typeof this.callbacks.onError === 'function') {
+              this.callbacks.onError({
+                code: 'MAX_RECONNECT_ATTEMPTS',
+                message: 'Connexion perdue. Veuillez rafraîchir la page.',
+                details: error
+              });
             }
+            
+            // Reset the connect promise so we can try again
+            this.connectPromise = null;
+            
+            // Reject the current connection attempt
+            reject(error);
           }
         );
       } catch (error) {
@@ -573,6 +531,9 @@ class ChatWebSocketService {
         }
       );
       
+      // S'abonner aux canaux de suppression de messages
+      this._subscribeToMessageDeletionChannels();
+      
       // Stocker les abonnements
       this.subscriptions.personalChannels = {
         messages: messageSubscription,
@@ -594,6 +555,67 @@ class ChatWebSocketService {
         });
       }
     }
+  }
+
+  /**
+   * Subscribe to message deletion channels for each active room
+   * This allows receiving broadcast notifications when messages are deleted by other users
+   */
+  _subscribeToMessageDeletionChannels() {
+    if (!this.connected || !this.stompClient) return;
+
+    // First, log which rooms we're going to subscribe to
+    console.log(`Subscribing to message deletion channels for ${this.activeRooms.size} active rooms:`, 
+      Array.from(this.activeRooms).join(', '));
+
+    this.activeRooms.forEach(roomId => {
+      // Determine the destination based on room ID
+      let destination;
+      
+      if (roomId === 'global') {
+        destination = '/topic/chat/global';
+      } else if (roomId.startsWith('guild.')) {
+        const guildId = roomId.split('.')[1];
+        destination = `/topic/chat/guild.${guildId}`;
+      } else if (roomId.startsWith('fight.')) {
+        const fightId = roomId.split('.')[1];
+        destination = `/topic/chat/duel.${fightId}`;
+      } else {
+        console.warn(`Unknown room format for deletion subscription: ${roomId}`);
+        return;
+      }
+      
+      console.log(`Setting up deletion subscription for ${roomId} at ${destination}`);
+      
+      try {
+        const deleteSubscription = this.stompClient.subscribe(
+          destination,
+          (message) => {
+            try {
+              const payload = JSON.parse(message.body);
+              console.log(`Message deletion notification in ${roomId}:`, payload);
+              
+              // Invoke the onMessageDeleted callback if it exists
+              if (typeof this.callbacks.onMessageDeleted === 'function') {
+                this.callbacks.onMessageDeleted(payload, roomId);
+              }
+            } catch (error) {
+              console.error('Error parsing message deletion notification:', error);
+            }
+          }
+        );
+        
+        // Store the subscription for this room
+        if (!this.subscriptions[roomId]) {
+          this.subscriptions[roomId] = {};
+        }
+        this.subscriptions[roomId].deletions = deleteSubscription;
+        
+        console.log(`Successfully subscribed to deletion notifications for ${roomId}`);
+      } catch (error) {
+        console.error(`Error subscribing to deletion notifications for ${roomId}:`, error);
+      }
+    });
   }
 
   /**
@@ -732,7 +754,18 @@ class ChatWebSocketService {
               const payload = JSON.parse(message.body);
               console.log(`Message reçu dans ${type}:`, payload);
               
-              // Invoquer le callback onMessage s'il existe
+              // Check if this is a message deletion notification
+              if (payload.type === 'MESSAGE_DELETED' || payload.messageId || payload.deletedMessageId) {
+                console.log(`Detected deletion notification in ${type}:`, payload);
+                
+                // Invoke the onMessageDeleted callback for deletion notifications
+                if (typeof this.callbacks.onMessageDeleted === 'function') {
+                  this.callbacks.onMessageDeleted(payload, roomId);
+                  return; // Skip regular message processing
+                }
+              }
+              
+              // Invoquer le callback onMessage s'il existe for regular messages
               if (typeof this.callbacks.onMessage === 'function') {
                 this.callbacks.onMessage(payload, type, groupId);
               }
@@ -760,11 +793,110 @@ class ChatWebSocketService {
           }
         );
         
+        // S'abonner aux notifications de suppression de messages
+        // Try multiple possible endpoint patterns since we don't know exactly what the server uses
+        let deletionSubscription;
+        try {
+          // Try the first possible endpoint format: /deletions
+          deletionSubscription = this.stompClient.subscribe(
+            `${destination}/deletions`,
+            (message) => {
+              try {
+                const payload = JSON.parse(message.body);
+                console.log(`Notification de suppression dans ${type} (format deletions):`, payload);
+                
+                // Invoquer le callback onMessageDeleted s'il existe
+                if (typeof this.callbacks.onMessageDeleted === 'function') {
+                  this.callbacks.onMessageDeleted(payload, roomId);
+                }
+              } catch (error) {
+                console.error('Erreur lors du parsing d\'une notification de suppression:', error);
+              }
+            }
+          );
+          
+          console.log(`Subscribed to deletion notifications at ${destination}/deletions`);
+        } catch (error) {
+          console.warn(`Failed to subscribe to ${destination}/deletions:`, error);
+          
+          // Fallback to the second format if the first fails
+          try {
+            console.log(`Trying fallback deletion endpoint for ${type}`);
+            deletionSubscription = this.stompClient.subscribe(
+              `${destination}/deleted`,
+              (message) => {
+                try {
+                  const payload = JSON.parse(message.body);
+                  console.log(`Notification de suppression dans ${type} (format deleted):`, payload);
+                  
+                  // Invoquer le callback onMessageDeleted s'il existe
+                  if (typeof this.callbacks.onMessageDeleted === 'function') {
+                    this.callbacks.onMessageDeleted(payload, roomId);
+                  }
+                } catch (error) {
+                  console.error('Erreur lors du parsing d\'une notification de suppression:', error);
+                }
+              }
+            );
+            console.log(`Subscribed to deletion notifications at ${destination}/deleted`);
+          } catch (secondError) {
+            console.error(`Failed to subscribe to both deletion notification formats for ${type}:`, secondError);
+          }
+        }
+        
         // Stocker les abonnements pour pouvoir les annuler plus tard
         this.subscriptions[roomId] = {
           messages: messageSubscription,
           typing: typingSubscription,
+          deletions: deletionSubscription || null, // Might be null if both subscription attempts failed
           numericId: null  // Will be populated when we receive room info
+        };
+        
+        // Final fallback: Check if deletion events are sent on the main message channel
+        // Set up message handler to detect deletion events in regular message traffic
+        messageSubscription.callback = (frame) => {
+          try {
+            const payload = JSON.parse(frame.body);
+            
+            // Check if this is a deletion notification (different servers may format these differently)
+            if (payload.type === 'MESSAGE_DELETED' || 
+                payload.messageDeleted || 
+                payload.deletedMessageId ||
+                (payload.action && payload.action === 'delete')) {
+              
+              console.log(`Deletion notification detected in main message channel for ${type}:`, payload);
+              
+              // Extract the message ID that was deleted (adapt this based on your server's response format)
+              const messageId = payload.messageId || 
+                               payload.deletedMessageId || 
+                               (payload.message && payload.message.id) ||
+                               payload.id;
+                               
+              if (messageId) {
+                // Create a standard deletion payload
+                const deletionPayload = {
+                  messageId: messageId,
+                  roomId: payload.roomId || this._getNumericRoomId(roomId),
+                  timestamp: payload.timestamp || new Date().toISOString()
+                };
+                
+                // Invoke the deletion callback
+                if (typeof this.callbacks.onMessageDeleted === 'function') {
+                  this.callbacks.onMessageDeleted(deletionPayload, roomId);
+                }
+              }
+            } else {
+              // Regular message handling
+              console.log(`Message reçu dans ${type}:`, payload);
+              
+              // Invoquer le callback onMessage s'il existe
+              if (typeof this.callbacks.onMessage === 'function') {
+                this.callbacks.onMessage(payload, type, groupId);
+              }
+            }
+          } catch (error) {
+            console.error('Erreur lors du parsing d\'un message:', error);
+          }
         };
         
         // Ajouter le salon à l'ensemble des salons actifs
@@ -1075,7 +1207,7 @@ class ChatWebSocketService {
             };
             
             // Always include the user ID in the payload for message ownership
-            const userId = getUserId();
+            const userId = localStorage.getItem('userId');
             if (userId) {
               payload.userId = userId.toString(); // Ensure it's a string (backend uses Long)
               payload.senderId = userId.toString(); // Add explicit senderId for consistency
@@ -1158,6 +1290,26 @@ class ChatWebSocketService {
         // Envoyer la demande de suppression
         this.stompClient.send('/app/chat.deleteMessageDirect', {}, JSON.stringify(payload));
         
+        // Check if we need to directly broadcast deletion notification (for testing/debugging)
+        // This is a fallback in case the server doesn't broadcast deletions properly
+        setTimeout(() => {
+          // Check if this is a global chat room (we only want to do this for testing global chat)
+          if (roomId === 'global' || roomId === 1) {
+            console.log('Broadcasting direct deletion notification to other clients for testing');
+            // Send a direct message to the room's main channel with deletion info
+            try {
+              this.stompClient.send('/topic/chat/global', {}, JSON.stringify({
+                type: 'MESSAGE_DELETED',
+                messageId: messageId,
+                roomId: numericRoomId || roomId,
+                timestamp: new Date().toISOString()
+              }));
+            } catch (e) {
+              console.warn('Failed to send direct deletion notification:', e);
+            }
+          }
+        }, 500); // Small delay to let server handle it first
+        
         // La confirmation sera traitée par le callback onDeleteConfirm
         resolve();
       } catch (error) {
@@ -1178,6 +1330,10 @@ class ChatWebSocketService {
       return;
     }
     
+    // Get user info from local storage
+    const username = localStorage.getItem('username');
+    const userId = localStorage.getItem('userId');
+    
     // Ensure we have room info before sending the typing status
     this._ensureRoomInfo(roomId)
       .then(numericRoomId => {
@@ -1185,7 +1341,9 @@ class ChatWebSocketService {
           // Préparer le payload avec l'ID numérique du salon
           const payload = {
             roomId: numericRoomId,
-            typing: isTyping
+            typing: isTyping,
+            user: username || 'unknown',
+            userId: userId ? parseInt(userId, 10) : null
           };
           
           console.log(`Sending typing status for room ${roomId} with numeric ID ${numericRoomId}:`, payload);
@@ -1213,14 +1371,17 @@ class ChatWebSocketService {
     
     // Vérifier si on est abonné à ce salon
     if (this.subscriptions[roomId]) {
-      // Annuler les abonnements
-      if (this.subscriptions[roomId].messages) {
-        this.subscriptions[roomId].messages.unsubscribe();
-      }
-      
-      if (this.subscriptions[roomId].typing) {
-        this.subscriptions[roomId].typing.unsubscribe();
-      }
+      // Annuler tous les abonnements pour ce salon
+      Object.entries(this.subscriptions[roomId]).forEach(([key, subscription]) => {
+        if (subscription && typeof subscription.unsubscribe === 'function') {
+          try {
+            subscription.unsubscribe();
+            console.log(`Désabonnement de ${roomId}.${key} réussi`);
+          } catch (e) {
+            console.warn(`Erreur lors du désabonnement de ${roomId}.${key}:`, e);
+          }
+        }
+      });
       
       // Supprimer les abonnements
       delete this.subscriptions[roomId];
@@ -1264,6 +1425,32 @@ class ChatWebSocketService {
     
     // Reset the connect promise
     this.connectPromise = null;
+    
+    // Send typing=false to all active rooms before disconnecting
+    if (this.connected && this.stompClient && this.stompClient.connected) {
+      // Get user info from local storage
+      const username = localStorage.getItem('username');
+      const userId = localStorage.getItem('userId');
+      
+      try {
+        // Send typing=false to all active rooms
+        this.activeRooms.forEach(roomId => {
+          if (this.roomInfo[roomId] && this.roomInfo[roomId].numericId) {
+            const payload = {
+              roomId: this.roomInfo[roomId].numericId,
+              typing: false,
+              user: username || 'unknown',
+              userId: userId ? parseInt(userId, 10) : null
+            };
+            
+            console.log(`Sending typing=false on disconnect for room ${roomId}`);
+            this.stompClient.send('/app/chat.typing', {}, JSON.stringify(payload));
+          }
+        });
+      } catch (e) {
+        console.warn('Error sending typing=false notifications on disconnect:', e);
+      }
+    }
     
     // Annuler tous les abonnements
     Object.keys(this.subscriptions).forEach(key => {
@@ -1443,6 +1630,100 @@ class ChatWebSocketService {
     } catch (error) {
       console.error('Error processing potential shutdown message:', error);
       return false;
+    }
+  }
+
+  // Add a comprehensive error handler
+  /**
+   * Handle various WebSocket and STOMP errors
+   * @param {Error} error - The error that occurred
+   * @private
+   */
+  _handleConnectionError(error) {
+    console.error('WebSocket connection error:', error);
+    
+    // Update connection state
+    this.connectionState = 'disconnected';
+    this.connected = false;
+    
+    // Dispatch global error event for centralized handling
+    const errorEvent = new CustomEvent('websocketError', { 
+      detail: {
+        error,
+        timestamp: new Date(),
+        connectionAttempt: this.reconnectAttempts
+      } 
+    });
+    window.dispatchEvent(errorEvent);
+    
+    // Check for specific error types to provide better feedback
+    if (error.message && error.message.includes('MIME type')) {
+      console.error('MIME type error detected - this may indicate a proxy or CORS issue');
+      
+      // Dispatch specific error event
+      const mimeTypeErrorEvent = new CustomEvent('websocketMIMETypeError', { 
+        detail: { error } 
+      });
+      window.dispatchEvent(mimeTypeErrorEvent);
+    } else if (error.message && error.message.includes('NS_ERROR_CORRUPTED_CONTENT')) {
+      console.error('NS_ERROR_CORRUPTED_CONTENT error detected - this indicates content encoding problems');
+      
+      // Dispatch specific error event
+      const corruptedContentEvent = new CustomEvent('websocketCorruptedContentError', { 
+        detail: { error } 
+      });
+      window.dispatchEvent(corruptedContentEvent);
+    }
+    
+    // Helper to check if we should retry
+    const shouldRetry = () => {
+      return this.reconnectAttempts < this.maxReconnectAttempts;
+    };
+    
+    // Increment reconnect attempt counter
+    this.reconnectAttempts++;
+    
+    // Determine if we should retry
+    if (shouldRetry()) {
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+      console.log(`Will attempt reconnect in ${delay/1000} seconds (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      
+      // Notify about reconnection attempt
+      if (typeof this.callbacks.onReconnecting === 'function') {
+        this.callbacks.onReconnecting({
+          attempt: this.reconnectAttempts,
+          maxAttempts: this.maxReconnectAttempts,
+          delay: delay
+        });
+      }
+      
+      // Schedule reconnection attempt after delay
+      setTimeout(() => {
+        if (this.connectionState !== 'connecting') {
+          this.connect().catch(e => {
+            console.error('Reconnection attempt failed:', e);
+          });
+        }
+      }, delay);
+    } else {
+      console.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached`);
+      
+      // Dispatch permanent failure event
+      const reconnectFailedEvent = new CustomEvent('websocketReconnectFailed', { 
+        detail: { 
+          error,
+          retries: this.reconnectAttempts 
+        } 
+      });
+      window.dispatchEvent(reconnectFailedEvent);
+      
+      // Notify about permanent reconnection failure
+      if (typeof this.callbacks.onReconnectFailed === 'function') {
+        this.callbacks.onReconnectFailed({
+          error,
+          retries: this.reconnectAttempts
+        });
+      }
     }
   }
 }

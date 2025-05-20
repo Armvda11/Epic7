@@ -1,7 +1,6 @@
 package com.epic7.backend.config;
 
 import com.epic7.backend.controller.ChatController;
-import com.epic7.backend.controller.rta.RtaWebSocketController;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +10,9 @@ import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
+import org.springframework.lang.NonNull;
+
 
 /**
  * Listener for application shutdown events.
@@ -25,7 +27,7 @@ public class ShutdownListener implements ApplicationListener<ContextClosedEvent>
     private final ChatController chatController;
     
     @Override
-    public void onApplicationEvent(ContextClosedEvent event) {
+    public void onApplicationEvent(@NonNull ContextClosedEvent event) {
         log.info("Application shutdown detected - notifying chat clients");
         
         try {

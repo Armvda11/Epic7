@@ -5,7 +5,8 @@
  * Always use these functions rather than direct localStorage access to maintain a single source of truth.
  * The primary user ID is stored in localStorage under the 'userId' key.
  */
-import { getUserId } from '../services/authService';
+// Direct localStorage access to avoid circular dependency with authService
+const getUserIdFromStorage = () => localStorage.getItem('userId');
 
 /**
  * Checks if the given user ID matches the current user ID
@@ -15,7 +16,7 @@ import { getUserId } from '../services/authService';
 export const isCurrentUser = (userId) => {
   if (!userId) return false;
   
-  const currentUserId = getUserId();
+  const currentUserId = getUserIdFromStorage();
   if (!currentUserId) return false;
   
   // Convert both to strings for reliable comparison
@@ -62,5 +63,5 @@ export const isOwnMessage = (message) => {
  * @returns {string|null} - The current user ID or null if not available
  */
 export const getCurrentUserId = () => {
-  return getUserId();
+  return getUserIdFromStorage();
 };

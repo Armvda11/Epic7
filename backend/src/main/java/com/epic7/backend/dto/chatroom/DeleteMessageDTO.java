@@ -18,4 +18,7 @@ public class DeleteMessageDTO {
     // Il faut vérifier si l'utilisateur a le droit de supprimer le message
     // dans le service qui réceptionne la requête
     private Long askerId;
+    // Type of chat room (GLOBAL, GUILD, FIGHT)
+    // This helps the frontend know which channel to subscribe to for deletions
+    private String chatType;
 }

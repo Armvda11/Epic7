@@ -154,7 +154,7 @@ public class ChatController {
         }
         
         // Create a typing DTO with the username
-        TypingDTO typingStatus = new TypingDTO(user.getUsername(), typing.isTyping(), typing.getRoomId());
+        TypingDTO typingStatus = new TypingDTO(user.getUsername(), user.getId(), typing.isTyping(), typing.getRoomId());
         
         // Broadcast typing status to all users in the appropriate chat room
         Long roomId = typing.getRoomId();
@@ -238,13 +238,18 @@ public class ChatController {
                 // Get the chat room
                 ChatRoom chatRoom = chatService.getChatRoomById(roomId);
                 if (chatRoom != null) {
-                    // Broadcast deletion notification to all users in the room
+                    // Use the same destination pattern as other messages, but append /deletions
+                    String destination = getDestinationByRoomType(chatRoom) + "/deletions";
+                    String type = chatRoom.getType() == ChatType.GUILD ? "deletion" : "MESSAGE_DELETED";
+                    
+                    // Send the notification to the correct topic
                     messagingTemplate.convertAndSend(
-                        "/topic/chat.room." + roomId,
+                        destination,
                         Map.of(
-                            "type", "MESSAGE_DELETED",
-                            "messageId", messageId.toString(),
-                            "roomId", roomId.toString()
+                            "type", type,
+                            "messageId", messageId,
+                            "roomId", roomId,
+                            "timestamp", java.time.Instant.now().toString()
                         )
                     );
                 }

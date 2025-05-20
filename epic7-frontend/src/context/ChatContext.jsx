@@ -1,8 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import chatService from '../services/chatServices/ChatServices';
-import { getUserId, getUserEmail } from '../services/authService';
-import API from '../api/axiosInstance';  // Import API for user data fetching
-import { isOwnMessage, isCurrentUser } from '../utils/userUtils'; // Import user utility functions
+// Directly access localStorage instead of importing authService to break circular dependency
+const getUserIdFromStorage = () => localStorage.getItem('userId');
+const getUserEmailFromStorage = () => localStorage.getItem('userEmail');
+// Import API conditionally inside effect to avoid circular dependency
+// Import userUtils functions directly to avoid circular dependency
+// Helper functions for user ownership detection
+const isUserOwner = (ownerId, currentUserId) => {
+  if (!ownerId || !currentUserId) return false;
+  return ownerId.toString() === currentUserId.toString();
+};
 
 // Create the context
 const ChatContext = createContext();
@@ -107,8 +114,8 @@ useEffect(() => {
       try {
         // Since ChatProvider is now only rendered for authenticated routes,
         // we can assume the user is logged in
-        const userId = getUserId();
-        const userEmail = getUserEmail();
+        const userId = getUserIdFromStorage();
+        const userEmail = getUserEmailFromStorage();
         
         if (!userEmail) {
           console.error('No user email found in localStorage. Chat may not function correctly.');
@@ -126,6 +133,8 @@ useEffect(() => {
             `Stack: \n    ${new Error().stack.split('\n').slice(2, 5).join('\n    ')}`);
           try {
             // Try to get current user profile to extract the ID
+            // Import API dynamically to avoid circular dependency
+            const { default: API } = await import('../api/axiosInstance');
             const userProfile = await API.get('/user/me');
             console.log('User profile response:', userProfile.data);
             
@@ -147,11 +156,10 @@ useEffect(() => {
             }
           } catch (fetchError) {
             console.error('Error fetching user ID:', fetchError, 
-              `Stack: \n    ${new Error().stack.split('\n').slice(2, 5).join('\n    ')}`);
-            
-            // Try to recover by making a direct API call to get the user by email
+              `Stack: \n    ${new Error().stack.split('\n').slice(2, 5).join('\n    ')}`);              // Try to recover by making a direct API call to get the user by email
             try {
               console.log('Attempting direct user lookup by email...');
+              const { default: API } = await import('../api/axiosInstance');
               const response = await API.get('/user/lookup', { 
                 params: { email: userEmail },
                 skipGlobalErrorHandling: true
@@ -208,6 +216,7 @@ useEffect(() => {
         chatService.on('onError', handleError);
         chatService.on('onMessageReceived', handleMessageReceived);
         chatService.on('onTyping', handleTypingStatus);
+        chatService.on('onMessageDeleted', handleMessageDeleted);
         
         // Initialize chat service
         await chatService.initialize(currentUser);
@@ -232,6 +241,7 @@ useEffect(() => {
         chatService.off('onError');
         chatService.off('onMessageReceived');
         chatService.off('onTyping');
+        chatService.off('onMessageDeleted');
         chatService.disconnect();
         setInitialized(false);
       }
@@ -311,7 +321,7 @@ useEffect(() => {
     const timeoutId = setTimeout(retryUserIdFetch, 2000);
     return () => clearTimeout(timeoutId);
   }
-}, [user, API]);
+}, [user]);
 
 // Callback handlers for chat events
 const handleConnected = useCallback(() => {
@@ -325,6 +335,15 @@ const handleError = useCallback((error) => {
 
 const handleMessageReceived = useCallback((message) => {
     console.log('Message received in context:', message);
+    
+    // Check if this is a message deletion notification
+    if (message && message.type === 'MESSAGE_DELETED') {
+        console.log('Message deletion notification received:', message);
+        // Call the dedicated handler for message deletions
+        handleMessageDeleted(message);
+        return;
+    }
+    
     // Don't add the message if it doesn't have required fields
     if (!message || !message.content) {
         console.warn('Received invalid message:', message);
@@ -409,14 +428,68 @@ const handleMessageReceived = useCallback((message) => {
     });
 }, [processedMessageIds]);
 
-const handleTypingStatus = useCallback((user, isTyping) => {
-    setTypingUsers((prev) => {
-    if (isTyping) {
-        return [...prev.filter(u => u !== user), user];
-    } else {
-        return prev.filter(u => u !== user);
+const handleTypingStatus = useCallback((user, isTyping, userId) => {
+    // Get the current user's ID from context
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    
+    // Ignore typing notifications from current user
+    if (userId && currentUserId && userId === currentUserId) {
+      console.log('Ignoring typing notification from current user');
+      return;
     }
+    
+    setTypingUsers((prev) => {
+      if (isTyping) {
+        return [...prev.filter(u => u !== user), user];
+      } else {
+        return prev.filter(u => u !== user);
+      }
     });
+}, []);
+
+// Handle message deletion notifications (broadcast from other users)
+const handleMessageDeleted = useCallback((deletionData) => {
+  console.log('Message deletion notification received:', deletionData);
+  
+  // Extract the message ID from various possible formats
+  let messageId = null;
+  
+  if (deletionData) {
+    // Try all possible message ID field names
+    messageId = deletionData.messageId || 
+               deletionData.deletedMessageId || 
+               (deletionData.message && deletionData.message.id) ||
+               deletionData.id;
+  }
+  
+  if (!messageId) {
+    console.warn('Could not extract message ID from deletion notification:', deletionData);
+    return;
+  }
+  
+  // Convert to string for consistent comparison
+  messageId = messageId.toString();
+  console.log('Processing deletion for message ID:', messageId);
+  
+  // Remove the message from our local state
+  setMessages(prevMessages => 
+    prevMessages.filter(msg => {
+      // Check all possible ID formats
+      if (!msg) return true; // Keep non-message items
+      if (msg.id && msg.id.toString() === messageId) return false; // Remove if direct match
+      if (msg.clientSideId && msg.clientSideId === messageId) return false; // Remove if client ID match
+      return true; // Keep other messages
+    })
+  );
+  
+  // Remove from processed IDs to allow future messages with same ID if needed
+  setProcessedMessageIds(prev => {
+    const newSet = new Set(prev);
+    newSet.delete(messageId);
+    return newSet;
+  });
+  
+  console.log('Message removed from UI after deletion notification');
 }, []);
 
 // Join a chat room (global or guild)
@@ -569,9 +642,67 @@ const deleteMessage = useCallback(async (messageId) => {
 // Set typing status
 const setTyping = useCallback((isTyping) => {
     if (currentRoom) {
-    chatService.setTypingStatus(currentRoom, isTyping);
+      // Only send typing status if we have a valid room and user
+      if (user && user.id) {
+        console.log(`Setting typing status: ${isTyping} for user ID: ${user.id} in room: ${currentRoom}`);
+        chatService.setTypingStatus(currentRoom, isTyping);
+      } else {
+        console.warn('Cannot send typing status: missing user ID');
+      }
     }
-}, [currentRoom]);
+}, [currentRoom, user]);
+
+// Add utility to detect and report MIME type errors and content corruption
+useEffect(() => {
+  const detectContentErrors = (event) => {
+    if (event.detail?.error) {
+      const error = event.detail.error;
+      
+      // Check for MIME type errors
+      if (error.message && error.message.includes('MIME type')) {
+        console.error('DETECTED MIME TYPE ERROR:', error);
+        console.log('This is usually caused by one of the following:');
+        console.log('1. Cross-Origin Resource Sharing (CORS) issues');
+        console.log('2. Server is returning incorrect Content-Type headers');
+        console.log('3. Proxy or network filter modifying response content');
+        
+        // Provide user feedback
+        if (typeof setError === 'function') {
+          setError({
+            message: 'Connection issues detected. Please refresh the page or try again later.',
+            details: 'MIME type error encountered, which often indicates a network configuration issue.'
+          });
+        }
+      }
+      
+      // Check for NS_ERROR_CORRUPTED_CONTENT
+      if (error.message && error.message.includes('NS_ERROR_CORRUPTED_CONTENT')) {
+        console.error('DETECTED CORRUPTED CONTENT ERROR:', error);
+        console.log('This is usually caused by one of the following:');
+        console.log('1. Network content was modified during transmission');
+        console.log('2. SSL/TLS connection issues');
+        console.log('3. Server-side compression problems or partial responses');
+        
+        // Provide user feedback
+        if (typeof setError === 'function') {
+          setError({
+            message: 'Connection issues detected. Please refresh the page or try again later.',
+            details: 'Content corruption detected during communication with the server.'
+          });
+        }
+      }
+    }
+  };
+  
+  // Listen for specific WebSocket error events
+  window.addEventListener('websocketMIMETypeError', detectContentErrors);
+  window.addEventListener('websocketCorruptedContentError', detectContentErrors);
+  
+  return () => {
+    window.removeEventListener('websocketMIMETypeError', detectContentErrors);
+    window.removeEventListener('websocketCorruptedContentError', detectContentErrors);
+  };
+}, []);
 
 // Context value
 const value = {

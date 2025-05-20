@@ -380,33 +380,62 @@ const ChatComponent = ({ roomType, guildId = null }) => {
 
   // Send typing status
   useEffect(() => {
-    if (messageInput && !prevInput.current) {
-      setTyping(true);
-    } else if (!messageInput && prevInput.current) {
-      setTyping(false);
+    // Only send typing=true when there's actual text
+    if (messageInput && messageInput.trim().length > 0) {
+      if (!prevInput.current || prevInput.current.trim().length === 0) {
+        // Only send typing=true when transitioning from empty to non-empty
+        setTyping(true);
+      }
+    } else if (!messageInput || messageInput.trim().length === 0) {
+      // Only send typing=false when the text area is completely empty
+      if (prevInput.current && prevInput.current.trim().length > 0) {
+        setTyping(false);
+      }
     }
     prevInput.current = messageInput;
   }, [messageInput, setTyping]);
 
-  // Optionally, send setTyping(false) on unmount
+  // Ensure typing=false is sent when component unmounts or user navigates away
   useEffect(() => {
-    return () => setTyping(false);
-  }, [setTyping]);
+    // Set up a handler for beforeunload event to catch page navigation/refresh
+    const handleBeforeUnload = () => {
+      // Send typing=false synchronously before page unload
+      if (isTyping) {
+        setTyping(false);
+      }
+    };
+    
+    // Add event listener for page unload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup function when component unmounts
+    return () => {
+      // Remove the event listener
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Send typing=false when component unmounts
+      if (isTyping) {
+        setTyping(false);
+      }
+    };
+  }, [isTyping, setTyping]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleInputChange = (e) => {
-    setMessageInput(e.target.value);
+    const value = e.target.value;
+    setMessageInput(value);
     
-    // If user wasn't already typing, set typing state to true
-    if (!isTyping && e.target.value.trim().length > 0) {
+    // Only send typing notifications when there's a change in typing state
+    const isEmpty = value.trim().length === 0;
+    
+    if (!isTyping && !isEmpty) {
+      // Send typing=true when starting to type
       setIsTyping(true);
-    }
-    
-    // If user clears the input, set typing state to false
-    if (e.target.value.trim().length === 0) {
+    } else if (isTyping && isEmpty) {
+      // Only send typing=false when text area becomes empty
       setIsTyping(false);
       setTyping(false);
     }
@@ -613,6 +642,10 @@ const ChatComponent = ({ roomType, guildId = null }) => {
     return result;
   };  // Check if a message is from the current user
   // We directly use the isOwnMessage utility from userUtils.js with no local implementation
+  const isUserOwnMessage = (message) => {
+    // Call the imported isOwnMessage function
+    return isOwnMessage(message);
+  };
 
   // Check if chat is ready
   const isChatReady = !loading;
@@ -770,10 +803,10 @@ const ChatComponent = ({ roomType, guildId = null }) => {
                   <div 
                     className={`max-w-[80%] rounded-lg px-4 py-2 relative ${
                       isOwnMessage(message)
-                        ? 'bg-purple-800 text-white rounded-tr-none' // Darker purple for own messages
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-tl-none'
-                    }`}
-                  >
+                          ? 'bg-purple-800 text-white rounded-tr-none' // Darker purple for own messages
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-tl-none'
+                      }`}
+                    >
                     {/* Message sender name (not shown for own messages) */}
                     {!isOwnMessage(message) && (
                       <div className="font-bold text-sm text-purple-700 dark:text-purple-400 flex items-center gap-1">
@@ -822,7 +855,7 @@ const ChatComponent = ({ roomType, guildId = null }) => {
                               ? 'text-red-500 hover:text-red-600 hover:bg-gray-200 dark:hover:bg-gray-600' 
                               : 'text-purple-300 hover:text-white hover:bg-purple-700'
                           }`}
-                          title={isUserAdmin && !isOwnMessage(message) 
+                          title={isUserAdmin && !isOwnMessage(message)
                             ? (t("adminDeleteMessage", language) || "Admin: Delete this message") 
                             : (t("deleteMessage", language) || "Delete this message")}
                         >
