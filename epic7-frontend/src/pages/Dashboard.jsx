@@ -217,7 +217,7 @@ const rightMenuItems = [
   }
 
   return (
-    <main className="absolute inset-0 bg-cover bg-center overflow-hidden" style={{ backgroundImage: "url('splashArt.webp')" }}>
+    <main className="absolute inset-0 bg-cover bg-center overflow-hidden" style={{ backgroundImage: "url('epic7.jpg')" }}>
     <header className="flex justify-between items-center px-6 py-3">
       
       {/* Avatar (à gauche) */}

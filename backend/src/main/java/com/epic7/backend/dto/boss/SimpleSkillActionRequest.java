@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
  * - Le héros qui agit
  * - La compétence choisie
  * - La cible
+ * - L'identifiant de l'utilisateur (pour la validation)
  * @author Hermas
  */
 @Data
@@ -18,4 +19,5 @@ public class SimpleSkillActionRequest {
     private Long playerHeroId; 
     private Long skillId;
     private Long targetId;
+    private String userId;    // Ajout du champ userId pour résoudre l'erreur NullPointerException
 }

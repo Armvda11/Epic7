@@ -35,3 +35,12 @@ export const skillIcon = (heroName, skillIndex) => {
     
     return `/icons/${normalizedHeroName}_skill/${normalizedHeroName}_skill_${skillIndex + 1}.webp`;
 }
+
+
+// fonction pour obtenir l'url de l'animation d'un héros
+export const heroAnimation = (heroName) => {
+    // mettre le nom du héros en minuscules et remplacer les espaces par des tirets
+    const normalizedHeroName = heroName.toLowerCase().replace(/ /g, '-');
+
+    return `/epic7-Hero/Animation/${normalizedHeroName}.mp4`;
+}

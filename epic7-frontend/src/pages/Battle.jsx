@@ -9,6 +9,7 @@ import FloatingDamage from '../components/battle/FloatingDamage';
 import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel';
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
+import SkillAnimation from '../components/battle/SkillAnimation';
 
 // utilitaire de log
 function logBattleAction(message, data) {
@@ -30,6 +31,8 @@ export default function Battle() {
   const [floatingDamages,   setFloatingDamages]   = useState([]);
   const [bossAttacking,     setBossAttacking]     = useState(false);
   const [reward,            setReward]            = useState(null);
+  const [showS3Animation,   setShowS3Animation]   = useState(false);
+  const [animatingHero,     setAnimatingHero]     = useState(null);
 
   const navigate   = useNavigate();
   const targetRefs = useRef({});
@@ -103,16 +106,31 @@ export default function Battle() {
   }
 
   // ─── Utilisation d'une compétence ─────────────────────────────────────
-  async function useSkill(targetId) {
+  async function useSkill(targetId, skill) {
     try {
       // on récupère l'acteur courant
       const actor = battleState.participants[battleState.currentTurnIndex];
+      
+      // récupération de l'ID utilisateur depuis le localStorage
+      const userId = localStorage.getItem('userId');
+      
+      // Vérifier si c'est un S3 (position 2 = skill 3)
+      const isS3 = skill && skill.position === 2;
+      
+      // Si c'est un S3, déclencher l'animation
+      if (isS3 && actor.player) {
+        setAnimatingHero(actor.name);
+        setShowS3Animation(true);
+        // Ajouter un délai avant d'envoyer l'action au serveur
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       // on envoie l'action au back
       const { data: result } = await API.post('/combat/action/skill', {
         playerHeroId: actor.id,
         skillId:      selectedSkillId,
         targetId,
+        userId: userId,  // Ajout explicite du userId
       });
 
       // on met à jour tout
@@ -132,6 +150,8 @@ export default function Battle() {
         setBossAttacking(false);
       }, 800);
     } catch (err) {
+      // Cacher l'animation en cas d'erreur
+      setShowS3Animation(false);
       console.error("Erreur useSkill:", err);
     }
   }
@@ -156,7 +176,7 @@ export default function Battle() {
       const def = battleState.participants.find(p =>
         skill.action === 'HEAL' ? p.player : !p.player
       );
-      if (def) useSkill(def.id);
+      if (def) useSkill(def.id, skill);
     } else {
       setSelectedSkillId(skill.id);
       setSelectedSkillType(skill.action);
@@ -249,7 +269,12 @@ export default function Battle() {
                     isCurrent={h.id === current.id}
                     isNext={h.id === battleState.participants[nextIdx]?.id}
                     highlight={getHighlightClass(h)}
-                    onClick={() => selectedSkillId && selectedSkillType==='HEAL' && useSkill(h.id)}
+                    onClick={() => {
+                      if (selectedSkillId && selectedSkillType === 'HEAL') {
+                        const selectedSkill = currentHeroSkills.find(s => s.id === selectedSkillId);
+                        useSkill(h.id, selectedSkill);
+                      }
+                    }}
                   />
                 </div>
               ))}
@@ -266,7 +291,12 @@ export default function Battle() {
                     hero={b}
                     isCurrent={b.id === current.id}
                     highlight={getHighlightClass(b)}
-                    onClick={() => selectedSkillId && selectedSkillType==='DAMAGE' && useSkill(b.id)}
+                    onClick={() => {
+                      if (selectedSkillId && selectedSkillType === 'DAMAGE') {
+                        const selectedSkill = currentHeroSkills.find(s => s.id === selectedSkillId);
+                        useSkill(b.id, selectedSkill);
+                      }
+                    }}
                   />
                 </div>
               ))}

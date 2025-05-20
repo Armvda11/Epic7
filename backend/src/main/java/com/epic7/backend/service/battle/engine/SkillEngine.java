@@ -229,13 +229,34 @@ public class SkillEngine {
                 return actor.equals(target);
             }
             case "SINGLE_ENEMY" -> {
-                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Vérification si c'est un ennemi (joueur vs boss ou joueurs différents)
+                if (actor.isPlayer() != target.isPlayer()) {
+                    return target.getCurrentHp() > 0;  // Boss vs joueur ou joueur vs boss
+                }
+                // Deux joueurs en RTA avec userIds définis
+                return actor.getUserId() != null && target.getUserId() != null && 
+                       !actor.getUserId().equals(target.getUserId()) && 
+                       target.getCurrentHp() > 0;
             }
             case "SINGLE_ALLY" -> {
-                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Même joueur ou même équipe (joueur ou boss)
+                if (actor.isPlayer() == target.isPlayer()) {
+                    if (!actor.isPlayer() || actor.getUserId() == null || target.getUserId() == null) {
+                        return !actor.equals(target) && target.getCurrentHp() > 0; // Pour les boss ou mode PVE
+                    }
+                    return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                }
+                return false;
             }
             case "ALL_ALLIES" -> {
-                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Même joueur ou même équipe (joueur ou boss)
+                if (actor.isPlayer() == target.isPlayer()) {
+                    if (!actor.isPlayer() || actor.getUserId() == null || target.getUserId() == null) {
+                        return target.getCurrentHp() > 0; // Pour les boss ou mode PVE
+                    }
+                    return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                }
+                return false;
             }
             default -> {
                 return false;
