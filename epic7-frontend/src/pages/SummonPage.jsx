@@ -1,6 +1,6 @@
 import React, { useState, useEffect, use } from "react";
 import { useNavigate } from "react-router-dom";
-import { performSummon, getBannerHeroes, getOwnedHeroes, getBannerEquipments } from "../services/summonService";
+import { performSummon, getBannerHeroes, getOwnedHeroes, getBannerEquipments, getRarestHero } from "../services/summonService";
 import API from "../api/axiosInstance";
 import '../SummonPage.css';
 
@@ -15,7 +15,9 @@ export default function SummonPage() {
   const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
   const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
   const navigate = useNavigate();
+  const [rarestHero, setRarestHero] = useState(null); // État pour le héros le plus rare
 
+  
   // Récupérer le nombre de gemmes de l'utilisateur
   useEffect(() => {
     const fetchUserDiamonds = async () => {
@@ -46,6 +48,7 @@ export default function SummonPage() {
   }, []);
 
   useEffect(() => {
+    // Récupérer les héros possédés par l'utilisateur au chargement de la page
     const fetchOwnedHeroes = async () => {
       try {
         const heroes = await getOwnedHeroes();
@@ -59,13 +62,16 @@ export default function SummonPage() {
     fetchOwnedHeroes();
   }, []);
 
+  // Récupérer les héros et équipements de la bannière sélectionnée
   const handleBannerClick = async (banner) => {
     setSelectedBanner(banner);
     try {
       const heroes = await getBannerHeroes(banner.id); // Récupérer les héros de la bannière
       const equipments = await getBannerEquipments(banner.id); // Récupérer les équipements de la bannière
+      const rareHero = await getRarestHero(banner.id); // Récupérer le héros le plus rare de la bannière
       setBannerHeroes(heroes);
       setBannerEquipments(equipments);
+      setRarestHero(rareHero)
       setShowBannerHeroes(true); // Ouvrir la fenêtre
     } catch (error) {
       console.error("Erreur lors de la récupération des contenus de la bannière :", error);
@@ -73,11 +79,19 @@ export default function SummonPage() {
       setBannerEquipments([]);
     }
   };
+  
+  // Récupérer le héros le plus rare de la bannière sélectionnée
+  const handleBannerLeftClick = async (banner) => {
+    setSelectedBanner(banner);  
+    const rareHero = await getRarestHero(banner.id);
+    setRarestHero(rareHero);
+  }
 
   const closeBannerHeroes = () => {
     setShowBannerHeroes(false); // Fermer la fenêtre
   };
 
+  // pour invoquer un héros ou un équipement
   const handleSummon = async () => {
     if (!selectedBanner) {
       setResult({ error: true, message: "❌ Il faut sélectionner une bannière avant d'invoquer." });
@@ -134,7 +148,7 @@ export default function SummonPage() {
                     <img
                       src={
                         result.type === "Hero"
-                          ? `/epic7-Hero/sprite-hero/${result.name.toLowerCase().replace(/\s+/g, "-")}.png`
+                          ? `/epic7-Hero/webp/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
                           : `/equipment/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
                       }
                       alt={result.name}
@@ -144,7 +158,7 @@ export default function SummonPage() {
                       }`}
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"
+                        e.target.src = "/epic7-Hero/webp/unknown.webp"
                       }}
                     />
                     <p className="text-xl font-bold mt-4">{result.name}</p>
@@ -200,7 +214,7 @@ export default function SummonPage() {
                     ? "bg-blue-500 text-white border-4 border-blue-700 shadow-xl"
                     : "bg-purple-600 text-white"
                 }`}
-                onClick={() => setSelectedBanner(banner)}
+                onClick={() => handleBannerLeftClick(banner)}
               >
                 <h3 className="text-xl font-bold">{banner.name}</h3>
                 <p className="text-sm">Début : {new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(banner.startsAt))}</p>
@@ -221,7 +235,31 @@ export default function SummonPage() {
         </div>
       </div>
 
-      {/* Fenêtre flottante pour afficher les héros */}
+      {/* Afficher le héros le plus rare de la bannière sélectionnée */}
+      { selectedBanner && rarestHero && (
+        <div style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)" }}>
+          <img 
+            src={`/epic7-Hero/webp/${rarestHero.name.toLowerCase().replace(/\s+/g, "-")}.webp`} 
+            alt={rarestHero.name}
+            style={{ width: "150px", borderRadius: "10px", boxShadow: "4px 4px 10px rgba(0,0,0,0.5)" }}
+            onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/epic7-Hero/webp/unknown.webp"
+                      }}
+          />
+          <p style={{ color: "white", fontSize: "16px", textAlign: "left" }}>
+            Obtenez dès maintenant :
+            <br/>
+            <strong>{rarestHero.name}</strong>
+            <br/>
+            <strong>{rarestHero.rarity}</strong>
+            <br/>
+            <strong>{rarestHero.element}</strong>
+          </p>
+        </div>
+      )}
+
+      {/* Fenêtre flottante pour afficher les héros et équipements */}
       {showBannerHeroes && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
           <div className="absolute inset-0" onClick={closeBannerHeroes} />
@@ -239,12 +277,12 @@ export default function SummonPage() {
                 return (
                   <div key={hero.id} className="text-center flex flex-col items-center">
                     <img
-                      src={`/epic7-Hero/sprite-hero/${hero.name.toLowerCase().replace(/\s+/g, "-")}.png`}
+                      src={`/epic7-Hero/webp/${hero.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
                       alt={hero.name}
                       className="w-24 h-24 object-contain rounded-lg shadow-lg"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/sprite-hero/unknown.png"; // Image par défaut en cas d'erreur
+                        e.target.src = "/epic7-Hero/webp/unknown.webp"; // Image par défaut en cas d'erreur
                       }}
                     />
                     <p className="text-lg font-bold mt-2">{hero.name}</p>
@@ -268,7 +306,7 @@ export default function SummonPage() {
                     className="w-24 h-24 object-contain rounded-lg shadow-lg"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = "/epic7-Hero/sprite-hero/unknown.png"
+                      e.target.src = "/epic7-Hero/webp/unknown.webp"
                     }}
                   />
                   <p className="text-lg font-bold mt-2">{equipment.name}</p>
@@ -280,5 +318,6 @@ export default function SummonPage() {
         </div>
       )}
     </div>
+
   );
 }

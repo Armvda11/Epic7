@@ -39,3 +39,23 @@ export async function getOwnedHeroes() {
     throw error;
   }
 }
+
+export async function getAllHeroes() {
+  try {
+    const response = await API.get("/summons/all-heroes");
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la récupération de tous les héros :", error);
+    throw error;
+  }
+}
+
+export const getRarestHero = async (bannerId) => {
+  try {
+    const response = await API.get(`/summons/${bannerId}/rarest-hero`);
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la récupération du héros le plus rare :", error);
+    throw error;
+  }
+}
