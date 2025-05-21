@@ -35,7 +35,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // login reste ouvert
                 .requestMatchers("/api/skills/**").permitAll() // les compétences sont ouvertes
+                .requestMatchers("/api/chat/rooms/global").authenticated() // allow accessing global chat without auth
                 .requestMatchers("/api/combat/**").authenticated() // les combats sont ouverts
+                .requestMatchers("/api/user/me").permitAll() // Allow checking user status without authentication
+                // WebSocket endpoints - allow all for development (important for chat functionality)
+                .requestMatchers("/ws-chat/**").authenticated()
+                .requestMatchers("/topic/**").authenticated()
+                .requestMatchers("/app/**").authenticated()
                 .anyRequest().authenticated()               // tout le reste est protégé
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

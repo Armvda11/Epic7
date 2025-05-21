@@ -9,15 +9,11 @@ import org.springframework.stereotype.Service;
 import com.epic7.backend.dto.ShopItemDTO;
 import com.epic7.backend.model.Equipment;
 import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.PlayerEquipment;
-import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.model.ShopItem;
 import com.epic7.backend.model.ShopPurchase;
 import com.epic7.backend.model.User;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
-import com.epic7.backend.repository.PlayerEquipmentRepository;
-import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.ShopItemRepository;
 import com.epic7.backend.repository.ShopPurchaseRepository;
 import com.epic7.backend.repository.UserRepository;
@@ -37,8 +33,7 @@ public class ShopService {
     private final ShopPurchaseRepository purchaseRepo;
     private final HeroRepository heroRepo;
     private final EquipmentRepository equipmentRepo;
-    private final PlayerHeroRepository heroPlayerRepo;
-    private final PlayerEquipmentRepository equipmentPlayerRepo;
+
 
     private final UserRepository userRepository;
 

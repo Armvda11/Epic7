@@ -1,11 +1,36 @@
 import API from "../api/axiosInstance";
+import { getUserId } from "./authService";
 
 // Récupère le profil de l'utilisateur
 export const fetchUserProfile = async () => {
   try {
+    // Add the user ID to query parameters for debugging/tracing
+    const userId = getUserId();
+    const params = userId ? { debug_user_id: userId } : {};
+    
     const response = await API.get("/user/me", { 
-      useGlobalErrorHandler: false 
+      useGlobalErrorHandler: false,
+      params
     });
+    
+    // Check if the response indicates the user is not authenticated
+    if (response.data && response.data.authenticated === false) {
+      // Return null or throw a specific error that can be handled gracefully
+      // without showing error messages in the console
+      return null;
+    }
+    
+    // Log the response to debug user ID issues
+    console.log("User profile response:", response.data);
+    
+    // Ensure we store the user ID if it's returned from the backend
+    if (response.data && response.data.id) {
+      console.log("Setting user ID from profile response:", response.data.id);
+      localStorage.setItem('userId', response.data.id.toString());
+    } else {
+      console.warn("User profile response doesn't contain an ID:", response.data);
+    }
+    
     return response.data;
   } catch (error) {
     console.error("Erreur lors du chargement du profil utilisateur :", error);

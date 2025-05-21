@@ -11,10 +11,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.epic7.backend.service.PlayerHeroService;
-
-
-
 /**
  * Représente un utilisateur du jeu.
  * Contient des informations sur le compte, les héros possédés, etc.
@@ -42,6 +38,9 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String username;
+
+    @Column
+    private String avatarUrl; // Added avatar URL field
 
     @Column(nullable = false)
     private int level = 1; // Niveau de l'utilisateur (ex. 1, 2, 3, etc.)

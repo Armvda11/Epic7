@@ -508,3 +508,14 @@ export const fetchRecentGuilds = async (limit = 10) => {
     return [];
   }
 };
+
+// Fetch guild details by ID
+export const fetchGuildById = async (guildId) => {
+  try {
+    const response = await API.get(`/guilds/${guildId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching guild by ID:', error);
+    throw error;
+  }
+};

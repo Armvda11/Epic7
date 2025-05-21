@@ -61,7 +61,9 @@ return (
     <div className="flex items-center">
         <div className="mr-3">{getIcon()}</div>
         <div className="flex-1">
-        <p className={`text-sm font-medium ${getTextColor()}`}>{message}</p>
+            <div className={`text-sm font-medium ${getTextColor()}`}>
+                {typeof message === 'string' ? message : message}
+            </div>
         </div>
         <button 
         onClick={() => {

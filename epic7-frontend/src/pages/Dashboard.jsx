@@ -10,8 +10,9 @@ import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
 
-import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen,FaStar } from "react-icons/fa";
-import {getAllHeroes} from "../services/summonService";
+import { FaUserFriends, FaUsers, FaMagic, FaCrosshairs, FaBookOpen, FaBoxOpen, FaStar, FaComments, FaGlobeAmericas } from "react-icons/fa";
+import { getAllHeroes } from "../services/summonService";
+
 // Cette page affiche le tableau de bord de l'utilisateur
 // Elle affiche les informations de l'utilisateur, un menu de navigation
 // et un bouton de déconnexion
@@ -21,11 +22,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const settings = useSettings();
 
-  const { language, t, theme } = settings ;   // Add theme from settings
-  const [user, setUser] = useState(null);  // inormations de l'utilisateur
-  const [showProfile, setShowProfile] = useState(false); // État pour afficher la carte de profil
-  const [showSettings, setShowSettings] = useState(false); // État pour afficher le panneau de paramètres
-  const [showMailbox, setShowMailbox] = useState(false); // État pour afficher la mailbox
+  const { language, t, theme } = settings;
+  const [user, setUser] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showMailbox, setShowMailbox] = useState(false);
+  const [showGlobalChat, setShowGlobalChat] = useState(false);
 
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,20 +37,45 @@ const Dashboard = () => {
   const searchTimeoutRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  const [allHeroes, setAllHeroes] = useState([]); // État pour stocker tous les héros
-  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);  // État pour l'index du héros actuel
-  const [videoSource, setVideoSource] = useState(""); // État pour la source de la vidéo
-  const videoRef = useRef(null);  // Référence pour la vidéo
+  // États pour l'animation des héros
+  const [allHeroes, setAllHeroes] = useState([]);
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [videoSource, setVideoSource] = useState("");
+  const videoRef = useRef(null);
+
+  // Menu items for left side
+  const leftMenuItems = [
+    { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
+    { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
+    { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
+    { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
+  ];
+
+  // Menu items for right side
+  const rightMenuItems = [
+    { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
+    { label: t("battle", language), icon: <FaCrosshairs size={28} />, action: () => navigate("/rta") },
+    { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
+    { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
+  ];
 
   //  Chargement des infos utilisateur
   useEffect(() => {
     const loadUser = async () => {
       try {
         const data = await fetchUserProfile(); // Récupération des données utilisateur
+        
+        // If data is null, it means the user is not authenticated
+        if (data === null) {
+          console.log("User not authenticated, redirecting to login page");
+          navigate("/"); // Redirect to login page
+          return;
+        }
+        
         setUser(data); // Mise à jour de l'état avec les données utilisateur
       } catch (error) {
         console.error("Failed to load user profile:", error);
-        // Redirection vers la page de connexion en cas d'erreur}
+        // Redirection vers la page de connexion en cas d'erreur
         navigate("/");
       }
     };
@@ -195,19 +222,6 @@ const Dashboard = () => {
     navigate("/");
   };
 
-const leftMenuItems = [
-  { label: t("inventory", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/inventory") },
-  { label: t("myHeroes", language), icon: <FaMagic size={28} />, action: () => navigate("/my-heroes") },
-  { label: t("friends", language), icon: <FaUserFriends size={28} />, action: () => navigate("/friends") },
-  { label: t("guilds", language), icon: <FaUsers size={28} />, action: () => navigate("/guilds") },
-];
-
-const rightMenuItems = [
-  { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
-  { label: t("battle", language), icon: <FaCrosshairs size={28} />, action: () => navigate("/rta") },
-  { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
-  { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
-];
   if (!user) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
@@ -218,16 +232,15 @@ const rightMenuItems = [
 
   return (
     <main className="absolute inset-0 bg-cover bg-center overflow-hidden" style={{ backgroundImage: "url('splashArt.webp')" }}>
-    <header className="flex justify-between items-center px-6 py-3">
-      
-      {/* Avatar (à gauche) */}
-      <div className="flex items-center gap-4 w-full md:w-auto">
+      <header className="flex justify-between items-center px-6 py-3">
+        {/* Avatar (à gauche) */}
+        <div className="flex items-center gap-4 w-full md:w-auto">
           <button
             onClick={() => setShowProfile(true)}
             className="w-full max-w-xs p-4 bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl hover:ring-2 ring-purple-400 transition text-left"
           >
             <article className="flex items-center gap-4">
-              <img src = {heroImg("mavuika")} alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
+              <img src={heroImg("mavuika")} alt="avatar" className="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 object-cover shadow"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = heroImgUnknown;
@@ -240,116 +253,122 @@ const rightMenuItems = [
             </article>
           </button>
 
-        {showProfile && (<ProfileCard user={user} onClose={() => setShowProfile(false)} />)}
+          {showProfile && (<ProfileCard user={user} onClose={() => setShowProfile(false)} />)}
 
-        {/* Bouton flottant pour ouvrir les paramètres */}    
-        <button
-          onClick={() => setShowSettings(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
-        >
-          ⚙️
-        </button>
+          {/* Bouton pour ouvrir le chat global */}
+          <button
+            onClick={() => navigate("/global-chat")}
+            className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
+            title={t("globalChat", language) || "Chat Global"}
+          >
+            <FaComments size={20} />
+          </button>
 
-      {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
-          <div className="relative z-50">
-            <SettingsPanel />
-          </div>
+          {/* Bouton flottant pour ouvrir les paramètres */}    
+          <button
+            onClick={() => setShowSettings(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
+          >
+            ⚙️
+          </button>
+
+          {showSettings && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
+              <div className="absolute inset-0" onClick={() => setShowSettings(false)} />
+              <div className="relative z-50">
+                <SettingsPanel />
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      </div>
-      
 
-      {/* Ressources + Boîte de réception + Barre de recherche */}
-      <div className="flex items-center gap-6">
-        
-        {/* Barre des ressources (compacte, à droite) */}
-        <aside className="bg-black bg-opacity-40 px-4 py-2 rounded-lg flex gap-4 text-white text-sm">
-          <p>💰 {user.gold}</p>
-          <p>💎 {user.diamonds}</p>
-          <p>⚡ {user.energy}</p>
-        </aside>
+        {/* Ressources + Boîte de réception + Barre de recherche */}
+        <div className="flex items-center gap-6">
+          {/* Barre des ressources (compacte, à droite) */}
+          <aside className="bg-black bg-opacity-40 px-4 py-2 rounded-lg flex gap-4 text-white text-sm">
+            <p>💰 {user.gold}</p>
+            <p>💎 {user.diamonds}</p>
+            <p>⚡ {user.energy}</p>
+          </aside>
 
-        {/* Boîte de réception (à droite de la barre des ressources) */}
-        <button
-          onClick={() => setShowMailbox(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
-        >
-          📬
-        </button>
+          {/* Boîte de réception (à droite de la barre des ressources) */}
+          <button
+            onClick={() => setShowMailbox(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg"
+          >
+            📬
+          </button>
 
-        {showMailbox && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="absolute inset-0" onClick={() => setShowMailbox(false)} /> 
-          <div className="relative z-50">
-            <MailboxOverlay onClose={() => setShowMailbox(false)} />
-          </div>
-        </div>
-      )}
-
-        {/* Barre de recherche (à droite de la boîte mail) */}
-        <form onSubmit={handleSearchSubmit}
-          className="w-full md:w-1/2 relative"
-        >
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            placeholder={t("searchPlayer", language)}
-            className="w-full p-3 pl-10 bg-white dark:bg-[#2f2b50] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
-          />
-          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            🔍
-          </span>
-
-          {/* Résultats de recherche suggérés */}
-          {searchTerm.length > 1 && !showSearchResults && (
-            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2f2b50] rounded-lg shadow-xl border border-purple-500 max-h-60 overflow-y-auto">
-              {searchResults.length > 0 ? (
-                <>
-                  {searchResults.slice(0, 5).map((player) => (
-                    <div
-                      key={player.id}
-                      onClick={() => navigateToProfile(player.id)}
-                      className="p-3 hover:bg-purple-50 dark:hover:bg-[#3a3660] cursor-pointer flex items-center gap-3"
-                    >
-                      <img
-                        src={heroImg("schniel") || heroImgUnknown}  
-                        alt=""
-                        className="w-8 h-8 rounded-full"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = heroImgUnknown;
-                        }}
-                      />
-                      <span>{player.username}</span>
-                    </div>
-                  ))}
-                  {searchResults.length > 5 && (
-                    <div className="p-2 text-center text-sm text-purple-300">
-                      {searchResults.length - 5} {t("moreResults", language)}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="p-3 text-gray-400">
-                  {!isSearching && (t("noPlayerWithName", language) || `No player with name "${searchTerm}" found`)}
-                </div>
-              )}
+          {showMailbox && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
+              <div className="absolute inset-0" onClick={() => setShowMailbox(false)} />
+              <div className="relative z-50">
+                <MailboxOverlay onClose={() => setShowMailbox(false)} />
+              </div>
             </div>
           )}
 
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-purple-500 rounded-full border-t-transparent"></div>
-            </div>
-          )}
-        </form>
+          {/* Barre de recherche (à droite de la boîte mail) */}
+          <form onSubmit={handleSearchSubmit}
+            className="w-full md:w-1/2 relative"
+          >
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder={t("searchPlayer", language)}
+              className="w-full p-3 pl-10 bg-white dark:bg-[#2f2b50] rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              🔍
+            </span>
 
-      </div>
-    </header>
+            {/* Résultats de recherche suggérés */}
+            {searchTerm.length > 1 && !showSearchResults && (
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2f2b50] rounded-lg shadow-xl border border-purple-500 max-h-60 overflow-y-auto">
+                {searchResults.length > 0 ? (
+                  <>
+                    {searchResults.slice(0, 5).map((player) => (
+                      <div
+                        key={player.id}
+                        onClick={() => navigateToProfile(player.id)}
+                        className="p-3 hover:bg-purple-50 dark:hover:bg-[#3a3660] cursor-pointer flex items-center gap-3"
+                      >
+                        <img
+                          src={heroImg("schniel") || heroImgUnknown}
+                          alt=""
+                          className="w-8 h-8 rounded-full"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = heroImgUnknown;
+                          }}
+                        />
+                        <span>{player.username}</span>
+                      </div>
+                    ))}
+                    {searchResults.length > 5 && (
+                      <div className="p-2 text-center text-sm text-purple-300">
+                        {searchResults.length - 5} {t("moreResults", language)}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-3 text-gray-400">
+                    {!isSearching && (t("noPlayerWithName", language) || `No player with name "${searchTerm}" found`)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-purple-500 rounded-full border-t-transparent"></div>
+              </div>
+            )}
+          </form>
+        </div>
+      </header>
 
       {/* Disposition des menus */}
       <section className="flex justify-between gap-6 px-10">
@@ -372,7 +391,7 @@ const rightMenuItems = [
       <div className="absolute bottom-4 right-1 w-[300px] h-[100px]">
         {videoSource && (
           <video
-            key={`${videoSource}-${Date.now()}`}  autoPlay muted // clé unique pour forcer le rechargement de la vidéo
+            key={`${videoSource}-${Date.now()}`} autoPlay muted
             className="w-full h-full rounded-lg shadow-lg object-cover"
             ref={videoRef}
           >
@@ -380,7 +399,6 @@ const rightMenuItems = [
           </video>
         )}
       </div>
-
 
       {/* Déconnexion */}
       <footer className="absolute bottom-6 left-4 text-center">

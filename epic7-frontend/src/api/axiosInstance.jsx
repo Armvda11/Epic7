@@ -1,8 +1,11 @@
 import axios from "axios";
-import { getToken, logout } from "../services/authService";
+import React from "react";
 import { createRoot } from "react-dom/client";
 import Notification from "../components/common/Notification";
-import React from "react";
+
+// Get token directly from localStorage to avoid circular dependency
+const getTokenFromStorage = () => localStorage.getItem("token");
+const getUserIdFromStorage = () => localStorage.getItem("userId");
 
 // Create a notification container if it doesn't exist
 const setupNotificationContainer = () => {
@@ -55,8 +58,14 @@ const API = axios.create({
 
 // Intercepteur de requête : ajoute le token
 API.interceptors.request.use((config) => {
-  const token = getToken();
+  const token = getTokenFromStorage();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  
+  // Include user ID in a custom header if it exists (for logging/debugging)
+  const userId = getUserIdFromStorage();
+  if (userId && config.includeSenderId) {
+    config.headers['X-User-Id'] = userId;
+  }
   
   // Allow components to skip global error handling
   if (config.skipGlobalErrorHandling === undefined) {
@@ -87,8 +96,17 @@ API.interceptors.response.use(
     ) {
       console.error("Erreur CORS. Déconnexion de l'utilisateur...");
       showNotification("Problème de connexion au serveur. Déconnexion...");
-      logout();
-      window.location.href = "/"; // redirection vers login
+      // Import logout dynamically to avoid circular dependency
+      import('../services/authService').then(auth => {
+        auth.logout();
+        window.location.href = "/"; // redirection vers login
+      }).catch(e => {
+        // Fallback if dynamic import fails
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userEmail");
+        window.location.href = "/";
+      });
       return Promise.reject(error);
     }
 
@@ -96,8 +114,17 @@ API.interceptors.response.use(
       case 401:
         console.error("Erreur 401 | Token invalide ou expiré. Déconnexion de l'utilisateur...");
         showNotification("Session expirée. Veuillez vous reconnecter.");
-        logout();
-        window.location.href = "/"; // redirection vers login
+        // Import logout dynamically to avoid circular dependency
+        import('../services/authService').then(auth => {
+          auth.logout();
+          window.location.href = "/"; // redirection vers login
+        }).catch(e => {
+          // Fallback if dynamic import fails
+          localStorage.removeItem("token");
+          localStorage.removeItem("userId");
+          localStorage.removeItem("userEmail");
+          window.location.href = "/";
+        });
         break;
       case 403:
         if (!error.config?.skipForbiddenHandler) {
@@ -110,8 +137,17 @@ API.interceptors.response.use(
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => {
-                    logout();
-                    window.location.href = "/";
+                    // Import logout dynamically to avoid circular dependency
+                    import('../services/authService').then(auth => {
+                      auth.logout();
+                      window.location.href = "/";
+                    }).catch(e => {
+                      // Fallback if dynamic import fails
+                      localStorage.removeItem("token");
+                      localStorage.removeItem("userId");
+                      localStorage.removeItem("userEmail");
+                      window.location.href = "/";
+                    });
                   }}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
                 >

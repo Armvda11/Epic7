@@ -16,9 +16,6 @@ import com.epic7.backend.model.enums.GuildRole;
  * @author hermas corentin
  */
 // TODO : Ajouter une image pour la guilde
-// TODO : Ajouter un système de niveau de guilde
-// TODO : Ajouter un système de points de guilde
-// TODO : Ajouter un système de rangs de guilde
 // TODO : Ajouter un système de guerre de guilde
 // TODO : Ajouter un système de don de ressources
 // TODO : Ajouter un système de chat de guilde

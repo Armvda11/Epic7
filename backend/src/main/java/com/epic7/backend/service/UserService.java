@@ -45,6 +45,16 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
     }
 
+    /**
+     * Récupère un utilisateur par son email.
+     * 
+     * @param email L'email de l'utilisateur à récupérer.
+     * @return L'utilisateur correspondant à l'email ou null si non trouvé.
+     */
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
+
     // -------------------------------------------------
     // Méthodes de gestion de l'énergie des utilisateurs
     // -------------------------------------------------

@@ -16,7 +16,16 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
-    }
+    },
+    hmr: {
+      overlay: {
+        errors: true,
+        warnings: false,  // Don't show warnings in the overlay
+      },
+    },
+  },
+  build: {
+    sourcemap: false,  // Disable source maps completely for production builds
   }
 })
 

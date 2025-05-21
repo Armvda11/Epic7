@@ -26,9 +26,9 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoom> findByUserIdsContaining(@Param("userId") Long userId);
     
     /**
-     * Find chat room by type and group ID
+     * Find chat rooms by type and group ID
      */
-    ChatRoom findByTypeAndGroupId(ChatType type, Long groupId);
+    List<ChatRoom> findByTypeAndGroupId(ChatType type, Long groupId);
     
     /**
      * Find all chat rooms by type

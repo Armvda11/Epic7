@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -27,6 +28,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 
+/**
+ * WebSocket configuration for the application.
+ * Registers WebSocket handlers and configures allowed origins.
+ */
 @Slf4j
 @Configuration
 @EnableWebSocket
@@ -40,15 +45,16 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     private final Map<String, Map<String, WebSocketSession>> battleSessions = new ConcurrentHashMap<>();
 
     @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+    public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
+        // Register battle WebSocket handler
         registry
-          .addHandler(battleWebSocketHandler(), "/socket/battle")
-          .setAllowedOrigins("*") // Autoriser toutes les origines pour le développement
-          .addInterceptors(new HttpSessionHandshakeInterceptor());
+        .addHandler(battleWebSocketHandler(), "/socket/battle")
+        .setAllowedOriginPatterns("*")
+        .addInterceptors(new HttpSessionHandshakeInterceptor());
     }
     
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
+    public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
         // Destinations des topics (canaux de diffusion)
         config.enableSimpleBroker("/topic", "/queue");
         
@@ -60,24 +66,50 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     }
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
+    public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         // Point d'entrée pour la connexion STOMP des clients
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Autoriser toutes les origines pour le développement
+                .setAllowedOrigins("http://localhost:5173")
                 .withSockJS()
                 .setHeartbeatTime(10000) // Heartbeat toutes les 10 secondes
                 .setDisconnectDelay(30000); // Attendre 30 secondes avant de déconnecter
     }
     
     @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
+    public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
             @Override
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
+            @SuppressWarnings("unchecked")
+            public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
                 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
                     log.info("Tentative de connexion WebSocket STOMP");
+                    
+                    // Try to get user ID from query parameters
+                    String userId = null;
+                    try {
+                        // Extract any query parameters from the StompHeaderAccessor
+                        if (accessor.getSessionAttributes() != null) {
+                            // The SockJS handshake stores query parameters in the session
+                            Map<String, String[]> parameterMap = 
+                                (Map<String, String[]>) accessor.getSessionAttributes().get("javax.servlet.request.parameter_map");
+                            
+                            if (parameterMap != null && parameterMap.containsKey("userId")) {
+                                String[] userIds = parameterMap.get("userId");
+                                if (userIds != null && userIds.length > 0) {
+                                    userId = userIds[0];
+                                    log.info("User ID extracted from query parameters: {}", userId);
+                                    
+                                    // Store the userId in the headers for later use
+                                    accessor.setNativeHeader("X-User-Id", userId);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("Error extracting userId from query parameters", e);
+                    }
                     
                     // Extraire le token JWT du header Authorization
                     List<String> authHeaders = accessor.getNativeHeader("Authorization");
@@ -130,12 +162,12 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
     public WebSocketHandler battleWebSocketHandler() {
         return new TextWebSocketHandler() {
             @Override
-            public void afterConnectionEstablished(WebSocketSession session) {
-                log.info("WebSocket connecté: {}", session.getId());
+            public void afterConnectionEstablished(@NonNull WebSocketSession session) {
+                log.info("WS connecté: {}", session.getId());
             }
 
             @Override
-            protected void handleTextMessage(WebSocketSession session, TextMessage msg) {
+            protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage msg) {
                 try {
                     var payload = objectMapper.readValue(msg.getPayload(), Map.class);
                     var type = (String) payload.get("type");
@@ -157,9 +189,9 @@ public class WebSocketConfig implements WebSocketConfigurer, WebSocketMessageBro
             }
 
             @Override
-            public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-                log.info("WebSocket fermé: {} [{}]", session.getId(), status);
-                // Retirer la session de toutes les batailles
+            public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
+                log.info("WS fermé: {} [{}]", session.getId(), status);
+                // retire la session de toutes les batailles
                 battleSessions.values().forEach(m -> m.values().removeIf(s -> s.getId().equals(session.getId())));
             }
 
