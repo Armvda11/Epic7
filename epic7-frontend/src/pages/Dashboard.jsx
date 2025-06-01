@@ -249,6 +249,16 @@ const Dashboard = () => {
               <div>
                 <h2 className="text-xl font-bold">{user.username}</h2>
                 <p className="text-sm text-black-600 dark:text-orange-300">{t("level", language)} {user.level}</p>
+                <button
+                  className="mt-1 text-xs text-purple-600 hover:underline dark:text-orange-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${user.id}`);
+                  }}
+                  title={t("viewProfile", language) || "View Profile"}
+                >
+                  {t("viewProfile", language) || "View Profile"}
+                </button>
               </div>
             </article>
           </button>

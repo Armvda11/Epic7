@@ -298,7 +298,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                             title={t("friendRequest", language) || "Demande d'ami"}>👥</span>
                     )}
                 </div>
-                <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-6">{message.title}</div>
+                <div className="overflow-hidden text-ellipsis whitespace-nowrap col-span-6">{t(message.title, language)}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 text-right col-span-2">{message.date}</div>
                 <div className="text-right col-span-1">
                     {deleteConfirm ? (
@@ -343,7 +343,7 @@ const MessageItem = ({ message, onSelect, onDelete, showFullMessage = false }) =
                 <div className="overflow-y-auto pr-1 flex-grow">
                     <div className="mb-4 border-b border-gray-300 dark:border-indigo-800 pb-4 flex justify-between items-start">
                         <div>
-                            <h3 className="mt-0 mb-2.5 text-xl">{detailedMessage?.subject || message.title}</h3>
+                            <h3 className="mt-0 mb-2.5 text-xl">{t(detailedMessage?.subject || message.title, language)}</h3>
                             <p>{t("from", language) || "De"}: <strong>{detailedMessage?.senderName || message.sender}</strong></p>
                             <p>{t("receivedOn", language) || "Reçu le"}: {detailedMessage?.createdAt ? new Date(detailedMessage.createdAt).toLocaleDateString('fr-FR', {
                                 day: '2-digit',

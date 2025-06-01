@@ -30,7 +30,9 @@ const chatErrorTranslations = {
     retryCountdown: "Nouvelle tentative dans",
     seconds: "secondes",
     retryAttempt: "Tentative",
-    retryNow: "Réessayer maintenant"
+    retryNow: "Réessayer maintenant",
+    startConversation: "Démarrer une conversation",
+    noDescription: "Pas de description"
   },
   en: {
     chatError: "Chat Error",
@@ -62,7 +64,9 @@ const chatErrorTranslations = {
     retryCountdown: "Retrying in",
     seconds: "seconds",
     retryAttempt: "Retry attempt",
-    retryNow: "Retry Now"
+    retryNow: "Retry Now",
+    startConversation: "Start a conversation",
+    noDescription: "No description"
   }
 };
 

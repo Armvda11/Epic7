@@ -46,6 +46,8 @@ const translations = {
     // Dashboard additions
     shop: "Boutique",
     level: "Niveau",
+    viewProfile: "Voir le profil",
+    GiftItemSubject: "Cadeau reçu",
     
     // MyHeroes additions
     skills: "Compétences",
@@ -147,6 +149,9 @@ const translations = {
     noHeroesFound: "Aucun héro trouvé",
     playerHasNoHeroes: "Ce joueur n'a pas encore de héros dans sa collection",
     unknownHero: "Héros inconnu",
+    recentGuilds: "Guildes récentes",
+    guildPoints: "Points de guilde",
+    winRate: "Taux de victoire",
 
     // Chat translations
     globalChat: "Chat Global",
@@ -237,6 +242,7 @@ const translations = {
     cancelSearch: "Annuler la recherche",
     guildSettings: "Paramètres de guilde",
     yourRole: "Votre rôle",
+    yourGuild: "Votre guilde",
     status: "Statut",
     open: "Ouverte",
     closed: "Fermée",
@@ -270,6 +276,7 @@ const translations = {
     guildNotOpen: "Cette guilde n'accepte pas de nouveaux membres actuellement",
     requestingToJoin: "Envoi de la demande d'adhésion...",
     errorRequestingToJoin: "Erreur lors de l'envoi de la demande d'adhésion",
+    noDescription: "Pas de description",
   },
   en: {
     inventory: "Inventory",
@@ -314,6 +321,8 @@ const translations = {
     // Dashboard additions
     shop: "Shop",
     level: "Level",
+    viewProfile: "View Profile",
+    GiftItemSubject: "Gift received",
     
     // MyHeroes additions
     skills: "Skills",
@@ -423,6 +432,9 @@ const translations = {
     noHeroesFound: "No heroes found",
     playerHasNoHeroes: "This player doesn't have any heroes in their collection yet",
     unknownHero: "Unknown hero",
+    recentGuilds: "Recent Guilds",
+    guildPoints: "Guild Points",
+    winRate: "Win Rate",
 
     // Chat translations
     globalChat: "Global Chat",
@@ -513,6 +525,7 @@ const translations = {
     cancelSearch: "Cancel search",
     guildSettings: "Guild Settings",
     yourRole: "Your Role",
+    yourGuild: "Your Guild",
     status: "Status",
     open: "Open",
     closed: "Closed",
@@ -546,6 +559,7 @@ const translations = {
     guildNotOpen: "This guild is not currently accepting new members",
     requestingToJoin: "Sending membership request...",
     errorRequestingToJoin: "Error sending membership request",
+    noDescription: "No description",
   },
 };
 
