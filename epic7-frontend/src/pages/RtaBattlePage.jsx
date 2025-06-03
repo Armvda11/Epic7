@@ -96,7 +96,7 @@ export default function RtaBattlePage() {
     return (
       <RtaPreBattleScreen
         matchData={matchData}
-        countdown={5}
+        countdown={10}
         onCountdownEnd={startBattle}
       />
     );

@@ -279,11 +279,9 @@ export default function useRtaBattle() {
         }
       }
       
-      // CORRECTION: Retour immédiat à la phase de sélection pour permettre un nouveau combat
-      console.log('🎯 Combat terminé, retour immédiat à la sélection');
-      setTimeout(() => {
-        resetBattle();
-      }, 1500); // Réduit à 1.5 secondes pour pouvoir refaire un combat plus rapidement
+      // CORRECTION: Laisser l'écran de résultat gérer la durée d'affichage
+      console.log('🎯 Combat terminé, affichage des résultats');
+      // Le resetBattle sera appelé par l'écran de résultat après 10 secondes
     });
     
     webSocketService.on('onNextTurn', (heroId) => {

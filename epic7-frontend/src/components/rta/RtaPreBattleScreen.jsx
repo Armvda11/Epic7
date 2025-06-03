@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { heroImg, heroImgUnknown } from '../heroUtils';
 
 export default function RtaPreBattleScreen({ matchData, countdown, onCountdownEnd }) {
-  const [timeLeft, setTimeLeft] = useState(countdown || 5);
+  const [timeLeft, setTimeLeft] = useState(countdown || 10);
 
   useEffect(() => {
     if (timeLeft <= 0) {

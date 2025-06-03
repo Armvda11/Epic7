@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 
 export default function RtaBattleResultScreen({ battleState, onReturn }) {
   const [result, setResult] = useState('');
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(10);
+  const [rtaPoints, setRtaPoints] = useState(null);
 
   useEffect(() => {
     if (!battleState) return;
@@ -19,6 +20,24 @@ export default function RtaBattleResultScreen({ battleState, onReturn }) {
     // Vérifier s'il y a un message d'abandon dans les logs
     const abandonMessage = battleState.logs.find(log => log.includes("abandonné") || log.includes("abandon"));
     const victoryMessage = battleState.logs.find(log => log.includes("🏆") && log.includes("victoire"));
+    
+    // Extraire les points RTA des logs
+    const myPlayerName = battleState.currentUserId === battleState.player1Id ? battleState.player1Name : battleState.player2Name;
+    const rtaPointsLog = battleState.logs.find(log => 
+      log.includes(myPlayerName) && (log.includes("gagne") || log.includes("perd")) && log.includes("points RTA")
+    );
+    
+    if (rtaPointsLog) {
+      // Extraire le nombre de points gagnés ou perdus
+      const gainMatch = rtaPointsLog.match(/gagne (\+?\d+) points RTA/);
+      const lossMatch = rtaPointsLog.match(/perd (\d+) points RTA/);
+      
+      if (gainMatch) {
+        setRtaPoints({ type: 'gain', points: parseInt(gainMatch[1]) });
+      } else if (lossMatch) {
+        setRtaPoints({ type: 'loss', points: parseInt(lossMatch[1]) });
+      }
+    }
     
     if (abandonMessage || victoryMessage) {
       // Cas d'abandon - déterminer le résultat basé sur les logs et userId
@@ -134,6 +153,39 @@ export default function RtaBattleResultScreen({ battleState, onReturn }) {
           {result}
         </motion.h1>
       </motion.div>
+
+      {/* Affichage des points RTA */}
+      {rtaPoints && (
+        <motion.div
+          className="text-center mb-6 z-10"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        >
+          <motion.div
+            className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl border-2 ${
+              rtaPoints.type === 'gain' 
+                ? 'bg-green-900/70 border-green-400 text-green-300' 
+                : 'bg-red-900/70 border-red-400 text-red-300'
+            }`}
+            animate={{
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <span className="text-2xl">
+              {rtaPoints.type === 'gain' ? '📈' : '📉'}
+            </span>
+            <span className="text-xl font-bold">
+              {rtaPoints.type === 'gain' ? '+' : '-'}{rtaPoints.points} Points RTA
+            </span>
+          </motion.div>
+        </motion.div>
+      )}
 
       {/* Logs de bataille */}
       {battleState?.logs && (
