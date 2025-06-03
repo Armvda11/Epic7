@@ -34,7 +34,7 @@ public void seedHeroesAndSkills() {
         Hero yufine   = createHero("Yufine",Element.DARK,Rarity.LEGENDARY,1150,580,125,6400);
         Hero frida          = createHero("Frida",Element.LIGHT,     Rarity.LEGENDARY, 850,700,100,7500);
         Hero seasideBellona   = createHero("Bellona",Element.FIRE,Rarity.EPIC,      870,630,120,6100);
-        Hero specterTenebria  = createHero("Specter Tenebria",Element.DARK,Rarity.LEGENDARY,1200,650,115,6800);
+        Hero specterTenebria  = createHero("Tenebria",Element.DARK,Rarity.LEGENDARY,1200,650,115,6800);
 
 
 
