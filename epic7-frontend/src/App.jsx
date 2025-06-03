@@ -13,10 +13,12 @@ import SummonPage from "./pages/SummonPage";
 import UserProfile from './pages/UserProfile';
 import GuildsPage from "./pages/GuildsPage";
 import RtaBattlePage from './pages/RtaBattlePage';
+import RtaLeaderboard from './pages/RtaLeaderboard';
 import GlobalChatPage from './pages/GlobalChatPage';
 import GuildChatPage from './pages/GuildChatPage';
 import { ChatProvider } from './context/ChatContext';
 import { MailboxProvider } from './context/MailboxContext';
+
 
 function App() {
   return (
@@ -41,6 +43,7 @@ function App() {
             <Route path="/guilds" element={<GuildsPage />} />
             <Route path="/summons" element={<SummonPage />} />
             <Route path="/rta" element={<RtaBattlePage />} />
+            <Route path="/rta-leaderboard" element={<RtaLeaderboard />} />
             <Route path="/hero/:heroId" element={<HeroView />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/profile/:userId" element={<UserProfile />} />

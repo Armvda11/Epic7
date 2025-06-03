@@ -6,6 +6,8 @@ import API from '../api/axiosInstance';
 import useRtaBattle from '../hooks/useRtaBattle';
 import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel';
 import RtaMatchmakingScreen from '../components/rta/RtaMatchmakingScreen';
+import RtaBattleResultScreen from '../components/rta/RtaBattleResultScreen';
+import RtaPreBattleScreen from '../components/rta/RtaPreBattleScreen';
 import RtaBattle from '../components/rta/RtaBattle';
 
 export default function RtaBattlePage() {
@@ -27,10 +29,11 @@ export default function RtaBattlePage() {
 
   // 3) Hook RTA (matchmaking + combat)
   const {
-    phase,          // 'selection', 'matchmaking', 'battle'
+    phase,          // 'selection', 'matchmaking', 'prebattle', 'battle'
     waitingTime,    // pour l'écran d'attente
     battleId,       // identifiant unique du combat
     battleState,    // état complet du combat
+    matchData,      // données des adversaires pour l'écran de pré-combat
     isConnected,
     isOurTurn,
     activeHeroId,
@@ -40,6 +43,7 @@ export default function RtaBattlePage() {
     selectSkill, 
     selectTarget,
     useSkill,       // fonction pour utiliser une compétence
+    startBattle,    // fonction pour passer de prebattle à battle
     leave,          // fonction pour quitter/abandonner
     resetBattle
   } = useRtaBattle();
@@ -88,74 +92,49 @@ export default function RtaBattlePage() {
     );
   }
 
+  if (phase === 'prebattle') {
+    return (
+      <RtaPreBattleScreen
+        matchData={matchData}
+        countdown={10}
+        onCountdownEnd={startBattle}
+      />
+    );
+  }
+
   if (phase === 'battle') {
     // Vérifier que nous avons bien un état de bataille valide
     console.log("RtaPage - Phase de bataille", { battleState, battleId });
     
     if (!battleState || !battleState.participants) {
-      console.error("État de bataille invalide reçu dans la phase de bataille", battleState);
-      
-      // Tentative de récupération des données
-      const handleRetryBattleState = () => {
-        if (battleId) {
-        //   toast.info("Tentative de récupération des données de combat...");
-          
-          // Référence au service WebSocket
-          const webSocketService = require('../services/webSocketService').default;
-          
-          // Vérifier la connexion WebSocket
-          if (!webSocketService.connected) {
-            // toast.warning("Reconnexion au serveur en cours...");
-            webSocketService.connect()
-              .then(() => {
-                console.log("WebSocket reconnecté, demande de l'état de bataille...");
-                return webSocketService.requestBattleState(battleId, 5); // Plus de tentatives
-              })
-              .catch(error => {
-                console.error("Erreur lors de la reconnexion:", error);
-                // toast.error("Erreur de connexion. Veuillez rafraîchir la page.");
-              });
-          } else {
-            // Demander l'état de bataille avec plusieurs tentatives
-            webSocketService.requestBattleState(battleId, 5)
-              .catch(err => {
-                console.error("Échec de récupération après plusieurs tentatives:", err);
-                // toast.error("Impossible de récupérer les données du combat.");
-              });
-          }
-        } else {
-          handleForfeit();
-        }
-      };
-      
-      // Message temporaire pour afficher le problème avec option de retry
+      // Plus de tentative de récupération - abandon immédiat
       return (
         <div className="h-screen w-screen bg-[url('/arena.webp')] bg-cover bg-center flex flex-col items-center justify-center text-white">
-          <div className="text-2xl font-bold mb-4">Chargement du combat en cours...</div>
-          <div className="max-w-md bg-black/70 p-4 rounded">
-            <div className="mb-4">Récupération des données de combat en cours...</div>
-            <div className="flex justify-center mb-6">
-              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <div className="flex justify-center space-x-4">
-              <button 
-                onClick={handleRetryBattleState} 
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 transition-colors rounded-lg"
-              >
-                Réessayer
-              </button>
-              <button 
-                onClick={handleForfeit} 
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors rounded-lg"
-              >
-                Abandonner
-              </button>
-            </div>
+          <div className="text-2xl font-bold mb-4 text-red-400">Erreur de connexion</div>
+          <div className="max-w-md bg-black/70 p-6 rounded text-center">
+            <div className="mb-4">La connexion au combat a été perdue.</div>
+            <div className="mb-6">Vous avez été déconnecté du combat.</div>
+            <button 
+              onClick={handleForfeit} 
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 transition-colors rounded-lg font-bold"
+            >
+              Retour au menu
+            </button>
           </div>
         </div>
       );
     }
     
+    // Si le combat est terminé, afficher l'écran de résultat
+    if (battleState.finished) {
+      return (
+        <RtaBattleResultScreen
+          battleState={battleState}
+          onReturn={handleForfeit}
+        />
+      );
+    }
+
     return (
       <RtaBattle
         battleState={battleState}

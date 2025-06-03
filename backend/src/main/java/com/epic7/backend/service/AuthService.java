@@ -39,7 +39,6 @@ public class AuthService {
      * @param rawPassword
      * @return Un token JWT si les informations d'identification sont valides, sinon une valeur vide.
      */
-    // TODO : ajouter un système de verrouillage de compte après plusieurs tentatives échouées
     public Optional<String> loginAndGetToken(String email, String rawPassword) {
         return userRepository.findByEmail(email)
                 .filter(user -> passwordEncoder.matches(rawPassword, user.getPassword()))

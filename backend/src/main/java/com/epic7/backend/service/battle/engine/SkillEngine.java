@@ -229,18 +229,38 @@ public class SkillEngine {
                 return actor.equals(target);
             }
             case "SINGLE_ENEMY" -> {
-                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Vérification null-safe pour les boss (userId null)
+                return !areSameUser(actor, target) && target.getCurrentHp() > 0;
             }
             case "SINGLE_ALLY" -> {
-                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Vérification null-safe pour les boss (userId null)
+                return areSameUser(actor, target) && target.getCurrentHp() > 0;
             }
             case "ALL_ALLIES" -> {
-                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Vérification null-safe pour les boss (userId null)
+                return areSameUser(actor, target) && target.getCurrentHp() > 0;
             }
             default -> {
                 return false;
             }
         }
+    }
+    
+    /**
+     * Vérifie si deux participants appartiennent au même utilisateur (null-safe).
+     * Les boss ont userId null, donc ils ne sont jamais du même utilisateur que les joueurs.
+     */
+    private boolean areSameUser(BattleParticipant actor, BattleParticipant target) {
+        String actorUserId = actor.getUserId();
+        String targetUserId = target.getUserId();
+        
+        // Si l'un des userId est null (boss), ils ne sont pas du même utilisateur
+        if (actorUserId == null || targetUserId == null) {
+            return false;
+        }
+        
+        // Comparaison normale si les deux ont des userId
+        return actorUserId.equals(targetUserId);
     }
     
     /**

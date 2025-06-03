@@ -88,6 +88,8 @@ public class RtaWebSocketController {
             player1State.setCooldowns(state.getCooldowns());
             player1State.setPlayer1Id(state.getPlayer1Id());
             player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setPlayer1Name(state.getPlayer1Name());
+            player1State.setPlayer2Name(state.getPlayer2Name());
             player1State.setCurrentUserId(state.getPlayer1Id()); // Indiquer que c'est le joueur 1
             
             // Copie pour le joueur 2
@@ -99,6 +101,8 @@ public class RtaWebSocketController {
             player2State.setCooldowns(state.getCooldowns());
             player2State.setPlayer1Id(state.getPlayer1Id());
             player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setPlayer1Name(state.getPlayer1Name());
+            player2State.setPlayer2Name(state.getPlayer2Name());
             player2State.setCurrentUserId(state.getPlayer2Id()); // Indiquer que c'est le joueur 2
             
             // Envoyer l'état personnalisé à chaque joueur
@@ -161,19 +165,6 @@ public class RtaWebSocketController {
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
 
             // 3) Créer des états personnalisés pour chaque joueur
-            User currentUser = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-            String currentUserId = currentUser.getId().toString();
-            
-            // Trouver l'autre joueur en fonction de l'ID
-            String otherPlayerId = currentUserId.equals(state.getPlayer1Id()) ? 
-                state.getPlayer2Id() : state.getPlayer1Id();
-                
-            // Trouver l'utilisateur correspondant à l'autre joueur
-            User otherUser = userRepository.findById(Long.parseLong(otherPlayerId))
-                .orElseThrow(() -> new RuntimeException("Adversaire non trouvé"));
-            
-            // Créer une copie personnalisée pour chaque joueur
             BattleState player1State = new BattleState();
             BattleState player2State = new BattleState();
             
@@ -186,6 +177,8 @@ public class RtaWebSocketController {
             player1State.setCooldowns(state.getCooldowns());
             player1State.setPlayer1Id(state.getPlayer1Id());
             player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setPlayer1Name(state.getPlayer1Name());
+            player1State.setPlayer2Name(state.getPlayer2Name());
             player1State.setCurrentUserId(state.getPlayer1Id());
             
             player2State.setParticipants(state.getParticipants());
@@ -196,6 +189,8 @@ public class RtaWebSocketController {
             player2State.setCooldowns(state.getCooldowns());
             player2State.setPlayer1Id(state.getPlayer1Id());
             player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setPlayer1Name(state.getPlayer1Name());
+            player2State.setPlayer2Name(state.getPlayer2Name());
             player2State.setCurrentUserId(state.getPlayer2Id());
             
             // Envoyer l'état personnalisé à chaque joueur
@@ -218,12 +213,52 @@ public class RtaWebSocketController {
             );
 
             if (state.isFinished()) {
-                // 4a) Fin de combat
+                // 4a) Fin de combat - envoyer l'état final personnalisé à chaque joueur
                 log.info("Combat {} terminé", battleId);
-                messaging.convertAndSend(
-                    "/topic/rta/end/" + battleId,
-                    state
+                
+                // Créer des états personnalisés pour la fin du combat
+                BattleState finalPlayer1State = new BattleState();
+                BattleState finalPlayer2State = new BattleState();
+                
+                // Copier les propriétés pour le joueur 1
+                finalPlayer1State.setParticipants(state.getParticipants());
+                finalPlayer1State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+                finalPlayer1State.setRoundCount(state.getRoundCount());
+                finalPlayer1State.setFinished(state.isFinished());
+                finalPlayer1State.setLogs(state.getLogs());
+                finalPlayer1State.setCooldowns(state.getCooldowns());
+                finalPlayer1State.setPlayer1Id(state.getPlayer1Id());
+                finalPlayer1State.setPlayer2Id(state.getPlayer2Id());
+                finalPlayer1State.setPlayer1Name(state.getPlayer1Name());
+                finalPlayer1State.setPlayer2Name(state.getPlayer2Name());
+                finalPlayer1State.setCurrentUserId(state.getPlayer1Id()); // Important pour la détermination du résultat
+                
+                // Copier les propriétés pour le joueur 2
+                finalPlayer2State.setParticipants(state.getParticipants());
+                finalPlayer2State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+                finalPlayer2State.setRoundCount(state.getRoundCount());
+                finalPlayer2State.setFinished(state.isFinished());
+                finalPlayer2State.setLogs(state.getLogs());
+                finalPlayer2State.setCooldowns(state.getCooldowns());
+                finalPlayer2State.setPlayer1Id(state.getPlayer1Id());
+                finalPlayer2State.setPlayer2Id(state.getPlayer2Id());
+                finalPlayer2State.setPlayer1Name(state.getPlayer1Name());
+                finalPlayer2State.setPlayer2Name(state.getPlayer2Name());
+                finalPlayer2State.setCurrentUserId(state.getPlayer2Id()); // Important pour la détermination du résultat
+                
+                // Envoyer les états finaux personnalisés
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/end/" + battleId,
+                    finalPlayer1State
                 );
+                
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/end/" + battleId,
+                    finalPlayer2State
+                );
+                
                 battleManager.endRtaBattle(battleId, null);
             } else {
                 // 4b) Tour suivant
@@ -260,22 +295,100 @@ public class RtaWebSocketController {
         // Si en recherche de match, retirer de la file
         matchmakingService.leave(user);
         
-        // Si en combat, terminer le combat
+        // Si en combat, terminer le combat avec abandon
         try {
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
             state.setFinished(true);
             state.getLogs().add(user.getUsername() + " a abandonné le combat.");
             
-            // Notifier l'autre joueur de l'abandon
+            // Déterminer le gagnant (l'autre joueur)
+            String abandonningUserId = user.getId().toString();
+            String winnerId = null;
+            String winnerName = "Adversaire";
+            
+            if (state.getPlayer1Id().equals(abandonningUserId)) {
+                winnerId = state.getPlayer2Id();
+                winnerName = state.getPlayer2Name() != null ? state.getPlayer2Name() : "Joueur 2";
+            } else if (state.getPlayer2Id().equals(abandonningUserId)) {
+                winnerId = state.getPlayer1Id();
+                winnerName = state.getPlayer1Name() != null ? state.getPlayer1Name() : "Joueur 1";
+            }
+            
+            // Ajouter le message de victoire dans les logs
+            state.getLogs().add("🏆 " + winnerName + " remporte la victoire par abandon!");
+            
+            // Créer des états personnalisés pour chaque joueur
+            BattleState abandonerState = new BattleState();
+            BattleState winnerState = new BattleState();
+            
+            // Copier l'état de base
+            abandonerState.setParticipants(state.getParticipants());
+            abandonerState.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            abandonerState.setRoundCount(state.getRoundCount());
+            abandonerState.setFinished(true);
+            abandonerState.setLogs(state.getLogs());
+            abandonerState.setCooldowns(state.getCooldowns());
+            abandonerState.setPlayer1Id(state.getPlayer1Id());
+            abandonerState.setPlayer2Id(state.getPlayer2Id());
+            abandonerState.setPlayer1Name(state.getPlayer1Name());
+            abandonerState.setPlayer2Name(state.getPlayer2Name());
+            abandonerState.setCurrentUserId(abandonningUserId);
+            
+            winnerState.setParticipants(state.getParticipants());
+            winnerState.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            winnerState.setRoundCount(state.getRoundCount());
+            winnerState.setFinished(true);
+            winnerState.setLogs(state.getLogs());
+            winnerState.setCooldowns(state.getCooldowns());
+            winnerState.setPlayer1Id(state.getPlayer1Id());
+            winnerState.setPlayer2Id(state.getPlayer2Id());
+            winnerState.setPlayer1Name(state.getPlayer1Name());
+            winnerState.setPlayer2Name(state.getPlayer2Name());
+            winnerState.setCurrentUserId(winnerId);
+            
+            // Envoyer les états personnalisés à chaque joueur
+            User player1 = userRepository.findById(Long.parseLong(state.getPlayer1Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 1 non trouvé"));
+            User player2 = userRepository.findById(Long.parseLong(state.getPlayer2Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 2 non trouvé"));
+            
+            if (state.getPlayer1Id().equals(abandonningUserId)) {
+                // Player1 abandonne, Player2 gagne
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    abandonerState
+                );
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    winnerState
+                );
+            } else {
+                // Player2 abandonne, Player1 gagne
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    winnerState
+                );
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    abandonerState
+                );
+            }
+            
+            // Notifier la fin du combat
             messaging.convertAndSend(
                 "/topic/rta/end/" + battleId,
                 state
             );
             
             // Terminer la session
-            battleManager.endRtaBattle(battleId, null);
+            battleManager.endRtaBattle(battleId, winnerId != null ? Long.parseLong(winnerId) : null);
         } catch (IllegalStateException e) {
             // Combat déjà terminé ou inexistant, rien à faire
+            log.warn("Tentative d'abandon d'un combat inexistant: {}", battleId);
         }
     }
 
@@ -302,7 +415,7 @@ public class RtaWebSocketController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
                 
             try {
-                // Casting explicite à BattleState
+                // CORRECTION: Vérifier d'abord si la bataille existe
                 BattleState state = (BattleState) battleManager.getBattleState(battleId);
                 
                 if (state != null) {
@@ -338,7 +451,7 @@ public class RtaWebSocketController {
                     // Envoyer l'état corrigé
                     messaging.convertAndSendToUser(
                         principal.getName(),
-                        "/queue/rta/state", 
+                        "/queue/rta/state/" + battleId, 
                         state
                     );
                     
@@ -351,6 +464,14 @@ public class RtaWebSocketController {
                         "Bataille introuvable"
                     );
                 }
+            } catch (IllegalStateException e) {
+                // CORRECTION: Gestion spécifique pour les batailles non trouvées
+                log.warn("Bataille {} non trouvée (probablement en cours de création): {}", battleId, e.getMessage());
+                messaging.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/rta/error", 
+                    "Bataille en cours de création, veuillez patienter..."
+                );
             } catch (ClassCastException e) {
                 log.error("Erreur de casting de l'état de bataille: {}", e.getMessage());
                 messaging.convertAndSendToUser(

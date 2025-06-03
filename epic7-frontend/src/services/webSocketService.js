@@ -13,6 +13,8 @@ class WebSocketService {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 2000; // 2 secondes
     this.subscriptions = {};
+    this.activeBattleId = null; // AJOUT: Pour tracker la bataille active
+    this.battleEnded = false; // AJOUT: Flag pour savoir si le combat est terminé
   }
 
   /**
@@ -216,6 +218,10 @@ class WebSocketService {
           const battleId = content;
           console.log('Match trouvé! ID:', battleId);
           
+          // AJOUT: Tracker la bataille active et réinitialiser le flag de fin
+          this.activeBattleId = battleId;
+          this.battleEnded = false;
+          
           // Nettoyer l'abonnement de matchmaking
           matchmakingSub.unsubscribe();
           delete this.subscriptions.matchmaking;
@@ -239,10 +245,12 @@ class WebSocketService {
           const retryIntervals = [1000, 2000, 3000, 5000];
           retryIntervals.forEach((delay, index) => {
             setTimeout(() => {
-              // Vérifier si nous avons toujours besoin de l'état
-              if (this.subscriptions.battleState) {
+              // CORRECTION: Vérifier si nous avons toujours besoin de l'état et si le combat n'est pas terminé
+              if (this.subscriptions.battleState && !this.battleEnded && this.activeBattleId === battleId) {
                 console.log(`Tentative de récupération #${index + 1} de l'état de bataille`);
                 this.requestBattleState(battleId).catch(console.error);
+              } else {
+                console.log(`Tentative de récupération #${index + 1} annulée (combat terminé ou bataille différente)`);
               }
             }, delay);
           });
@@ -365,6 +373,13 @@ class WebSocketService {
    */
   requestBattleState(battleId) {
     return new Promise((resolve, reject) => {
+      // CORRECTION: Vérifier si le combat est terminé avant de demander l'état
+      if (this.battleEnded || (this.activeBattleId && this.activeBattleId !== battleId)) {
+        console.log('Combat terminé ou bataille différente, pas de demande d\'état');
+        reject(new Error('Combat terminé ou bataille différente'));
+        return;
+      }
+      
       if (!this.connected || !this.stompClient) {
         const error = new Error('WebSocket non connecté');
         console.error(error);
@@ -430,13 +445,20 @@ class WebSocketService {
       );
       this.subscriptions.battleState = stateSub;
       
-      // Canal de fin de combat
+      // Canal de fin de combat personnalisé (spécifique à l'utilisateur)
       const endSub = this.stompClient.subscribe(
-        `/topic/rta/end/${battleId}`,
+        `/user/queue/rta/end/${battleId}`,
         (message) => {
           try {
             const finalState = JSON.parse(message.body);
-            console.log('Combat terminé:', finalState);
+            console.log('Combat terminé avec état personnalisé:', finalState);
+            
+            // CORRECTION: Marquer la bataille comme terminée et nettoyer immédiatement les abonnements
+            this.battleEnded = true;
+            this.activeBattleId = null;
+            console.log('Nettoyage immédiat des abonnements suite à la fin du combat');
+            this._cleanupBattleSubscriptions();
+            
             if (typeof this.callbacks.onBattleEnd === 'function') {
               this.callbacks.onBattleEnd(finalState);
             }
@@ -585,12 +607,25 @@ class WebSocketService {
    * Nettoie les abonnements liés à une bataille
    */
   _cleanupBattleSubscriptions() {
+    // AJOUT: Marquer la bataille comme terminée
+    this.battleEnded = true;
+    this.activeBattleId = null;
+    
     ['battleState', 'battleEnd', 'nextTurn'].forEach(key => {
       if (this.subscriptions[key]) {
         this.subscriptions[key].unsubscribe();
         delete this.subscriptions[key];
       }
     });
+    
+    console.log('Abonnements de bataille nettoyés et drapeaux réinitialisés');
+  }
+
+  /**
+   * Nettoie les abonnements liés à une bataille (version publique)
+   */
+  cleanupBattleSubscriptions() {
+    return this._cleanupBattleSubscriptions();
   }
 
   /**
@@ -600,6 +635,47 @@ class WebSocketService {
    */
   on(event, callback) {
     this.callbacks[event] = callback;
+  }
+
+  /**
+   * Réinitialise complètement la connexion WebSocket pour un nouveau combat
+   * Ceci garantit que chaque combat est totalement indépendant
+   */
+  resetForNewBattle() {
+    console.log('🔄 Réinitialisation complète du WebSocket pour un nouveau combat');
+    
+    // Marquer qu'on n'est plus en bataille
+    this.battleEnded = false;
+    this.activeBattleId = null;
+    
+    // Nettoyer tous les abonnements de bataille précédents
+    this._cleanupBattleSubscriptions();
+    
+    // Nettoyer aussi le matchmaking si il existe
+    if (this.subscriptions.matchmaking) {
+      this.subscriptions.matchmaking.unsubscribe();
+      delete this.subscriptions.matchmaking;
+    }
+    
+    // Déconnecter et reconnecter pour avoir une connexion fraîche
+    return new Promise((resolve, reject) => {
+      console.log('🔌 Déconnexion de l\'ancienne session...');
+      this.disconnect();
+      
+      // Attendre un peu pour que la déconnexion soit complète
+      setTimeout(() => {
+        console.log('🔗 Reconnexion avec une session fraîche...');
+        this.connect()
+          .then(() => {
+            console.log('✅ WebSocket réinitialisé avec succès');
+            resolve();
+          })
+          .catch((error) => {
+            console.error('❌ Erreur lors de la réinitialisation:', error);
+            reject(error);
+          });
+      }, 500); // 500ms pour laisser le temps à la déconnexion
+    });
   }
 
   /**

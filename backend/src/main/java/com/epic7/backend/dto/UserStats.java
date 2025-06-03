@@ -24,4 +24,6 @@ public class UserStats {
     private String guild;
     private int friendNumber;
     private String friendshipStatus; // "NONE", "PENDING", "ACCEPTED", "REQUESTED"
+    private int rtaPoints;
+    private String rtaTier;
 }

@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import { buyItem } from "../services/shopService";
 import { toast } from "react-toastify";
+import { motion, AnimatePresence } from "framer-motion";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from "../components/ui";
+import { FaFilter, FaShoppingCart, FaCoins, FaGem, FaClock } from "react-icons/fa";
 
 // Fonction pour formater le nom de l'image
 const formatImageName = (name) => {
@@ -25,7 +28,6 @@ const getItemPath = (type) => {
       return "";
   }
 };
-
 
 // Fonction pour calculer le temps restant
 const getTimeLeft = (endAt) => {
@@ -49,165 +51,280 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeLefts, setTimeLefts] = useState({});
+
   const navigate = useNavigate();
-  const { language, t } = useSettings();
+  const { t, language, theme } = useSettings();
 
-  
-
-   const fetchData = async () => {
-    try {
-      setLoading(true);
-      const data = await getShopItems();
-      setItems(data);
-    } catch (err) {
-      setError(t("shopLoadError", language) || "Impossible de récupérer les articles.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBuy = async (item) => {
-    console.log("Achat de l'article :", item);
-    try {
-      const result = await buyItem(item.id);
-      toast.success(`✅ ${result}`, { autoClose: 3000 });
-      await fetchData();
-    } catch (err) {
-      console.error("Erreur de l'achat:", err);
-      if (err.response) {
-        if (err.response?.status === 401) {
-          toast.error("Session expirée. Veuillez vous reconnecter.");
-          navigate("/login");
-        } else {
-          const message = err.response?.data || "❌ Une erreur est survenue lors de l'achat.";
-          toast.error(message, { autoClose: 3000 });
-        }
-      } else {
-        toast.error("❌ Erreur inconnue. Veuillez réessayer plus tard.", { autoClose: 3000 });
-      }
-    }
-  };
-
-  // Fonction pour récupérer les items depuis le backend
   useEffect(() => {
-    async function fetchData() {
+    (async () => {
       try {
-        setLoading(true);
-        const data = await getShopItems(); // Appel à l'API pour récupérer les items
+        const data = await getShopItems();
         setItems(data);
       } catch (err) {
-        setError(t("shopLoadError", language) || "Impossible de récupérer les articles.");
+        setError(t("shopLoadError", language) || "Erreur lors du chargement des articles");
       } finally {
         setLoading(false);
       }
-    }
-    fetchData();
-  }, [language, t]);
+    })();
+  }, [language]);
 
-  // Fonction pour mettre à jour le compte à rebours
+  // Mettre à jour les temps restants
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLefts((prevTimeLefts) => {
-        const updatedTimeLefts = {};
-        items.forEach((item) => {
-          if (item.endAt) {
-            updatedTimeLefts[item.name] = getTimeLeft(item.endAt);
-          }
-        });
-        return updatedTimeLefts;
+    const updateTimeLefts = () => {
+      const newTimeLefts = {};
+      items.forEach(item => {
+        if (item.endAt) {
+          newTimeLefts[item.id] = getTimeLeft(item.endAt);
+        }
       });
-    }, 1000);
+      setTimeLefts(newTimeLefts);
+    };
 
-    return () => clearInterval(interval); // Nettoyage de l'intervalle
+    updateTimeLefts();
+    const interval = setInterval(updateTimeLefts, 1000);
+    return () => clearInterval(interval);
   }, [items]);
 
-  // Filtrage des items en fonction de la recherche et du filtre sélectionné
-  const filteredItems = items.filter(
-    (item) =>
-      (filter === "Tous" || item.type === filter) && // Filtre par catégorie
-      item.name.toLowerCase().includes(search.toLowerCase()) // Recherche par nom
-  );
+  const handleBuyItem = async (itemId, itemPrice, itemCurrency) => {
+    try {
+      await buyItem(itemId, itemPrice, itemCurrency);
+      toast.success(t("itemPurchased", language) || "Article acheté avec succès!");
+      
+      // Recharger les articles pour mettre à jour les stocks
+      const data = await getShopItems();
+      setItems(data);
+    } catch (error) {
+      console.error("Erreur achat:", error);
+      toast.error(error.response?.data?.message || t("purchaseError", language) || "Erreur lors de l'achat");
+    }
+  };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-      <p>{t("loadingShop", language) || "Chargement des articles..."}</p>
-    </div>
-  );
+  const filteredItems = items.filter((item) => {
+    const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === "Tous" || item.type === filter;
+    return matchSearch && matchFilter;
+  });
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 24
+      }
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <ModernPageLayout 
+        title={t("shop", language)} 
+        subtitle="Chargement..."
+        showBackButton={false}
+      >
+        <div className="flex items-center justify-center min-h-64">
+          <motion.div
+            className={`p-8 rounded-2xl backdrop-blur-sm ${
+              theme === 'dark' 
+                ? 'bg-white/10 border-white/20' 
+                : 'bg-white/80 border-white/40'
+            } border`}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          >
+            <FaShoppingCart className="w-8 h-8 text-purple-500" />
+          </motion.div>
+        </div>
+      </ModernPageLayout>
+    );
+  }
   
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-      <p className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900 bg-opacity-50 dark:bg-opacity-30 p-4 rounded-lg">{error}</p>
+  if (error) {
+    return (
+      <ModernPageLayout 
+        title={t("shop", language)} 
+        subtitle="Erreur de chargement"
+        showBackButton={false}
+      >
+        <ModernCard className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <ModernButton 
+            variant="primary" 
+            onClick={() => window.location.reload()}
+          >
+            Réessayer
+          </ModernButton>
+        </ModernCard>
+      </ModernPageLayout>
+    );
+  }
+
+  const headerActions = (
+    <div className="flex items-center space-x-2">
+      <select
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        className={`px-3 py-2 rounded-lg backdrop-blur-sm border transition-all duration-300 ${
+          theme === 'dark' 
+            ? 'bg-white/10 border-white/20 text-white' 
+            : 'bg-white/60 border-white/40 text-gray-800'
+        }`}
+      >
+        <option value="Tous">{t("all", language) || "Tous"}</option>
+        <option value="HERO">{t("heroes", language) || "Héros"}</option>
+        <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
+        <option value="GOLD">{t("gold", language) || "Or"}</option>
+        <option value="DIAMOND">{t("diamonds", language) || "Diamants"}</option>
+      </select>
     </div>
   );
 
   return (
-    <div className="p-6 max-w-8xl mx-auto min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-      <h1 className="text-3xl font-bold mb-4 text-center">{t("shop", language)}</h1>
+    <ModernPageLayout 
+      title={t("shop", language)}
+      subtitle="Découvrez nos offres exclusives"
+      headerActions={headerActions}
+    >
+      {/* Barre de recherche moderne */}
+      <ModernSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder={t("searchItem", language) || "Rechercher un article..."}
+        className="mb-8 max-w-2xl mx-auto"
+      />
 
-      {/* Barre de recherche, filtre et bouton Retour */}
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
-        >
-          ⬅️ {t("back", language)}
-        </button>
-        <input
-          type="text"
-          placeholder={t("searchItem", language) || "Rechercher un article..."}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border p-2 rounded flex-1 bg-white dark:bg-[#2f2b50] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-        />
-        <select
-          className="border p-2 rounded bg-white dark:bg-[#2f2b50] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="Tous">{t("all", language)}</option>
-          <option value="HERO">{t("heroes", language) || "Héros"}</option>
-          <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
-          <option value="GOLD">{t("gold", language) || "Or"}</option>
-        </select>
-      </div>
-
-      {/* Affichage des articles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Grille d'articles */}
+      <motion.div 
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {filteredItems.map((item, index) => (
-          <div key={index} className="p-4 shadow-lg rounded-xl border bg-white dark:bg-[#2f2b50] bg-opacity-80 dark:bg-opacity-100 text-gray-900 dark:text-white border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col items-center">
-              <img
-                src={`/${getItemPath(item.type)}/${formatImageName(item.name)}.webp`}
-                alt={item.name}
-                className="w-24 h-24 mb-2"
-              />
-              <h2 className="text-lg font-semibold">{item.name}</h2>
-              <p className="text-gray-600 dark:text-gray-300 italic">{item.description}</p>
-              <p className="text-gray-600 dark:text-gray-300 flex grap-x-8">
-                <span>{item.priceInGold} 🟡</span> &nbsp;&nbsp;&nbsp; {item.priceInDiamonds} 💎</p>
+          <motion.div key={item.id} variants={itemVariants}>
+            <ModernCard className="h-full flex flex-col">
+              {/* Image de l'article */}
+              <div className="flex justify-center mb-4">
+                <img
+                  src={`/${getItemPath(item.type)}/${formatImageName(item.name)}.webp`}
+                  alt={item.name}
+                  className="w-24 h-24 object-contain"
+                  onError={(e) => {
+                    e.target.src = "/placeholder-item.png";
+                  }}
+                />
+              </div>
 
-              {/* Affichage du compte à rebours si l'article a une date de fin */}
-              {item.endAt && (
-                <p className="text-red-500 dark:text-red-400 font-bold">
-                  ⏳ {t("expiresIn", language) || "Expire dans"}: {timeLefts[item.name] || t("calculating", language) || "Calcul..."}
+              {/* Informations de l'article */}
+              <div className="flex-1 flex flex-col">
+                <h3 className={`text-lg font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  {item.name}
+                </h3>
+                
+                <p className={`text-sm mb-4 flex-1 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  {item.description}
                 </p>
-              )}
 
-              <button
-                onClick={() => handleBuy(item)}
-                disabled={item.maxPerUser === 0}
-                className={`mt-2 px-4 py-2 rounded text-white ${
-                  item.maxPerUser === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-purple-600 hover:bg-purple-700"
-                }`}
-              >
-                🛒 {t("buy", language) || "Acheter"}
-              </button>
-            </div>
-          </div>
+                {/* Prix et devise */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    {item.currency === "GOLD" ? (
+                      <FaCoins className="text-yellow-500" />
+                    ) : (
+                      <FaGem className="text-purple-500" />
+                    )}
+                    <span className={`font-bold ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {item.price}
+                    </span>
+                  </div>
+                  
+                  {item.stock !== null && (
+                    <span className={`text-sm ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      Stock: {item.stock}
+                    </span>
+                  )}
+                </div>
+
+                {/* Temps restant si applicable */}
+                {item.endAt && (
+                  <div className="flex items-center space-x-2 mb-4">
+                    <FaClock className="text-orange-500" />
+                    <span className={`text-sm ${
+                      timeLefts[item.id] === "Expiré" 
+                        ? 'text-red-500' 
+                        : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {timeLefts[item.id] || "Calculé..."}
+                    </span>
+                  </div>
+                )}
+
+                {/* Bouton d'achat */}
+                <ModernButton
+                  variant={item.stock === 0 || timeLefts[item.id] === "Expiré" ? "secondary" : "accent"}
+                  disabled={item.stock === 0 || timeLefts[item.id] === "Expiré"}
+                  onClick={() => handleBuyItem(item.id, item.price, item.currency)}
+                  icon={<FaShoppingCart />}
+                  className="w-full"
+                >
+                  {item.stock === 0 
+                    ? t("outOfStock", language) || "Rupture de stock"
+                    : timeLefts[item.id] === "Expiré"
+                    ? t("expired", language) || "Expiré"
+                    : t("buy", language) || "Acheter"
+                  }
+                </ModernButton>
+              </div>
+            </ModernCard>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+
+      {/* Message si aucun article */}
+      {filteredItems.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12"
+        >
+          <ModernCard className="max-w-md mx-auto">
+            <FaShoppingCart className={`w-16 h-16 mx-auto mb-4 ${
+              theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
+            }`} />
+            <h3 className={`text-xl font-bold mb-2 ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>
+              Aucun article trouvé
+            </h3>
+            <p className={`${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Essayez de modifier votre recherche ou vos filtres
+            </p>
+          </ModernCard>
+        </motion.div>
+      )}
+    </ModernPageLayout>
   );
 }

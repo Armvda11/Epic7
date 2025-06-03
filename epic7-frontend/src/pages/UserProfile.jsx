@@ -13,11 +13,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { toast } from 'react-toastify';
 import { heroImg, heroImgUnknown } from '../components/heroUtils';
+import { ModernPageLayout, ModernCard, ModernButton, ModernModal } from '../components/ui';
+import { FaUser, FaUserPlus, FaUserCheck, FaUserMinus, FaCalendar, FaCrown, FaGamepad, FaStar, FaEye } from 'react-icons/fa';
 
 const UserProfile = () => {
 const { userId } = useParams();
 const navigate = useNavigate();
-const { t, language } = useSettings();
+const { t, language, theme } = useSettings();
 const [user, setUser] = useState(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
@@ -253,23 +255,162 @@ const WinRatePieChart = () => {
   );
 };
 
-if (loading) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    {t("loadingProfile", language) || "Chargement..."}
-    </main>
-);
+// Fonction pour obtenir la couleur du tier RTA
+const getRtaTierColor = (tier) => {
+  switch (tier?.toLowerCase()) {
+    case 'bronze':
+      return 'bg-amber-600 text-white';
+    case 'silver':
+      return 'bg-gray-400 text-black';
+    case 'gold':
+      return 'bg-yellow-400 text-black';
+    case 'platinum':
+      return 'bg-cyan-400 text-black';
+    case 'diamond':
+      return 'bg-blue-400 text-white';
+    case 'master':
+      return 'bg-purple-500 text-white';
+    case 'grandmaster':
+      return 'bg-red-500 text-white';
+    case 'legend':
+      return 'bg-gradient-to-r from-yellow-400 to-red-500 text-white';
+    default:
+      return 'bg-gray-500 text-white';
+  }
+};
 
-if (error) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-100 p-4 rounded-lg">{error}</div>
-    </main>
-);
+// Composant pour afficher la progression vers le tier suivant
+const RtaTierProgress = ({ currentPoints, currentTier }) => {
+  const tiers = [
+    { name: 'Bronze', points: 0 },
+    { name: 'Silver', points: 1200 },
+    { name: 'Gold', points: 1400 },
+    { name: 'Platinum', points: 1600 },
+    { name: 'Diamond', points: 1800 },
+    { name: 'Master', points: 2000 },
+    { name: 'GrandMaster', points: 2200 },
+    { name: 'Legend', points: 2400 }
+  ];
 
-if (!user) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    <div className="bg-purple-50 dark:bg-[#2f2b50] p-4 rounded-lg">{t("noPlayerWithName", language) || "Aucun utilisateur trouvé"}</div>
-    </main>
-);
+  const currentTierIndex = tiers.findIndex(tier => tier.name === currentTier);
+  const nextTierIndex = currentTierIndex + 1;
+
+  if (nextTierIndex >= tiers.length) {
+    // Tier maximum atteint
+    return (
+      <div className="text-center text-sm text-purple-600 dark:text-purple-400 font-semibold">
+        🏆 {t("maxTierReached", language) || "Tier maximum atteint!"}
+      </div>
+    );
+  }
+
+  const currentTierMinPoints = tiers[currentTierIndex].points;
+  const nextTierMinPoints = tiers[nextTierIndex].points;
+  const pointsInCurrentTier = currentPoints - currentTierMinPoints;
+  const pointsNeededForNextTier = nextTierMinPoints - currentTierMinPoints;
+  const progress = Math.min(100, (pointsInCurrentTier / pointsNeededForNextTier) * 100);
+  const pointsToNext = nextTierMinPoints - currentPoints;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-sm">
+        <span>{currentTier}</span>
+        <span>{tiers[nextTierIndex].name}</span>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div 
+          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <div className="text-center text-xs text-gray-600 dark:text-gray-400">
+        {pointsToNext > 0 ? (
+          <span>{pointsToNext} points vers {tiers[nextTierIndex].name}</span>
+        ) : (
+          <span>🎉 Éligible pour promotion!</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+if (loading) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Chargement du profil..."
+      showBackButton={false}
+    >
+      <div className="flex items-center justify-center min-h-64">
+        <motion.div
+          className={`p-8 rounded-2xl backdrop-blur-sm ${
+            theme === 'dark' 
+              ? 'bg-white/10 border-white/20' 
+              : 'bg-white/80 border-white/40'
+          } border`}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        >
+          <FaUser className="w-8 h-8 text-purple-500" />
+        </motion.div>
+      </div>
+    </ModernPageLayout>
+  );
+}
+
+if (error) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Erreur de chargement"
+      showBackButton={false}
+    >
+      <ModernCard className="text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <ModernButton 
+          variant="primary" 
+          onClick={() => window.location.reload()}
+        >
+          Réessayer
+        </ModernButton>
+      </ModernCard>
+    </ModernPageLayout>
+  );
+}
+
+if (!user) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Utilisateur introuvable"
+      showBackButton={false}
+    >
+      <ModernCard className="text-center">
+        <FaUser className={`w-16 h-16 mx-auto mb-4 ${
+          theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
+        }`} />
+        <h3 className={`text-xl font-bold mb-2 ${
+          theme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`}>
+          Utilisateur introuvable
+        </h3>
+        <p className={`mb-4 ${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+        }`}>
+          {t("noPlayerWithName", language) || "Aucun utilisateur trouvé avec cet identifiant"}
+        </p>
+        <ModernButton 
+          variant="secondary" 
+          onClick={() => navigate('/dashboard')}
+        >
+          Retour au tableau de bord
+        </ModernButton>
+      </ModernCard>
+    </ModernPageLayout>
+  );
+}
+//     </main>
+// );
 
 return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
@@ -339,6 +480,31 @@ return (
                 </div>
                 </div>
             </div>
+            </div>
+        </div>
+        
+        {/* Section RTA (Real Time Arena) */}
+        <div className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-lg p-5 hover:ring-2 hover:ring-purple-400 transition">
+            <h3 className="text-xl font-bold mb-4 text-purple-600 dark:text-purple-300">
+                <span className="mr-2">⚔️</span>
+                {t("rtaStats", language) || "Statistiques RTA"}
+            </h3>
+            <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                    <span><strong>{t("rtaTier", language) || "Rang RTA"}:</strong></span>
+                    <div className="flex items-center">
+                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${getRtaTierColor(user.rtaTier)}`}>
+                            {user.rtaTier || 'Bronze'}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex justify-between items-center">
+                    <span><strong>{t("rtaPoints", language) || "Points RTA"}:</strong></span>
+                    <span className="text-yellow-600 dark:text-yellow-400 font-bold">{user.rtaPoints || 1000}</span>
+                </div>
+                
+                {/* Progress bar pour le tier suivant */}
+                <RtaTierProgress currentPoints={user.rtaPoints || 1000} currentTier={user.rtaTier || 'Bronze'} />
             </div>
         </div>
         
