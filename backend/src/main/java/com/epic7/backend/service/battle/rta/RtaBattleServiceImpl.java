@@ -67,6 +67,10 @@ public class RtaBattleServiceImpl implements BattleManager {
         // Stockage explicite des IDs des joueurs pour faciliter les vérifications côté client
         state.setPlayer1Id(player1Id);
         state.setPlayer2Id(player2Id);
+        
+        // Ajouter les noms des joueurs pour l'affichage
+        state.setPlayer1Name(player1.getUsername());
+        state.setPlayer2Name(player2.getUsername());
 
         // Avancer jusqu'au premier tour joueur
         state = battleEngine.processUntilNextPlayer(state);

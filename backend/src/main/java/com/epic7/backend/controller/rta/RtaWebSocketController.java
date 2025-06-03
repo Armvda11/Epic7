@@ -88,6 +88,8 @@ public class RtaWebSocketController {
             player1State.setCooldowns(state.getCooldowns());
             player1State.setPlayer1Id(state.getPlayer1Id());
             player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setPlayer1Name(state.getPlayer1Name());
+            player1State.setPlayer2Name(state.getPlayer2Name());
             player1State.setCurrentUserId(state.getPlayer1Id()); // Indiquer que c'est le joueur 1
             
             // Copie pour le joueur 2
@@ -99,6 +101,8 @@ public class RtaWebSocketController {
             player2State.setCooldowns(state.getCooldowns());
             player2State.setPlayer1Id(state.getPlayer1Id());
             player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setPlayer1Name(state.getPlayer1Name());
+            player2State.setPlayer2Name(state.getPlayer2Name());
             player2State.setCurrentUserId(state.getPlayer2Id()); // Indiquer que c'est le joueur 2
             
             // Envoyer l'état personnalisé à chaque joueur
@@ -161,19 +165,6 @@ public class RtaWebSocketController {
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
 
             // 3) Créer des états personnalisés pour chaque joueur
-            User currentUser = userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-            String currentUserId = currentUser.getId().toString();
-            
-            // Trouver l'autre joueur en fonction de l'ID
-            String otherPlayerId = currentUserId.equals(state.getPlayer1Id()) ? 
-                state.getPlayer2Id() : state.getPlayer1Id();
-                
-            // Trouver l'utilisateur correspondant à l'autre joueur
-            User otherUser = userRepository.findById(Long.parseLong(otherPlayerId))
-                .orElseThrow(() -> new RuntimeException("Adversaire non trouvé"));
-            
-            // Créer une copie personnalisée pour chaque joueur
             BattleState player1State = new BattleState();
             BattleState player2State = new BattleState();
             
@@ -186,6 +177,8 @@ public class RtaWebSocketController {
             player1State.setCooldowns(state.getCooldowns());
             player1State.setPlayer1Id(state.getPlayer1Id());
             player1State.setPlayer2Id(state.getPlayer2Id());
+            player1State.setPlayer1Name(state.getPlayer1Name());
+            player1State.setPlayer2Name(state.getPlayer2Name());
             player1State.setCurrentUserId(state.getPlayer1Id());
             
             player2State.setParticipants(state.getParticipants());
@@ -196,6 +189,8 @@ public class RtaWebSocketController {
             player2State.setCooldowns(state.getCooldowns());
             player2State.setPlayer1Id(state.getPlayer1Id());
             player2State.setPlayer2Id(state.getPlayer2Id());
+            player2State.setPlayer1Name(state.getPlayer1Name());
+            player2State.setPlayer2Name(state.getPlayer2Name());
             player2State.setCurrentUserId(state.getPlayer2Id());
             
             // Envoyer l'état personnalisé à chaque joueur
