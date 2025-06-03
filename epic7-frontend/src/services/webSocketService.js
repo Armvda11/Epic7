@@ -445,13 +445,13 @@ class WebSocketService {
       );
       this.subscriptions.battleState = stateSub;
       
-      // Canal de fin de combat
+      // Canal de fin de combat personnalisé (spécifique à l'utilisateur)
       const endSub = this.stompClient.subscribe(
-        `/topic/rta/end/${battleId}`,
+        `/user/queue/rta/end/${battleId}`,
         (message) => {
           try {
             const finalState = JSON.parse(message.body);
-            console.log('Combat terminé:', finalState);
+            console.log('Combat terminé avec état personnalisé:', finalState);
             
             // CORRECTION: Marquer la bataille comme terminée et nettoyer immédiatement les abonnements
             this.battleEnded = true;

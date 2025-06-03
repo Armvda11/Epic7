@@ -213,12 +213,52 @@ public class RtaWebSocketController {
             );
 
             if (state.isFinished()) {
-                // 4a) Fin de combat
+                // 4a) Fin de combat - envoyer l'état final personnalisé à chaque joueur
                 log.info("Combat {} terminé", battleId);
-                messaging.convertAndSend(
-                    "/topic/rta/end/" + battleId,
-                    state
+                
+                // Créer des états personnalisés pour la fin du combat
+                BattleState finalPlayer1State = new BattleState();
+                BattleState finalPlayer2State = new BattleState();
+                
+                // Copier les propriétés pour le joueur 1
+                finalPlayer1State.setParticipants(state.getParticipants());
+                finalPlayer1State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+                finalPlayer1State.setRoundCount(state.getRoundCount());
+                finalPlayer1State.setFinished(state.isFinished());
+                finalPlayer1State.setLogs(state.getLogs());
+                finalPlayer1State.setCooldowns(state.getCooldowns());
+                finalPlayer1State.setPlayer1Id(state.getPlayer1Id());
+                finalPlayer1State.setPlayer2Id(state.getPlayer2Id());
+                finalPlayer1State.setPlayer1Name(state.getPlayer1Name());
+                finalPlayer1State.setPlayer2Name(state.getPlayer2Name());
+                finalPlayer1State.setCurrentUserId(state.getPlayer1Id()); // Important pour la détermination du résultat
+                
+                // Copier les propriétés pour le joueur 2
+                finalPlayer2State.setParticipants(state.getParticipants());
+                finalPlayer2State.setCurrentTurnIndex(state.getCurrentTurnIndex());
+                finalPlayer2State.setRoundCount(state.getRoundCount());
+                finalPlayer2State.setFinished(state.isFinished());
+                finalPlayer2State.setLogs(state.getLogs());
+                finalPlayer2State.setCooldowns(state.getCooldowns());
+                finalPlayer2State.setPlayer1Id(state.getPlayer1Id());
+                finalPlayer2State.setPlayer2Id(state.getPlayer2Id());
+                finalPlayer2State.setPlayer1Name(state.getPlayer1Name());
+                finalPlayer2State.setPlayer2Name(state.getPlayer2Name());
+                finalPlayer2State.setCurrentUserId(state.getPlayer2Id()); // Important pour la détermination du résultat
+                
+                // Envoyer les états finaux personnalisés
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/end/" + battleId,
+                    finalPlayer1State
                 );
+                
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/end/" + battleId,
+                    finalPlayer2State
+                );
+                
                 battleManager.endRtaBattle(battleId, null);
             } else {
                 // 4b) Tour suivant
