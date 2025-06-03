@@ -6,10 +6,13 @@ import BattleSkillBar from '../components/battle/BattleSkillBar';
 import BattleEndOverlay from '../components/battle/BattleEndOverlay';
 import BattleForfeitButton from '../components/battle/BattleForfeitButton';
 import FloatingDamage from '../components/battle/FloatingDamage';
+import AttackEffect from '../components/battle/AttackEffect';
+import BattleParticles from '../components/battle/BattleParticles';
 import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel';
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
 import SkillAnimation from '../components/battle/SkillAnimation';
+import { useBattleSounds } from '../hooks/useBattleSounds';
 
 // utilitaire de log
 function logBattleAction(message, data) {
@@ -29,6 +32,8 @@ export default function Battle() {
   const [selectedSkillType, setSelectedSkillType] = useState(null);
   const [cooldowns,         setCooldowns]         = useState({});
   const [floatingDamages,   setFloatingDamages]   = useState([]);
+  const [attackEffects,     setAttackEffects]     = useState([]);
+  const [battleParticles,   setBattleParticles]   = useState([]);
   const [bossAttacking,     setBossAttacking]     = useState(false);
   const [reward,            setReward]            = useState(null);
 
@@ -41,13 +46,17 @@ export default function Battle() {
 
   const navigate   = useNavigate();
   const targetRefs = useRef({});
+  const { preloadSounds, playSoundForAction } = useBattleSounds();
 
   // ─── Chargements initiaux ──────────────────────────────────────────────
   useEffect(() => {
     API.get('/player-hero/my')
       .then(res => setAvailableHeroes(res.data))
       .catch(err => console.error("Erreur fetchAvailableHeroes:", err));
-  }, []);
+    
+    // Précharger les sons
+    preloadSounds();
+  }, [preloadSounds]);
 
   // ─── Gestion des récompenses ───────────────────────────────────────────
   async function fetchReward() {
@@ -148,11 +157,87 @@ export default function Battle() {
       setBattleState(result.battleState);
       setCooldowns(result.battleState.cooldowns);
 
-      // dégâts flottants
-      setFloatingDamages(f => [
-        ...f,
-        { id: Date.now(), x:0, y:0, value: result.damageDealt, type: result.type }
-      ]);
+      // Calculer la position de la cible pour les effets visuels
+      const targetElement = targetRefs.current[targetId];
+      let targetX = window.innerWidth / 2; // Position par défaut au centre
+      let targetY = window.innerHeight / 2;
+      
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        targetX = rect.left + rect.width / 2;
+        targetY = rect.top + rect.height / 2;
+      }
+
+      // Déterminer le type d'effet basé sur l'action de la compétence
+      let effectType = 'impact';
+      if (selectedSkill) {
+        if (selectedSkill.action === 'HEAL') {
+          effectType = 'heal';
+        } else if (selectedSkill.name.toLowerCase().includes('magic') || selectedSkill.name.toLowerCase().includes('spell')) {
+          effectType = 'magic';
+        } else if (selectedSkill.name.toLowerCase().includes('slash') || selectedSkill.name.toLowerCase().includes('cut')) {
+          effectType = 'slash';
+        }
+      }
+
+      // Ajouter l'effet d'attaque
+      if (result.damageDealt > 0 || result.type === 'HEAL') {
+        // Jouer le son approprié
+        const isCritical = result.damageDealt > 1500;
+        playSoundForAction(selectedSkill?.action || 'DAMAGE', isCritical, result.damageDealt);
+        
+        const effectId = Date.now() + Math.random();
+        setAttackEffects(effects => [
+          ...effects,
+          {
+            id: effectId,
+            x: targetX,
+            y: targetY,
+            type: effectType,
+            isVisible: true
+          }
+        ]);
+
+        // Ajouter des particules pour plus de spectacle
+        const particleType = isCritical ? 'critical' : effectType;
+        const particleId = Date.now() + Math.random() + 0.1;
+        setBattleParticles(particles => [
+          ...particles,
+          {
+            id: particleId,
+            x: targetX,
+            y: targetY,
+            type: particleType,
+            isVisible: true
+          }
+        ]);
+
+        // Retirer les effets après l'animation
+        setTimeout(() => {
+          setAttackEffects(effects => effects.filter(e => e.id !== effectId));
+          setBattleParticles(particles => particles.filter(p => p.id !== particleId));
+        }, 1200);
+      }
+
+      // dégâts flottants avec la bonne position
+      if (result.damageDealt > 0 || result.type === 'HEAL') {
+        const damageId = Date.now() + Math.random() + 1;
+        setFloatingDamages(damages => [
+          ...damages,
+          { 
+            id: damageId, 
+            x: targetX, 
+            y: targetY - 50, // Légèrement au-dessus de la cible
+            value: result.damageDealt || result.healAmount || 0, 
+            type: result.type 
+          }
+        ]);
+
+        // Retirer les dégâts flottants après l'animation
+        setTimeout(() => {
+          setFloatingDamages(damages => damages.filter(d => d.id !== damageId));
+        }, 2500);
+      }
 
       // tour du boss après un délai
       setTimeout(async () => {
@@ -327,8 +412,38 @@ export default function Battle() {
         </div>
       )}
 
+
+
       {/* dégâts flottants */}
       {floatingDamages.map(fd => <FloatingDamage key={fd.id} {...fd} />)}
+
+      {/* effets d'attaque */}
+      {attackEffects.map(effect => (
+        <AttackEffect 
+          key={effect.id} 
+          x={effect.x} 
+          y={effect.y} 
+          type={effect.type}
+          isVisible={effect.isVisible}
+          onAnimationEnd={() => {
+            setAttackEffects(effects => effects.filter(e => e.id !== effect.id));
+          }}
+        />
+      ))}
+
+      {/* particules de combat */}
+      {battleParticles.map(particle => (
+        <BattleParticles
+          key={particle.id}
+          x={particle.x}
+          y={particle.y}
+          type={particle.type}
+          isVisible={particle.isVisible}
+          onAnimationEnd={() => {
+            setBattleParticles(particles => particles.filter(p => p.id !== particle.id));
+          }}
+        />
+      ))}
 
       {/* Animation de compétence */}
       <SkillAnimation
