@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import EquipmentCard from "../components/equipment/EquipmentCard";
 import EquipmentDetails from "../components/equipment/EquipmentDetails";
 import { useSettings } from "../context/SettingsContext";
 import { fetchInventory } from "../services/equipmentService";
 import { useNavigate } from "react-router-dom";
+import { ModernPageLayout, ModernCard, ModernButton } from "../components/ui";
+import { FaArrowLeft, FaBox } from "react-icons/fa";
 
 // Cette page affiche l'inventaire de l'utilisateur
 // Elle utilise le service d'équipement pour récupérer les données de l'inventaire
@@ -28,43 +31,88 @@ const Inventory = () => {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">{t("inventory", language)}</h1>
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+    <ModernPageLayout>
+      {/* Header */}
+      <motion.header 
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <ModernButton 
+          variant="ghost"
+          onClick={() => navigate("/dashboard")} 
+          className="mb-4 flex items-center gap-2"
         >
-          {t("back", language)}
-        </button>
-      </div>
-  
-      <section className="flex flex-col lg:flex-row gap-6">
-        {/* Liste des équipements */}
-        <div className="flex-1 overflow-x-auto pb-2">
-          <div className="flex gap-4">
-            {equipments.map((eq) => (
-              <EquipmentCard
-                key={eq.id}
-                equipment={eq}
-                onClick={() => setSelected(eq)}
-              />
-            ))}
+          <FaArrowLeft /> {t("back", language)}
+        </ModernButton>
+        <h1 className="text-4xl font-bold text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          {t("inventory", language)}
+        </h1>
+      </motion.header>
+      <div className="max-w-7xl mx-auto">
+        <motion.section 
+          className="flex flex-col lg:flex-row gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Liste des équipements */}
+          <div className="flex-1">
+            <ModernCard className="p-6">
+              <h2 className="text-xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                {t("equipment", language) || "Equipment"}
+              </h2>
+              {equipments.length > 0 ? (
+                <div className="overflow-x-auto pb-2">
+                  <div className="flex gap-4 min-w-max">
+                    {equipments.map((eq, index) => (
+                      <motion.div
+                        key={eq.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <EquipmentCard
+                          equipment={eq}
+                          onClick={() => setSelected(eq)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                    <FaBox className="text-gray-400 dark:text-gray-500" size={24} />
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t("emptyInventory", language) || "Your inventory is empty"}
+                  </p>
+                </div>
+              )}
+            </ModernCard>
           </div>
-        </div>
 
-        {/* Détails sélectionnés */}
-        <aside className="w-full lg:w-96 bg-white dark:bg-[#2e2b4a] rounded-xl p-4 shadow-md min-h-[200px]">
-          {selected ? (
-            <EquipmentDetails equipment={selected} />
-          ) : (
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              {t("selectEquipment", language)}
-            </p>
+          {/* Détails de l'équipement sélectionné */}
+          {selected && (
+            <motion.div 
+              className="lg:w-96"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ModernCard className="p-6">
+                <h2 className="text-xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  {t("equipmentDetails", language) || "Equipment Details"}
+                </h2>
+                <EquipmentDetails equipment={selected} />
+              </ModernCard>
+            </motion.div>
           )}
-        </aside>
-      </section>
-    </main>
+        </motion.section>
+      </div>
+    </ModernPageLayout>
   );
 };
 

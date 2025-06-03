@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { fetchFriends, removeFriend, sendFriendRequest, fetchUserProfile } from "../services/userService";
 import { useSettings } from "../context/SettingsContext";
-import { FaArrowLeft, FaUserPlus, FaUserMinus, FaSearch, FaSync, FaUserClock } from "react-icons/fa";
+import { FaArrowLeft, FaUserPlus, FaUserMinus, FaSearch, FaSync, FaUserClock, FaUsers, FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from "../components/ui";
+import { toast } from "react-toastify";
 
 const FriendsPage = () => {
 const [friends, setFriends] = useState([]);
@@ -12,7 +15,7 @@ const [searchQuery, setSearchQuery] = useState("");
 const [newFriendId, setNewFriendId] = useState("");
 const [requestStatus, setRequestStatus] = useState(null);
 const [retryCount, setRetryCount] = useState(0);
-const { language, t } = useSettings();
+const { language, t, theme } = useSettings();
 const navigate = useNavigate();
 
 // Debug log pour vérifier que le composant est chargé
@@ -147,130 +150,175 @@ console.log("Rendering FriendsPage with state:", {
 });
 
 return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
-    <div className="max-w-4xl mx-auto">
-        <header className="flex items-center justify-between mb-8">
-        <button 
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center text-purple-600 dark:text-purple-300 hover:text-purple-800 dark:hover:text-purple-100 transition"
-        >
-            <FaArrowLeft className="mr-2" /> {t("backToDashboard", language)}
-        </button>
-        <h1 className="text-3xl font-bold">{t("friends", language)}</h1>
-        </header>
-
-        <section className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">{t("addFriend", language)}</h2>
-        <form onSubmit={handleSendRequest} className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-            <input
-                type="text"
-                value={newFriendId}
-                onChange={(e) => setNewFriendId(e.target.value)}
-                placeholder={t("userIdToAdd", language)}
-                className="w-full bg-gray-50 dark:bg-[#1e1b3a] border border-gray-300 dark:border-purple-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white"
-            />
-            </div>
-            <button
-            type="submit"
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg transition flex items-center justify-center"
-            >
-            <FaUserPlus className="mr-2" /> {t("sendRequest", language)}
-            </button>
-        </form>
-        
-        {requestStatus && (
-            <div className={`mt-4 p-3 rounded-lg ${requestStatus.success ? 'bg-green-100 dark:bg-green-900 bg-opacity-20 dark:bg-opacity-20 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900 bg-opacity-20 dark:bg-opacity-20 text-red-700 dark:text-red-400'}`}>
-            {requestStatus.message}
-            </div>
-        )}
-        </section>
-
-        <section className="bg-white dark:bg-[#2f2b50] rounded-xl shadow-xl p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <h2 className="text-xl font-bold mb-2 md:mb-0">
-            {t("myFriends", language)} ({Array.isArray(friends) ? friends.length : 0})
-            </h2>
-            <div className="flex items-center gap-2">
-            <div className="relative w-full md:w-64">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                type="text"
-                placeholder={t("searchFriend", language)}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-[#1e1b3a] border border-gray-300 dark:border-purple-700 rounded-lg pl-10 pr-4 py-2 text-gray-900 dark:text-white"
-                />
-            </div>
-            <button 
-                onClick={handleRetry}
-                className="bg-purple-600 hover:bg-purple-700 p-2 rounded-lg text-white"
-                title={t("refreshList", language)}
-            >
-                <FaSync className={loading ? "animate-spin" : ""} />
-            </button>
-            </div>
+    <ModernPageLayout
+      title={t("friends", language)}
+      backTo="/dashboard"
+      backLabel={t("backToDashboard", language)}
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-purple-300 border-t-purple-600 rounded-full mb-4"
+          />
+          <p className="text-lg text-purple-300">{t("loadingFriends", language)}</p>
         </div>
-
-        {loading ? (
-            <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-            <div className="animate-spin mx-auto w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mb-4"></div>
-            {t("loadingFriends", language)}
-            </div>
-        ) : error ? (
-            <div className="text-center py-8 text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900 bg-opacity-10 dark:bg-opacity-10 rounded-md p-4">
-            <p>{error}</p>
-            <button 
-                onClick={handleRetry}
-                className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center mx-auto"
-            >
-                <FaSync className="mr-2" /> {t("retry", language)}
-            </button>
-            </div>
-        ) : filteredFriends.length === 0 ? (
-            <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-            {searchQuery ? t("noFriendsMatch", language) : t("noFriendsYet", language)}
-            </div>
-        ) : (
-            <ul className="space-y-3">
-            {filteredFriends.map(friend => (
-                <li key={friend.id} className="bg-gray-50 dark:bg-[#252042] rounded-lg p-4 flex justify-between items-center">
-                <div className="flex items-center">
-                    <div className="bg-purple-700 rounded-full w-12 h-12 flex items-center justify-center mr-4 text-white">
-                    {friend.username?.charAt(0).toUpperCase() || "?"}
-                    </div>
-                    <div>
-                    <h3 className="font-bold">
-                        <a 
-                            href={`/profile/${friend.id}`}
-                            className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition"
-                        >
-                            {friend.username}
-                        </a>
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("level", language)} {friend.level}</p>
-                    {friend.friendshipStatus === "PENDING" && (
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center">
-                        <FaUserClock className="mr-1" /> {t("pendingAcceptance", language)}
-                        </span>
-                    )}
-                    </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h3 className="text-xl font-semibold text-red-400 mb-2">{t("error", language)}</h3>
+          <p className="text-purple-300 mb-6 text-center max-w-md">{error}</p>
+          <ModernButton onClick={handleRetry} variant="primary">
+            <FaSync className="mr-2" />
+            {t("retry", language)}
+          </ModernButton>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="space-y-8"
+        >
+          {/* Section Ajouter un ami */}
+          <ModernCard title={t("addFriend", language)} icon={<FaUserPlus />}>
+            <form onSubmit={handleSendRequest} className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={newFriendId}
+                    onChange={(e) => setNewFriendId(e.target.value)}
+                    placeholder={t("userIdToAdd", language)}
+                    className="w-full bg-black/20 backdrop-blur-sm border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-300 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50 transition-all"
+                  />
                 </div>
-                <button
-                    onClick={() => handleRemoveFriend(friend.id)}
-                    className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg transition"
-                    title={t("removeFriend", language)}
+                <ModernButton type="submit" variant="primary">
+                  <FaUserPlus className="mr-2" />
+                  {t("sendRequest", language)}
+                </ModernButton>
+              </div>
+              
+              {requestStatus && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`p-4 rounded-xl backdrop-blur-sm ${
+                    requestStatus.success 
+                      ? 'bg-green-500/20 border border-green-400/30 text-green-300' 
+                      : 'bg-red-500/20 border border-red-400/30 text-red-300'
+                  }`}
                 >
-                    <FaUserMinus />
-                </button>
-                </li>
-            ))}
-            </ul>
-        )}
-        </section>
-    </div>
-    </main>
-);
+                  {requestStatus.message}
+                </motion.div>
+              )}
+            </form>
+          </ModernCard>
+
+          {/* Section Liste des amis */}
+          <ModernCard 
+            title={`${t("myFriends", language)} (${Array.isArray(friends) ? friends.length : 0})`}
+            icon={<FaUsers />}
+          >
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <ModernSearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder={t("searchFriend", language)}
+                  />
+                </div>
+                <ModernButton onClick={handleRetry} variant="secondary">
+                  <FaSync className={`mr-2 ${loading ? "animate-spin" : ""}`} />
+                  {t("refreshList", language)}
+                </ModernButton>
+              </div>
+
+              {filteredFriends.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4 opacity-50">👥</div>
+                  <p className="text-xl text-purple-300">
+                    {searchQuery ? t("noFriendsMatch", language) : t("noFriendsYet", language)}
+                  </p>
+                </div>
+              ) : (
+                <motion.div 
+                  className="grid gap-4"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.1
+                      }
+                    }
+                  }}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {filteredFriends.map((friend, index) => (
+                    <motion.div
+                      key={friend.id}
+                      variants={{
+                        hidden: { opacity: 0, x: -20 },
+                        show: { opacity: 1, x: 0 }
+                      }}
+                      className="bg-black/20 backdrop-blur-sm border border-purple-500/30 rounded-xl p-4 hover:bg-black/30 hover:border-purple-400/50 transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            {friend.username?.charAt(0).toUpperCase() || "?"}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-white">
+                              <button
+                                onClick={() => navigate(`/profile/${friend.id}`)}
+                                className="hover:text-purple-300 transition-colors"
+                              >
+                                {friend.username}
+                              </button>
+                            </h3>
+                            <p className="text-sm text-purple-300">
+                              {t("level", language)} {friend.level}
+                            </p>
+                            {friend.friendshipStatus === "PENDING" && (
+                              <span className="inline-flex items-center text-xs text-yellow-400 mt-1">
+                                <FaUserClock className="mr-1" />
+                                {t("pendingAcceptance", language)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <ModernButton
+                            onClick={() => navigate(`/profile/${friend.id}`)}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            <FaEye />
+                          </ModernButton>
+                          <ModernButton
+                            onClick={() => handleRemoveFriend(friend.id)}
+                            variant="danger"
+                            size="sm"
+                          >
+                            <FaUserMinus />
+                          </ModernButton>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+          </ModernCard>
+        </motion.div>
+      )}
+    </ModernPageLayout>
+  );
 };
 
 export default FriendsPage;

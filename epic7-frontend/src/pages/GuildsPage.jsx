@@ -28,8 +28,12 @@ import {
   FaCog,
   FaTrash,
   FaUsers,
-  FaComments
+  FaComments,
+  FaSync,
+  FaCheck
 } from "react-icons/fa";
+import { motion } from "framer-motion";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, ModernModal } from "../components/ui";
 import GuildSearchModal from "../components/guilds/GuildSearchModal";
 import GuildMemberList from "../components/guilds/GuildMemberList";
 import CreateGuildModal from "../components/guilds/CreateGuildModal";
@@ -78,201 +82,304 @@ const GuildDetails = ({
   };
 
   return (
-    <section className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 shadow-xl mb-8">
-      <div className="flex justify-between items-start mb-5">
-        <div className="flex-1">
-          <div className="flex items-center">
-            <h2 className="text-2xl font-bold">{userGuild.name}</h2>
-            {isOfficer && (
-              <div className="relative ml-3" ref={guildParamsRef}>
-                <button
-                  onClick={() => setShowGuildParams(!showGuildParams)}
-                  className="text-gray-500 hover:text-purple-500 dark:text-gray-400 dark:hover:text-purple-400 p-1"
-                  title={t("guildSettings", language)}
-                >
-                  <FaCog size={18} />
-                </button>
-                {/* Guild parameter dropdown */}
-                {showGuildParams && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#3a3660] rounded-lg shadow-lg z-30">
-                    <ul className="py-2">
-                      <li className="px-4 py-2 hover:bg-purple-50 dark:hover:bg-[#4a4670] cursor-pointer"
-                          onClick={openEditDescription}>
-                        <div className="flex items-center">
-                          <FaPencilAlt className="mr-2 text-purple-500" size={14} />
-                          {t("editDescription", language)}
-                        </div>
-                      </li>
-                      <li className="px-4 py-2 hover:bg-purple-50 dark:hover:bg-[#4a4670] cursor-pointer"
-                          onClick={() => {
-                            onToggleGuildStatus();
-                            setShowGuildParams(false);
-                          }}>
-                        <div className="flex items-center">
-                          {userGuild.isOpen ? (
-                            <>
-                              <FaLock className="mr-2 text-red-500" size={14} />
-                              {t("closeGuild", language)}
-                            </>
-                          ) : (
-                            <>
-                              <FaLockOpen className="mr-2 text-green-500" size={14} />
-                              {t("openGuild", language)}
-                            </>
-                          )}
-                        </div>
-                      </li>
-                      <li className="px-4 py-2 hover:bg-purple-50 dark:hover:bg-[#4a4670] cursor-pointer"
-                          onClick={() => {
-                            setShowUserManagement(!showUserManagement);
-                            setShowGuildParams(false);
-                          }}>
-                        <div className="flex items-center">
-                          <FaUsers className="mr-2 text-blue-500" size={14} />
-                          {showUserManagement ? t("hideUserManagement", language) : t("manageUsers", language)}
-                        </div>
-                      </li>
-                      {isLeader && (
-                        <li className="px-4 py-2 hover:bg-purple-50 dark:hover:bg-[#4a4670] cursor-pointer"
-                            onClick={() => {
-                              setConfirmDelete(true);
-                              setShowGuildParams(false);
-                            }}>
-                          <div className="flex items-center text-red-500 hover:text-red-700">
-                            <FaTrash className="mr-2" size={14} />
-                            {t("deleteGuild", language)}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+    >
+      <ModernCard className="mb-8">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                {userGuild.name?.charAt(0)?.toUpperCase() || 'G'}
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    {userGuild.name}
+                  </h2>
+                  {isOfficer && (
+                    <div className="relative" ref={guildParamsRef}>
+                      <ModernButton
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowGuildParams(!showGuildParams)}
+                        className="text-slate-600 hover:text-purple-500 dark:text-slate-300 dark:hover:text-purple-400"
+                      >
+                        <FaCog size={18} />
+                      </ModernButton>
+                      {/* Guild parameter dropdown */}
+                      {showGuildParams && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute right-0 mt-2 w-56 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 z-30"
+                        >
+                          <div className="py-2">
+                            <button
+                              className="w-full px-4 py-2 text-left hover:bg-purple-50/50 dark:hover:bg-purple-500/10 transition-colors flex items-center gap-3"
+                              onClick={openEditDescription}
+                            >
+                              <FaPencilAlt className="text-purple-500" size={14} />
+                              <span className="text-sm">{t("editDescription", language)}</span>
+                            </button>
+                            <button
+                              className="w-full px-4 py-2 text-left hover:bg-purple-50/50 dark:hover:bg-purple-500/10 transition-colors flex items-center gap-3"
+                              onClick={() => {
+                                onToggleGuildStatus();
+                                setShowGuildParams(false);
+                              }}
+                            >
+                              {userGuild.isOpen ? (
+                                <>
+                                  <FaLock className="text-red-500" size={14} />
+                                  <span className="text-sm">{t("closeGuild", language)}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FaLockOpen className="text-green-500" size={14} />
+                                  <span className="text-sm">{t("openGuild", language)}</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              className="w-full px-4 py-2 text-left hover:bg-purple-50/50 dark:hover:bg-purple-500/10 transition-colors flex items-center gap-3"
+                              onClick={() => {
+                                setShowUserManagement(!showUserManagement);
+                                setShowGuildParams(false);
+                              }}
+                            >
+                              <FaUsers className="text-blue-500" size={14} />
+                              <span className="text-sm">{showUserManagement ? t("hideUserManagement", language) : t("manageUsers", language)}</span>
+                            </button>
+                            {isLeader && (
+                              <button
+                                className="w-full px-4 py-2 text-left hover:bg-red-50/50 dark:hover:bg-red-500/10 transition-colors flex items-center gap-3 text-red-500"
+                                onClick={() => {
+                                  setConfirmDelete(true);
+                                  setShowGuildParams(false);
+                                }}
+                              >
+                                <FaTrash size={14} />
+                                <span className="text-sm">{t("deleteGuild", language)}</span>
+                              </button>
+                            )}
                           </div>
-                        </li>
+                        </motion.div>
                       )}
-                    </ul>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-700 dark:text-purple-300">
+                    {userGuild.isOpen === true ? (
+                      <>
+                        <FaLockOpen className="text-green-500" />
+                        {t("open", language)}
+                      </>
+                    ) : (
+                      <>
+                        <FaLock className="text-red-500" />
+                        {t("closed", language)}
+                      </>
+                    )}
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-700 dark:text-blue-300">
+                    {t(`role_${(userGuild.userRole || "member").toLowerCase()}`, language) || userGuild.userRole}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {editDescription ? (
+              <motion.div 
+                className="mt-4"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <textarea 
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="w-full p-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg border border-white/20 dark:border-gray-700/30 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  rows={3}
+                  placeholder={t("enterDescription", language) || "Enter description..."}
+                />
+                <div className="flex gap-3 mt-3">
+                  <ModernButton 
+                    onClick={handleUpdateDescriptionSubmit}
+                    variant="success"
+                    size="sm"
+                  >
+                    {t("save", language)}
+                  </ModernButton>
+                  <ModernButton 
+                    onClick={() => setEditDescription(false)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    {t("cancel", language)}
+                  </ModernButton>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="mt-4">
+                <p className="text-slate-700 dark:text-slate-200">
+                  {userGuild.description || t("noDescription", language) || "No description"}
+                </p>
+              </div>
+            )}
+            
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-900/20 dark:to-blue-900/20">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("level", language)}:</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">{userGuild.level || 1}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-900/20 dark:to-blue-900/20">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("members", language)}:</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{userGuild.memberCount || 0}/{userGuild.maxMembers || 20}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-900/20 dark:to-blue-900/20">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("rank", language)}:</span>
+                  <span className="font-bold text-yellow-600 dark:text-yellow-400">{userGuild.rank || "BRONZE"}</span>
+                </div>
+                {(userGuild.ranking > 0) && (
+                  <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-purple-50/50 to-blue-50/50 dark:from-purple-900/20 dark:to-blue-900/20">
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("ranking", language)}:</span>
+                    <span className="font-bold text-green-600 dark:text-green-400">#{userGuild.ranking}</span>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-          {editDescription ? (
-            <div className="mt-2">
-              <textarea 
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                className="w-full p-2 bg-purple-50 dark:bg-[#3a3660] rounded-lg text-gray-900 dark:text-white"
-                rows={3}
-              />
-              <div className="flex gap-2 mt-2">
-                <button 
-                  onClick={handleUpdateDescriptionSubmit}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg text-sm"
-                >
-                  {t("save", language)}
-                </button>
-                <button 
-                  onClick={() => setEditDescription(false)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-1 rounded-lg text-sm"
-                >
-                  {t("cancel", language)}
-                </button>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-pink-50/50 to-purple-50/50 dark:from-pink-900/20 dark:to-purple-900/20">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("yourRole", language)}:</span>
+                  <span className="font-bold text-pink-600 dark:text-pink-400">{t(`role_${(userGuild.userRole || "member").toLowerCase()}`, language) || userGuild.userRole}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-pink-50/50 to-purple-50/50 dark:from-pink-900/20 dark:to-purple-900/20">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("guildPoints", language)}:</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">{userGuild.guildPoints || 0}</span>
+                </div>
+                {isLeader && (
+                  <div className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-pink-50/50 to-purple-50/50 dark:from-pink-900/20 dark:to-purple-900/20">
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{t("gold", language)}:</span>
+                    <span className="font-bold text-yellow-600 dark:text-yellow-400">{userGuild.gold || 0}</span>
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="relative">
-              <p className="text-gray-600 dark:text-gray-300 mt-2">{userGuild.description || ""}</p>
-            </div>
-          )}
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <p><strong>{t("level", language)}:</strong> {userGuild.level || 1}</p>
-              <p><strong>{t("members", language)}:</strong> {userGuild.memberCount || 0}/{userGuild.maxMembers || 20}</p>
-              <p><strong>{t("rank", language)}:</strong> {userGuild.rank || "BRONZE"}</p>
-              {(userGuild.ranking > 0) && <p><strong>{t("ranking", language)}:</strong> {userGuild.ranking}</p>}
-            </div>
-            <div>
-              <p><strong>{t("yourRole", language)}:</strong> {t(`role_${(userGuild.userRole || "member").toLowerCase()}`, language) || userGuild.userRole}</p>
-              <p><strong>{t("status", language)}:</strong> 
-                <span className="ml-2 inline-flex items-center">
-                  {userGuild.isOpen === true ? (
-                    <>
-                      <FaLockOpen className="text-green-500 mr-1" />
-                      {t("open", language)}
-                    </>
-                  ) : (
-                    <>
-                      <FaLock className="text-red-500 mr-1" />
-                      {t("closed", language)}
-                    </>
-                  )}
-                </span>
-              </p>
-              <p><strong>{t("guildPoints", language)}:</strong> {userGuild.guildPoints || 0}</p>
-              {isLeader && <p><strong>{t("gold", language)}:</strong> {userGuild.gold || 0}</p>}
-            </div>
           </div>
         </div>
-        <div className="flex flex-col gap-3">
+        
+        <div className="flex flex-wrap gap-3 mt-6">
           {/* Button to leave the guild */}
-          <button
+          <ModernButton
+            variant="danger"
             onClick={() => setConfirmLeave(true)}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center"
+            className="flex items-center gap-2"
           >
-            <FaSignOutAlt className="mr-2" /> {t("leaveGuild", language)}
-          </button>
+            <FaSignOutAlt /> {t("leaveGuild", language)}
+          </ModernButton>
           {/* Button to open guild chat */}
-          <button
+          <ModernButton
+            variant="primary"
             onClick={() => onOpenChat(userGuild.id)}
-            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center"
+            className="flex items-center gap-2"
           >
-            <FaComments className="mr-2" /> {t("guildChat", language)}
-          </button>
+            <FaComments /> {t("guildChat", language)}
+          </ModernButton>
           {/* Button to show/hide the search bar */}
-          <button
+          <ModernButton
+            variant="secondary"
             onClick={onSearchClick}
-            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center"
+            className="flex items-center gap-2"
           >
-            <FaSearch className="mr-2" /> {t("searchGuilds", language)}
-          </button>
+            <FaSearch /> {t("searchGuilds", language)}
+          </ModernButton>
         </div>
-      </div>
+      </ModernCard>
 
       {/* Confirmation to delete the guild */}
       {confirmDelete && (
-        <div className="mt-6 p-4 bg-red-100 dark:bg-red-900 rounded-lg">
-          <p className="font-bold">{t("confirmDeleteGuild", language)}</p>
-          <p className="mt-2 text-sm text-red-600 dark:text-red-300">{t("deleteGuildWarning", language)}</p>
-          <div className="flex mt-4 gap-4">
-            <button
-              onClick={() => onDeleteGuild(userGuild.id)}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-            >
-              {t("yesDelete", language)}
-            </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-            >
-              {t("cancel", language)}
-            </button>
-          </div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="mt-6"
+        >
+          <ModernCard className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <FaTrash className="text-white text-lg" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
+                  {t("confirmDeleteGuild", language)}
+                </h3>
+                <p className="text-sm text-red-600 dark:text-red-300 mb-4">
+                  {t("deleteGuildWarning", language)}
+                </p>
+                <div className="flex gap-3">
+                  <ModernButton
+                    onClick={() => onDeleteGuild(userGuild.id)}
+                    variant="danger"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <FaCheck /> {t("yesDelete", language)}
+                  </ModernButton>
+                  <ModernButton
+                    onClick={() => setConfirmDelete(false)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    {t("cancel", language)}
+                  </ModernButton>
+                </div>
+              </div>
+            </div>
+          </ModernCard>
+        </motion.div>
       )}
 
       {/* Confirmation to leave the guild */}
       {confirmLeave && (
-        <div className="mt-6 p-4 bg-red-100 dark:bg-red-900 rounded-lg">
-          <p className="font-bold">{t("confirmLeaveGuild", language)}</p>
-          <div className="flex mt-4 gap-4">
-            <button
-              onClick={onLeaveGuild}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-            >
-              {t("yes", language)}
-            </button>
-            <button
-              onClick={() => setConfirmLeave(false)}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-            >
-              {t("cancel", language)}
-            </button>
-          </div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="mt-6"
+        >
+          <ModernCard className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <FaSignOutAlt className="text-white text-lg" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
+                  {t("confirmLeaveGuild", language)}
+                </h3>
+                <div className="flex gap-3">
+                  <ModernButton
+                    onClick={onLeaveGuild}
+                    variant="danger"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <FaCheck /> {t("yes", language)}
+                  </ModernButton>
+                  <ModernButton
+                    onClick={() => setConfirmLeave(false)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    {t("cancel", language)}
+                  </ModernButton>
+                </div>
+              </div>
+            </div>
+          </ModernCard>
+        </motion.div>
       )}
 
       {/* Guild Member List Component */}
@@ -284,7 +391,7 @@ const GuildDetails = ({
         onBanMember={onBanMember} 
         showManagement={showUserManagement}
       />
-    </section>
+    </motion.div>
   );
 };
 
@@ -829,26 +936,59 @@ const GuildsPage = () => {
   // If data is loading
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-          {t("loading", language)}...
-      </main>
+      <ModernPageLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="text-center"
+          >
+            <div className="w-16 h-16 mx-auto mb-4 border-4 border-purple-200 dark:border-purple-700 border-t-purple-600 dark:border-t-purple-400 rounded-full animate-spin"></div>
+            <p className="text-lg text-slate-700 dark:text-slate-200">
+              {t("loading", language)}...
+            </p>
+          </motion.div>
+        </div>
+      </ModernPageLayout>
     );
   }
 
   // If an error occurred
   if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-          <div className="bg-red-100 dark:bg-red-900 p-4 rounded-lg">
-          {error}
-          <button 
-              onClick={() => navigate("/dashboard")} 
-              className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded block mx-auto"
+      <ModernPageLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-              {t("returnToDashboard", language)}
-          </button>
-          </div>
-      </main>
+            <ModernCard className="max-w-md mx-auto border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/20">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
+                  <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+                  {t("error", language) || "Error"}
+                </h3>
+                <p className="text-red-700 dark:text-red-300 mb-6">
+                  {error}
+                </p>
+                <ModernButton 
+                  onClick={() => navigate("/dashboard")} 
+                  variant="primary"
+                  className="w-full"
+                >
+                  {t("returnToDashboard", language)}
+                </ModernButton>
+              </div>
+            </ModernCard>
+          </motion.div>
+        </div>
+      </ModernPageLayout>
     );
   }
 
@@ -860,7 +1000,7 @@ const GuildsPage = () => {
   console.log("Rendering GuildsPage with userGuild:", userGuild);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
+    <ModernPageLayout>
       {/* Search Modal Component */}
       <GuildSearchModal 
         isOpen={showSearchModal}
@@ -888,15 +1028,23 @@ const GuildsPage = () => {
       )}
 
       {/* Header */}
-      <header className="mb-8">
-        <button 
+      <motion.header 
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <ModernButton 
+          variant="ghost"
           onClick={() => navigate("/dashboard")} 
-          className="mb-4 text-purple-600 dark:text-purple-400 hover:underline flex items-center"
+          className="mb-4 flex items-center gap-2"
         >
           &larr; {t("returnToDashboard", language)}
-        </button>
-        <h1 className="text-3xl font-bold text-center">{t("guilds", language)}</h1>
-      </header>
+        </ModernButton>
+        <h1 className="text-4xl font-bold text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          {t("guilds", language)}
+        </h1>
+      </motion.header>
 
       {/* Main content */}
       <div className="max-w-4xl mx-auto">
@@ -924,61 +1072,128 @@ const GuildsPage = () => {
         )}
 
         {/* Always show recent guilds section */}
-        <section className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 shadow-xl mb-8">
-          <h2 className="text-2xl font-bold mb-4">{t("recentGuilds", language) || "Recently Created Guilds"}</h2>
-          
-          {recentGuilds && recentGuilds.length > 0 ? (
-            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-              {recentGuilds.map(guild => (
-                <li key={guild.id} className="py-4 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold">{guild.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">{t("members", language)}: {guild.memberCount}/{guild.maxMembers}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{guild.description || t("noDescription", language)}</p>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="mr-4 flex items-center">
-                      {guild.isOpen ? (
-                        <><FaLockOpen className="text-green-500 mr-1" /> {t("open", language)}</>
-                      ) : (
-                        <><FaLock className="text-red-500 mr-1" /> {t("closed", language)}</>
-                      )}
-                    </span>
-                    {/* Only show join buttons if user doesn't belong to this guild */}
-                    {(!userGuild || userGuild.id !== guild.id) && (
-                      <button
-                        onClick={() => guild.isOpen ? handleJoinGuild(guild.id) : handleRequestJoin(guild.id)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm"
-                        disabled={joinLoading || (pendingJoinRequestGuildId === guild.id) || (userGuild && userGuild.id !== guild.id)}
-                      >
-                        {pendingJoinRequestGuildId === guild.id ? (
-                          t("requestSent", language)
-                        ) : userGuild ? (
-                          t("alreadyInGuild", language) || "Already in a guild"
-                        ) : guild.isOpen ? (
-                          t("join", language)
-                        ) : (
-                          t("requestJoin", language)
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <ModernCard className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                {t("recentGuilds", language) || "Recently Created Guilds"}
+              </h2>
+              <ModernButton
+                variant="ghost"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="flex items-center gap-2"
+              >
+                <FaSync />
+                {t("refresh", language) || "Refresh"}
+              </ModernButton>
+            </div>
+            
+            {recentGuilds && recentGuilds.length > 0 ? (
+              <div className="grid gap-4">
+                {recentGuilds.map((guild, index) => (
+                  <motion.div
+                    key={guild.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className="group p-4 rounded-xl bg-gradient-to-r from-white/50 to-purple-50/30 dark:from-gray-800/50 dark:to-purple-900/20 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 hover:border-purple-300/50 dark:hover:border-purple-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                            {guild.name?.charAt(0)?.toUpperCase() || 'G'}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                              {guild.name}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                              <span className="flex items-center gap-1">
+                                <FaUsers size={12} />
+                                {guild.memberCount}/{guild.maxMembers}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                {guild.isOpen ? (
+                                  <>
+                                    <FaLockOpen className="text-green-500" size={12} />
+                                    <span className="text-green-600 dark:text-green-400">{t("open", language)}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaLock className="text-red-500" size={12} />
+                                    <span className="text-red-600 dark:text-red-400">{t("closed", language)}</span>
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {guild.description && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 ml-13">
+                            {guild.description}
+                          </p>
                         )}
-                      </button>
-                    )}
-                    {userGuild && userGuild.id === guild.id && (
-                      <span className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded">
-                        {t("yourGuild", language) || "Your guild"}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              {t("noRecentGuilds", language) || "No recently created guilds found."}
-            </p>
-          )}
-        </section>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Only show join buttons if user doesn't belong to this guild */}
+                        {(!userGuild || userGuild.id !== guild.id) && (
+                          <ModernButton
+                            size="sm"
+                            variant={guild.isOpen ? "primary" : "secondary"}
+                            onClick={() => guild.isOpen ? handleJoinGuild(guild.id) : handleRequestJoin(guild.id)}
+                            disabled={joinLoading || (pendingJoinRequestGuildId === guild.id) || (userGuild && userGuild.id !== guild.id)}
+                            className="flex items-center gap-2"
+                          >
+                            {pendingJoinRequestGuildId === guild.id ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                {t("requestSent", language) || "Request Sent"}
+                              </>
+                            ) : userGuild ? (
+                              t("alreadyInGuild", language) || "Already in a guild"
+                            ) : guild.isOpen ? (
+                              <>
+                                <FaUserPlus size={12} />
+                                {t("join", language)}
+                              </>
+                            ) : (
+                              <>
+                                <FaUserPlus size={12} />
+                                {t("requestJoin", language)}
+                              </>
+                            )}
+                          </ModernButton>
+                        )}
+                        {userGuild && userGuild.id === guild.id && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
+                            {t("yourGuild", language) || "Your guild"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                  <FaUsers className="text-gray-400 dark:text-gray-500" size={24} />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {t("noRecentGuilds", language) || "No recently created guilds found."}
+                </p>
+              </div>
+            )}
+          </ModernCard>
+        </motion.div>
       </div>
-    </main>
+    </ModernPageLayout>
   );
 };
 

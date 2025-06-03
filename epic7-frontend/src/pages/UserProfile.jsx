@@ -13,11 +13,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { toast } from 'react-toastify';
 import { heroImg, heroImgUnknown } from '../components/heroUtils';
+import { ModernPageLayout, ModernCard, ModernButton, ModernModal } from '../components/ui';
+import { FaUser, FaUserPlus, FaUserCheck, FaUserMinus, FaCalendar, FaCrown, FaGamepad, FaStar, FaEye } from 'react-icons/fa';
 
 const UserProfile = () => {
 const { userId } = useParams();
 const navigate = useNavigate();
-const { t, language } = useSettings();
+const { t, language, theme } = useSettings();
 const [user, setUser] = useState(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
@@ -332,23 +334,83 @@ const RtaTierProgress = ({ currentPoints, currentTier }) => {
   );
 };
 
-if (loading) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    {t("loadingProfile", language) || "Chargement..."}
-    </main>
-);
+if (loading) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Chargement du profil..."
+      showBackButton={false}
+    >
+      <div className="flex items-center justify-center min-h-64">
+        <motion.div
+          className={`p-8 rounded-2xl backdrop-blur-sm ${
+            theme === 'dark' 
+              ? 'bg-white/10 border-white/20' 
+              : 'bg-white/80 border-white/40'
+          } border`}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        >
+          <FaUser className="w-8 h-8 text-purple-500" />
+        </motion.div>
+      </div>
+    </ModernPageLayout>
+  );
+}
 
-if (error) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-100 p-4 rounded-lg">{error}</div>
-    </main>
-);
+if (error) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Erreur de chargement"
+      showBackButton={false}
+    >
+      <ModernCard className="text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <ModernButton 
+          variant="primary" 
+          onClick={() => window.location.reload()}
+        >
+          Réessayer
+        </ModernButton>
+      </ModernCard>
+    </ModernPageLayout>
+  );
+}
 
-if (!user) return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
-    <div className="bg-purple-50 dark:bg-[#2f2b50] p-4 rounded-lg">{t("noPlayerWithName", language) || "Aucun utilisateur trouvé"}</div>
-    </main>
-);
+if (!user) {
+  return (
+    <ModernPageLayout 
+      title={t("userProfile", language) || "Profil utilisateur"}
+      subtitle="Utilisateur introuvable"
+      showBackButton={false}
+    >
+      <ModernCard className="text-center">
+        <FaUser className={`w-16 h-16 mx-auto mb-4 ${
+          theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
+        }`} />
+        <h3 className={`text-xl font-bold mb-2 ${
+          theme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`}>
+          Utilisateur introuvable
+        </h3>
+        <p className={`mb-4 ${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+        }`}>
+          {t("noPlayerWithName", language) || "Aucun utilisateur trouvé avec cet identifiant"}
+        </p>
+        <ModernButton 
+          variant="secondary" 
+          onClick={() => navigate('/dashboard')}
+        >
+          Retour au tableau de bord
+        </ModernButton>
+      </ModernCard>
+    </ModernPageLayout>
+  );
+}
+//     </main>
+// );
 
 return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
