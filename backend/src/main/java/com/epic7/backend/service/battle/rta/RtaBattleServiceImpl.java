@@ -217,12 +217,15 @@ public class RtaBattleServiceImpl implements BattleManager {
             
             playerAliveStatus.put(userId, isAlive);
             
-            // Récupérer le nom d'un des héros pour afficher un nom à la place de l'ID
-            String playerName = state.getParticipants().stream()
-                .filter(p -> userId.equals(p.getUserId()))
-                .map(BattleParticipant::getName)
-                .findFirst()
-                .orElse("Joueur " + userId);
+            // Récupérer le nom du joueur (utilisateur) plutôt que le nom du héros
+            String playerName;
+            if (userId.equals(state.getPlayer1Id())) {
+                playerName = state.getPlayer1Name() != null ? state.getPlayer1Name() : "Joueur 1";
+            } else if (userId.equals(state.getPlayer2Id())) {
+                playerName = state.getPlayer2Name() != null ? state.getPlayer2Name() : "Joueur 2";
+            } else {
+                playerName = "Joueur " + userId;
+            }
                 
             playerNames.put(userId, playerName);
         }
