@@ -206,7 +206,9 @@ public class UserController {
                     targetUser.getHeroesNumber(),
                     targetUser.getGuildName(),
                     targetUser.getFriends() != null ? targetUser.getFriends().size() : 0,
-                    friendshipStatus);
+                    friendshipStatus,
+                    targetUser.getRtaPoints(),
+                    targetUser.getRtaTier());
             return userStats;
         } catch (Exception e) {
             System.err.println("Error in /profile/{userId} endpoint: " + e.getMessage());

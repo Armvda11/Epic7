@@ -15,11 +15,6 @@ import com.epic7.backend.model.enums.GuildRole;
  * Contient des informations sur le nom, la description et les membres de la guilde.
  * @author hermas corentin
  */
-// TODO : Ajouter une image pour la guilde
-// TODO : Ajouter un système de guerre de guilde
-// TODO : Ajouter un système de don de ressources
-// TODO : Ajouter un système de chat de guilde
-// TODO : Ajouter un système de quêtes de guilde
 @Entity
 @Table(name = "guilds")
 @Getter

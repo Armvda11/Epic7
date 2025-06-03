@@ -16,6 +16,7 @@ import com.epic7.backend.service.battle.engine.SkillEngine;
 import com.epic7.backend.service.battle.manager.BattleManager;
 import com.epic7.backend.service.battle.model.BattleParticipant;
 import com.epic7.backend.service.battle.state.BattleState;
+import com.epic7.backend.service.rta.RtaRankingService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class RtaBattleServiceImpl implements BattleManager {
     private final SkillEngine skillEngine;
     private final PlayerHeroRepository playerHeroRepo;
     private final UserRepository userRepository;
+    private final RtaRankingService rtaRankingService;
 
     // Stockage en mémoire des sessions actives
     private final Map<String, BattleState> activeBattles = new ConcurrentHashMap<>();
@@ -260,12 +262,78 @@ public class RtaBattleServiceImpl implements BattleManager {
     }
     
     /**
-     * Attribue les récompenses de victoire au gagnant
+     * Trouve l'ID du perdant dans un combat RTA
+     */
+    private String findLoserId(BattleState state, String winnerId) {
+        // Récupérer tous les userId uniques des participants
+        Set<String> userIds = state.getParticipants().stream()
+            .map(BattleParticipant::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        
+        // Le perdant est l'autre joueur (pas le gagnant)
+        for (String userId : userIds) {
+            if (!userId.equals(winnerId)) {
+                return userId;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Attribue les récompenses de victoire au gagnant et met à jour les points RTA
      */
     private void giveVictoryReward(String winnerId, String winnerName, BattleState state) {
         try {
             User winner = userRepository.findById(Long.valueOf(winnerId))
                 .orElseThrow(() -> new IllegalArgumentException("Joueur introuvable : " + winnerId));
+            
+            // Trouver l'adversaire pour calculer la différence de points
+            String loserId = findLoserId(state, winnerId);
+            User loser = null;
+            
+            if (loserId != null) {
+                loser = userRepository.findById(Long.valueOf(loserId))
+                    .orElse(null);
+            }
+            
+            // Calcul des points RTA
+            if (loser != null) {
+                // Calculer les changements de points RTA
+                int winnerPointsChange = rtaRankingService.calculatePointsChange(true, winner.getRtaPoints(), loser.getRtaPoints());
+                int loserPointsChange = rtaRankingService.calculatePointsChange(false, loser.getRtaPoints(), winner.getRtaPoints());
+                
+                // Mettre à jour les points et tiers
+                int newWinnerPoints = rtaRankingService.clampPoints(winner.getRtaPoints() + winnerPointsChange);
+                int newLoserPoints = rtaRankingService.clampPoints(loser.getRtaPoints() + loserPointsChange);
+                
+                winner.setRtaPoints(newWinnerPoints);
+                winner.setRtaTier(rtaRankingService.calculateTier(newWinnerPoints));
+                
+                loser.setRtaPoints(newLoserPoints);
+                loser.setRtaTier(rtaRankingService.calculateTier(newLoserPoints));
+                
+                // Incrémenter les statistiques de combat
+                winner.setWinNumber(winner.getWinNumber() + 1);
+                loser.setLoseNumber(loser.getLoseNumber() + 1);
+                
+                userRepository.save(winner);
+                userRepository.save(loser);
+                
+                // Messages de log pour les points RTA
+                state.getLogs().add("🏆 " + winnerName + " gagne " + winnerPointsChange + " points RTA (" + newWinnerPoints + " total)");
+                state.getLogs().add("📉 " + loser.getUsername() + " perd " + Math.abs(loserPointsChange) + " points RTA (" + newLoserPoints + " total)");
+                
+                // Vérifier si changement de tier
+                if (!winner.getRtaTier().equals(rtaRankingService.calculateTier(winner.getRtaPoints() - winnerPointsChange))) {
+                    state.getLogs().add("🎖️ " + winnerName + " monte en " + winner.getRtaTier() + "!");
+                }
+                
+                log.info("Points RTA mis à jour - Gagnant: {} (+{} -> {}), Perdant: {} ({} -> {})", 
+                         winner.getUsername(), winnerPointsChange, newWinnerPoints,
+                         loser.getUsername(), loserPointsChange, newLoserPoints);
+            }
             
             // Récompense : 100 diamants au gagnant (configurable)
             int rewardDiamonds = 100;

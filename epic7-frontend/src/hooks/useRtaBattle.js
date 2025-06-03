@@ -88,29 +88,39 @@ export default function useRtaBattle() {
           return; // Ne plus demander de resynchronisation
         }
         
-        // Si nous sommes en phase prebattle, extraire les données du match
-        if (phase === 'prebattle' && state.player1Id && state.player2Id) {
+        // Extraire les données du match si nous avons les informations des joueurs
+        if (state.player1Id && state.player2Id && state.player1Name && state.player2Name) {
+          console.log('Création des données de match avec:', {
+            player1Id: state.player1Id,
+            player1Name: state.player1Name,
+            player2Id: state.player2Id,
+            player2Name: state.player2Name
+          });
+          
           // Créer les données de match pour l'écran de pré-bataille
           const player1Heroes = state.participants.filter(p => p.userId === state.player1Id);
           const player2Heroes = state.participants.filter(p => p.userId === state.player2Id);
           
-          setMatchData({
+          const newMatchData = {
             player1: {
               id: state.player1Id,
-              username: state.player1Name || "Joueur 1",
+              username: state.player1Name,
               level: 99, // Sera remplacé par les vraies données si disponibles
               heroes: player1Heroes
             },
             player2: {
               id: state.player2Id,
-              username: state.player2Name || "Joueur 2", 
+              username: state.player2Name,
               level: 99,
               heroes: player2Heroes
             },
             // Ajouter aussi directement les noms pour compatibilité
             player1Name: state.player1Name,
             player2Name: state.player2Name
-          });
+          };
+          
+          console.log('Nouvelles données de match créées:', newMatchData);
+          setMatchData(newMatchData);
         }
         
         // Vérification et correction de l'indice de tour

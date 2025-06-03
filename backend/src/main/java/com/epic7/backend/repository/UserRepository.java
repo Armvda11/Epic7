@@ -2,6 +2,8 @@ package com.epic7.backend.repository;
 
 import com.epic7.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,5 +18,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // Méthode de recherche par nom d'utilisateur (insensible à la casse)
     List<User> findByUsernameLikeIgnoreCase(String pattern);
+    
+    // Méthodes pour le système de classement RTA
+    @Query(value = "SELECT * FROM User u ORDER BY u.rta_points DESC LIMIT :limit", nativeQuery = true)
+    List<User> findTopRtaPlayers(@Param("limit") int limit);
+    
+    @Query("SELECT COUNT(u) FROM User u WHERE u.rtaPoints > :points")
+    int countUsersWithHigherRtaPoints(@Param("points") int points);
 
 }

@@ -55,6 +55,7 @@ const Dashboard = () => {
   const rightMenuItems = [
     { label: t("quests", language), icon: <FaBookOpen size={28} />, action: () => navigate("/battle") },
     { label: t("battle", language), icon: <FaCrosshairs size={28} />, action: () => navigate("/rta") },
+    { label: t("rtaRanking", language) || "Classement RTA", icon: <FaGlobeAmericas size={28} />, action: () => navigate("/rta-leaderboard") },
     { label: t("shop", language), icon: <FaBoxOpen size={28} />, action: () => navigate("/shop") },
     { label: t("summon", language), icon: <FaStar size={28} />, action: () => navigate("/summons") },
   ];

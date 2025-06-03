@@ -107,6 +107,12 @@ public class User {
     
     @Column(nullable = false)
     private int loseNumber = 0; // Nombre de défaites
+    
+    @Column(nullable = false)
+    private int rtaPoints = 1000; // Points RTA (commence à 1000)
+    
+    @Column(nullable = false)
+    private String rtaTier = "Bronze"; // Tier RTA basé sur les points
 
     /**
      * Ajoute un héros à la liste des héros possédés par l'utilisateur.

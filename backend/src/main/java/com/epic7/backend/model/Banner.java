@@ -12,7 +12,6 @@ import java.util.List;
  * Contient des informations sur la période de disponibilité et les héros en vedette.
  * @author hermas
  */
-// TODO : Ajouter une image pour la bannière
 @Entity
 @Getter
 @Setter
