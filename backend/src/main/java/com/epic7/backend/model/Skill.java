@@ -127,20 +127,38 @@ public class Skill {
                 // La compétence ne peut cibler que soi-même
                 return actor.equals(target);
             case SINGLE_ENEMY:
-                // La compétence cible un ennemi unique (userId différent)
-                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // La compétence cible un ennemi unique (userId différent) - null-safe pour les boss
+                return !areSameUser(actor, target) && target.getCurrentHp() > 0;
             case SINGLE_ALLY:
-                // La compétence cible un allié unique (même userId)
-                return !actor.equals(target) && actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // La compétence cible un allié unique (même userId) - null-safe pour les boss
+                return !actor.equals(target) && areSameUser(actor, target) && target.getCurrentHp() > 0;
             case ALL_ALLIES:
-                // Pour les compétences qui affectent tous les alliés, on vérifie juste si c'est un allié
-                return actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Pour les compétences qui affectent tous les alliés, on vérifie juste si c'est un allié - null-safe
+                return areSameUser(actor, target) && target.getCurrentHp() > 0;
             case ALL_ENEMIES:
-                // Pour les compétences qui affectent tous les ennemis, on vérifie juste si c'est un ennemi
-                return !actor.getUserId().equals(target.getUserId()) && target.getCurrentHp() > 0;
+                // Pour les compétences qui affectent tous les ennemis, on vérifie juste si c'est un ennemi - null-safe
+                return !areSameUser(actor, target) && target.getCurrentHp() > 0;
             default:
                 return false;
         }
+    }
+    
+    /**
+     * Vérifie si deux participants appartiennent au même utilisateur (null-safe).
+     * Les boss ont userId null, donc ils ne sont jamais du même utilisateur que les joueurs.
+     */
+    private boolean areSameUser(com.epic7.backend.service.battle.model.BattleParticipant actor, 
+                               com.epic7.backend.service.battle.model.BattleParticipant target) {
+        String actorUserId = actor.getUserId();
+        String targetUserId = target.getUserId();
+        
+        // Si l'un des userId est null (boss), ils ne sont pas du même utilisateur
+        if (actorUserId == null || targetUserId == null) {
+            return false;
+        }
+        
+        // Comparaison normale si les deux ont des userId
+        return actorUserId.equals(targetUserId);
     }
 
 }

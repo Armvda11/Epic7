@@ -9,6 +9,7 @@ import FloatingDamage from '../components/battle/FloatingDamage';
 import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel';
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
+import SkillAnimation from '../components/battle/SkillAnimation';
 
 // utilitaire de log
 function logBattleAction(message, data) {
@@ -30,6 +31,13 @@ export default function Battle() {
   const [floatingDamages,   setFloatingDamages]   = useState([]);
   const [bossAttacking,     setBossAttacking]     = useState(false);
   const [reward,            setReward]            = useState(null);
+
+  // 🎬 Animation des compétences
+  const [skillAnimation,    setSkillAnimation]    = useState({
+    isVisible: false,
+    heroCode: null,
+    skillPosition: null
+  });
 
   const navigate   = useNavigate();
   const targetRefs = useRef({});
@@ -107,6 +115,27 @@ export default function Battle() {
     try {
       // on récupère l'acteur courant
       const actor = battleState.participants[battleState.currentTurnIndex];
+      
+      // Trouver la compétence sélectionnée pour obtenir sa position
+      const selectedSkill = currentHeroSkills.find(skill => skill.id === selectedSkillId);
+      
+      // Si c'est la compétence en position 2, déclencher l'animation
+      if (selectedSkill && selectedSkill.position === 2) {
+        logBattleAction('🎬 DÉCLENCHEMENT ANIMATION', {
+          hero: actor.name,
+          skill: selectedSkill.name,
+          position: selectedSkill.position
+        });
+        
+        setSkillAnimation({
+          isVisible: true,
+          heroCode: actor.name, // Utiliser le nom du héros pour correspondre aux fichiers d'animation
+          skillPosition: selectedSkill.position
+        });
+        
+        // Attendre 3 secondes pour l'animation complète
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
 
       // on envoie l'action au back
       const { data: result } = await API.post('/combat/action/skill', {
@@ -134,6 +163,16 @@ export default function Battle() {
     } catch (err) {
       console.error("Erreur useSkill:", err);
     }
+  }
+
+  // ─── Gestion de la fin d'animation ────────────────────────────────────
+  function handleAnimationEnd() {
+    logBattleAction('🎬 FIN ANIMATION', 'Animation terminée');
+    setSkillAnimation({
+      isVisible: false,
+      heroCode: null,
+      skillPosition: null
+    });
   }
 
   function handleSkillClick(skill) {
@@ -290,6 +329,14 @@ export default function Battle() {
 
       {/* dégâts flottants */}
       {floatingDamages.map(fd => <FloatingDamage key={fd.id} {...fd} />)}
+
+      {/* Animation de compétence */}
+      <SkillAnimation
+        heroCode={skillAnimation.heroCode}
+        skillPosition={skillAnimation.skillPosition}
+        isVisible={skillAnimation.isVisible}
+        onAnimationEnd={handleAnimationEnd}
+      />
 
       {/* fin */}
       {battleState.finished && (

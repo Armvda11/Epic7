@@ -1,21 +1,27 @@
-import React, { useState, useEffect, use } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { performSummon, getBannerHeroes, getOwnedHeroes, getBannerEquipments, getRarestHero } from "../services/summonService";
 import API from "../api/axiosInstance";
-import '../SummonPage.css';
+import { useSettings } from "../context/SettingsContext";
+import ModernPageLayout from "../components/ui/ModernPageLayout";
+import ModernCard from "../components/ui/ModernCard";
+import ModernButton from "../components/ui/ModernButton";
+import ModernModal from "../components/ui/ModernModal";
+import { FaGem, FaMagic, FaStar, FaBolt, FaEye, FaGift } from "react-icons/fa";
 
 export default function SummonPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeBanners, setActiveBanners] = useState([]); // État pour les bannières actives
-  const [selectedBanner, setSelectedBanner] = useState(null); // Bannière sélectionnée
-  const [bannerHeroes, setBannerHeroes] = useState([]); // Héros de la bannière sélectionnée
-  const [bannerEquipments, setBannerEquipments] = useState([]); // Équipements de la bannière sélectionnée
-  const [showBannerHeroes, setShowBannerHeroes] = useState(false); // État pour afficher la fenêtre
-  const [ownedHeroes, setOwnedHeroes] = useState([]); // Héros possédés par l'utilisateur
-  const [userDiamonds, setUserDiamonds] = useState(0); // État pour les gemmes
-  const navigate = useNavigate();
-  const [rarestHero, setRarestHero] = useState(null); // État pour le héros le plus rare
+  const [activeBanners, setActiveBanners] = useState([]);
+  const [selectedBanner, setSelectedBanner] = useState(null);
+  const [bannerHeroes, setBannerHeroes] = useState([]);
+  const [bannerEquipments, setBannerEquipments] = useState([]);
+  const [showBannerModal, setShowBannerModal] = useState(false);
+  const [ownedHeroes, setOwnedHeroes] = useState([]);
+  const [userDiamonds, setUserDiamonds] = useState(0);
+  const [rarestHero, setRarestHero] = useState(null);
+  const [summonAnimation, setSummonAnimation] = useState(false);
+  const { theme, t, language } = useSettings();
 
   
   // Récupérer le nombre de gemmes de l'utilisateur
@@ -38,9 +44,11 @@ export default function SummonPage() {
       try {
         const response = await API.get("/summons/active-banners");
         console.log("Bannières actives récupérées :", response.data);
-        setActiveBanners(response.data);
+        // S'assurer que c'est un tableau
+        setActiveBanners(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error("Erreur lors de la récupération des bannières actives :", error);
+        setActiveBanners([]); // Valeur par défaut en cas d'erreur
       }
     };
 
@@ -53,9 +61,11 @@ export default function SummonPage() {
       try {
         const heroes = await getOwnedHeroes();
         console.log("Héros possédés récupérés :", heroes);
-        setOwnedHeroes(heroes);
+        // S'assurer que c'est un tableau
+        setOwnedHeroes(Array.isArray(heroes) ? heroes : []);
       } catch (error) {
         console.error("Erreur lors de la récupération des héros possédés :", error);
+        setOwnedHeroes([]); // Valeur par défaut en cas d'erreur
       }
     };
 
@@ -66,13 +76,15 @@ export default function SummonPage() {
   const handleBannerClick = async (banner) => {
     setSelectedBanner(banner);
     try {
-      const heroes = await getBannerHeroes(banner.id); // Récupérer les héros de la bannière
-      const equipments = await getBannerEquipments(banner.id); // Récupérer les équipements de la bannière
-      const rareHero = await getRarestHero(banner.id); // Récupérer le héros le plus rare de la bannière
-      setBannerHeroes(heroes);
-      setBannerEquipments(equipments);
-      setRarestHero(rareHero)
-      setShowBannerHeroes(true); // Ouvrir la fenêtre
+      const heroes = await getBannerHeroes(banner.id);
+      const equipments = await getBannerEquipments(banner.id);
+      const rareHero = await getRarestHero(banner.id);
+      
+      // S'assurer que les données sont des tableaux
+      setBannerHeroes(Array.isArray(heroes) ? heroes : []);
+      setBannerEquipments(Array.isArray(equipments) ? equipments : []);
+      setRarestHero(rareHero);
+      setShowBannerModal(true);
     } catch (error) {
       console.error("Erreur lors de la récupération des contenus de la bannière :", error);
       setBannerHeroes([]);
@@ -80,18 +92,22 @@ export default function SummonPage() {
     }
   };
   
-  // Récupérer le héros le plus rare de la bannière sélectionnée
-  const handleBannerLeftClick = async (banner) => {
+  // Sélectionner une bannière et récupérer le héros le plus rare
+  const handleBannerSelect = async (banner) => {
     setSelectedBanner(banner);  
-    const rareHero = await getRarestHero(banner.id);
-    setRarestHero(rareHero);
-  }
-
-  const closeBannerHeroes = () => {
-    setShowBannerHeroes(false); // Fermer la fenêtre
+    try {
+      const rareHero = await getRarestHero(banner.id);
+      setRarestHero(rareHero);
+    } catch (error) {
+      console.error("Erreur lors de la récupération du héros le plus rare :", error);
+    }
   };
 
-  // pour invoquer un héros ou un équipement
+  const closeBannerModal = () => {
+    setShowBannerModal(false);
+  };
+
+  // Pour invoquer un héros ou un équipement
   const handleSummon = async () => {
     if (!selectedBanner) {
       setResult({ error: true, message: "❌ Il faut sélectionner une bannière avant d'invoquer." });
@@ -100,18 +116,31 @@ export default function SummonPage() {
 
     setResult(null);
     setLoading(true);
+    setSummonAnimation(true);
+    
     try {
-      const summonResult = await performSummon(selectedBanner.id); // Passer l'ID de la bannière sélectionnée
-      setResult(summonResult); // Affiche le résultat si l'invocation réussit
+      const summonResult = await performSummon(selectedBanner.id);
+      
+      // Délai pour l'animation
+      setTimeout(() => {
+        setResult(summonResult);
+        setSummonAnimation(false);
+        
+        // Mettre à jour les gemmes restantes
+        const updatedDiamonds = userDiamonds - selectedBanner.cout >= 0 ? userDiamonds - selectedBanner.cout : userDiamonds;
+        setUserDiamonds(updatedDiamonds);
 
-      // Mettre à jour les gemmes restantes
-      const updatedDiamonds = userDiamonds - selectedBanner.cout >= 0 ? userDiamonds - selectedBanner.cout : userDiamonds;
-      setUserDiamonds(updatedDiamonds);
-
-      // Recharger les héros possédés
-      const heroes = await getOwnedHeroes();
-      setOwnedHeroes(heroes);
+        // Recharger les héros possédés
+        getOwnedHeroes().then(heroes => {
+          setOwnedHeroes(Array.isArray(heroes) ? heroes : []);
+        }).catch(error => {
+          console.error("Erreur lors du rechargement des héros :", error);
+          setOwnedHeroes([]);
+        });
+      }, 2000);
+      
     } catch (error) {
+      setSummonAnimation(false);
       if (error.response && error.response.data && error.response.data.message) {
         setResult({ error: true, message: error.response.data.message });
       } else {
@@ -122,202 +151,435 @@ export default function SummonPage() {
     }
   };
 
+  // Variantes d'animation
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 24
+      }
+    }
+  };
+
+  const summonVariants = {
+    idle: { scale: 1, rotate: 0 },
+    summoning: { 
+      scale: [1, 1.1, 1],
+      rotate: [0, 360, 720],
+      transition: { 
+        duration: 2,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
   return (
-    <div className="relative h-screen bg-gradient-to-br from-purple-900 to-black text-white p-6">
-      {/* Bouton Retour */}
-      <button
-        onClick={() => navigate("/dashboard")}
-        className="absolute top-4 left-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-bold shadow-lg"
+    <ModernPageLayout 
+      title="🔮 Invocation"
+      subtitle="Découvrez de nouveaux héros et équipements"
+      backTo="/dashboard"
+    >
+      <motion.div
+        className="min-h-screen relative"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        Retour
-      </button>
-      {/* Contenu principal */}
-      <div className="flex h-full">
-        {/* Section gauche : Titre et contenu principal */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <h1 className="text-4xl font-bold mb-6">🔮 Invocation 🔮</h1>
-
-          {result && (
-            <div className="mt-6 text-center">
-              {result.error ? (
-                <p className="text-xl text-red-500">{result.message}</p>
-              ) : (
-                <>
-                  <h2 className="text-3xl font-bold">Résultat de l'invocation :</h2>
-                  <div className="flex flex-col items-center">
-                    <img
-                      src={
-                        result.type === "Hero"
-                          ? `/epic7-Hero/webp/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
-                          : `/equipment/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
-                      }
-                      alt={result.name}
-                      className={`mt-4 w-40 h-40 object-contain rounded-lg shadow-lg ${ 
-                        !result.error && result.type === "Hero" ? "hero-glow" : result.type === "Equipment" 
-                        ? "equip-glow" : ""
-                      }`}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/webp/unknown.webp"
-                      }}
-                    />
-                    <p className="text-xl font-bold mt-4">{result.name}</p>
-                    <p className="text-lg">{result.rarity}</p>
-                    <p className="text-lg">{result.element}</p>
-                    {result.type === "Hero" && (
-                      <>
-                        <p className="text-lg text-green-500">
-                          Niveau d'éveil : {result.awakeningLevel}
-                        </p>
-                        {result.awakeningLevel === 0 ? (
-                          <p className="text-lg text-blue-500 mt-2">
-                            🎉 Nouveau héros débloqué !
-                          </p>
-                        ) : (
-                          <p className="text-lg text-yellow-500 mt-2">
-                            🔄 Vous possédez déjà ce héros, son niveau d'éveil augmente de 1 !
-                          </p>
-                        )}
-                      </>
-                    )}
-                    {result.type === "Equipment" && (
-                      <p className="text-lg text-red-500 mt-2">🎉 Nouvel équipement obtenu !</p>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          <button
-            onClick={handleSummon}
-            disabled={loading}
-            className="mt-6 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg text-xl font-bold shadow-lg"
-          >
-            {loading ? "Invocation en cours..." : "Invoquer un héros ou un équipement"}
-          </button>
-          {/* Afficher le nombre de gemmes restante */}
-          <div className="bg-gray-800 text-white px-6 py-4 rounded-lg shadow-lg">
-            <p className="text-lg font-bold ml-2">💎 {userDiamonds}</p>
-          </div>
-        </div>
-
-        {/* Section droite : Liste des bannières */}
-        <div className="w-1/3 flex flex-col items-center space-y-4">
-          <h2 className="text-2xl font-bold mb-4">Bannières actives :</h2>
-          {activeBanners.map((banner) => (
-            <div key={banner.id} className="flex items-center w-full space-x-4">
-              {/* Conteneur de la bannière */}
-              <div
-                className={`p-4 rounded-lg shadow-lg cursor-pointer flex-1 ${
-                  selectedBanner?.id === banner.id
-                    ? "bg-blue-500 text-white border-4 border-blue-700 shadow-xl"
-                    : "bg-purple-600 text-white"
-                }`}
-                onClick={() => handleBannerLeftClick(banner)}
-              >
-                <h3 className="text-xl font-bold">{banner.name}</h3>
-                <p className="text-sm">Début : {new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(banner.startsAt))}</p>
-                <p className="text-sm">Fin :  {new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(banner.endsAt))}</p>
-                <p className="text-sm font-bold">💎 Coût : {banner.cout} diamants</p>
-              </div>
-
-              {/* Bouton pour afficher le contenu */}
-              <button
-                onClick={() => handleBannerClick(banner)}
-                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-lg flex items-center justify-center"
-                style={{ height: "100%" }}
-              >
-                Voir contenu
-              </button>
-            </div>
+        {/* Effets de particules de fond */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-pink-900/20" />
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-2 h-2 bg-purple-400/30 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [0, -20, 0],
+                opacity: [0.3, 0.8, 0.3],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
           ))}
         </div>
-      </div>
 
-      {/* Afficher le héros le plus rare de la bannière sélectionnée */}
-      { selectedBanner && rarestHero && (
-        <div style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)" }}>
-          <img 
-            src={`/epic7-Hero/webp/${rarestHero.name.toLowerCase().replace(/\s+/g, "-")}.webp`} 
-            alt={rarestHero.name}
-            style={{ width: "150px", borderRadius: "10px", boxShadow: "4px 4px 10px rgba(0,0,0,0.5)" }}
-            onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/webp/unknown.webp"
-                      }}
-          />
-          <p style={{ color: "white", fontSize: "16px", textAlign: "left" }}>
-            Obtenez dès maintenant :
-            <br/>
-            <strong>{rarestHero.name}</strong>
-            <br/>
-            <strong>{rarestHero.rarity}</strong>
-            <br/>
-            <strong>{rarestHero.element}</strong>
-          </p>
-        </div>
-      )}
-
-      {/* Fenêtre flottante pour afficher les héros et équipements */}
-      {showBannerHeroes && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="absolute inset-0" onClick={closeBannerHeroes} />
-          <div className="bg-white dark:bg-[#2f2b50] rounded-xl p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto relative z-50">
-            <button
-              onClick={closeBannerHeroes}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300"
-            >
-              ✖
-            </button>
-            <h2 className="text-2xl font-bold mb-4">Héros de la bannière : {selectedBanner.name}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {bannerHeroes.map((hero) => {
-                const ownedHero = ownedHeroes.find((h) => h.hero.id === hero.id);
-                return (
-                  <div key={hero.id} className="text-center flex flex-col items-center">
-                    <img
-                      src={`/epic7-Hero/webp/${hero.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
-                      alt={hero.name}
-                      className="w-24 h-24 object-contain rounded-lg shadow-lg"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "/epic7-Hero/webp/unknown.webp"; // Image par défaut en cas d'erreur
-                      }}
-                    />
-                    <p className="text-lg font-bold mt-2">{hero.name}</p>
-                    <p className="text-sm">{hero.rarity}</p>
-                    {ownedHero ? (
-                      <p className="text-sm text-green-500">
-                        Possédé (Niveau d'éveil : {ownedHero.awakeningLevel})
-                      </p>
-                    ) : (
-                      <p className="text-sm text-red-500">Non possédé</p>
-                    )}
-                  </div>
-                );
-              })}
-
-              {bannerEquipments.map((equipment) => (
-                <div key={equipment.id} className="text-center flex flex-col items-center">
-                  <img
-                    src={`/equipment/${equipment.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
-                    alt={equipment.name}
-                    className="w-24 h-24 object-contain rounded-lg shadow-lg"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/epic7-Hero/webp/unknown.webp"
-                    }}
-                  />
-                  <p className="text-lg font-bold mt-2">{equipment.name}</p>
-                  <p className="text-sm">{equipment.rarity}</p>
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
+          {/* Section principale - Invocation */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Affichage des gemmes */}
+            <motion.div variants={itemVariants}>
+              <ModernCard className="text-center">
+                <div className="flex items-center justify-center gap-3">
+                  <FaGem className="text-2xl text-blue-400" />
+                  <span className="text-2xl font-bold">{userDiamonds}</span>
+                  <span className="text-lg opacity-80">Gemmes</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              </ModernCard>
+            </motion.div>
 
+            {/* Zone d'invocation principale */}
+            <motion.div variants={itemVariants}>
+              <ModernCard className="text-center p-8">
+                <AnimatePresence mode="wait">
+                  {summonAnimation ? (
+                    <motion.div
+                      key="summoning"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="flex flex-col items-center space-y-4"
+                    >
+                      <motion.div
+                        variants={summonVariants}
+                        animate="summoning"
+                        className="text-6xl"
+                      >
+                        🔮
+                      </motion.div>
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        Invocation en cours...
+                      </h3>
+                      <p className="text-lg opacity-80">Les forces mystiques œuvrent...</p>
+                    </motion.div>
+                  ) : result ? (
+                    <motion.div
+                      key="result"
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -50 }}
+                      className="space-y-6"
+                    >
+                      {result.error ? (
+                        <div className="text-red-400 text-xl">{result.message}</div>
+                      ) : (
+                        <>
+                          <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                            Résultat de l'invocation
+                          </h2>
+                          <div className="flex flex-col items-center space-y-4">
+                            <motion.img
+                              src={
+                                result.type === "Hero"
+                                  ? `/epic7-Hero/webp/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
+                                  : `/equipment/${result.name.toLowerCase().replace(/\s+/g, "-")}.webp`
+                              }
+                              alt={result.name}
+                              className="w-48 h-48 object-contain rounded-2xl shadow-2xl"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/epic7-Hero/webp/unknown.webp";
+                              }}
+                              initial={{ scale: 0, rotate: 180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              transition={{ 
+                                type: "spring", 
+                                stiffness: 200, 
+                                damping: 15,
+                                delay: 0.2 
+                              }}
+                            />
+                            <div className="text-center space-y-2">
+                              <h3 className="text-2xl font-bold">{result.name}</h3>
+                              <div className="flex items-center justify-center gap-2">
+                                <FaStar className="text-yellow-400" />
+                                <span className="text-lg">{result.rarity}</span>
+                              </div>
+                              <p className="text-lg">{result.element}</p>
+                              
+                              {result.type === "Hero" && (
+                                <div className="space-y-2">
+                                  <p className="text-green-400 font-semibold">
+                                    Niveau d'éveil : {result.awakeningLevel}
+                                  </p>
+                                  {result.awakeningLevel === 0 ? (
+                                    <p className="text-blue-400 flex items-center justify-center gap-2">
+                                      <FaGift /> Nouveau héros débloqué !
+                                    </p>
+                                  ) : (
+                                    <p className="text-yellow-400 flex items-center justify-center gap-2">
+                                      <FaBolt /> Éveil amélioré !
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {result.type === "Equipment" && (
+                                <p className="text-purple-400 flex items-center justify-center gap-2">
+                                  <FaGift /> Nouvel équipement obtenu !
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="waiting"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="space-y-6"
+                    >
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0]
+                        }}
+                        transition={{ 
+                          duration: 4,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                        className="text-8xl"
+                      >
+                        🔮
+                      </motion.div>
+                      <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        Prêt pour l'invocation
+                      </h2>
+                      <p className="text-lg opacity-80">
+                        {selectedBanner ? 
+                          `Bannière sélectionnée : ${selectedBanner.name}` : 
+                          "Sélectionnez une bannière pour commencer"
+                        }
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Bouton d'invocation */}
+                <motion.div 
+                  variants={itemVariants}
+                  className="mt-8"
+                >
+                  <ModernButton
+                    variant="primary"
+                    size="lg"
+                    onClick={handleSummon}
+                    disabled={loading || !selectedBanner || summonAnimation}
+                    loading={loading}
+                    icon={<FaMagic />}
+                    className="text-xl px-8 py-4"
+                  >
+                    {loading ? "Invocation..." : "Invoquer"}
+                  </ModernButton>
+                </motion.div>
+              </ModernCard>
+            </motion.div>
+
+            {/* Héros vedette de la bannière */}
+            <AnimatePresence>
+              {selectedBanner && rarestHero && (
+                <motion.div
+                  initial={{ opacity: 0, x: -100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  variants={itemVariants}
+                >
+                  <ModernCard className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <motion.img
+                        src={`/epic7-Hero/webp/${rarestHero.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
+                        alt={rarestHero.name}
+                        className="w-24 h-24 object-contain rounded-xl"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "/epic7-Hero/webp/unknown.webp";
+                        }}
+                        whileHover={{ scale: 1.1 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      />
+                      <div>
+                        <h3 className="text-xl font-bold text-yellow-400">Héros Vedette</h3>
+                        <p className="text-lg font-semibold">{rarestHero.name}</p>
+                        <p className="text-sm opacity-80">{rarestHero.rarity} • {rarestHero.element}</p>
+                        <p className="text-sm text-purple-400">Obtenez-le dès maintenant !</p>
+                      </div>
+                    </div>
+                  </ModernCard>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Section droite - Bannières */}
+          <motion.div variants={itemVariants} className="space-y-4">
+            <ModernCard className="p-6">
+              <h2 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Bannières Actives
+              </h2>
+              
+              <div className="space-y-4">
+                <AnimatePresence>
+                  {Array.isArray(activeBanners) && activeBanners.map((banner, index) => (
+                    <motion.div
+                      key={banner.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <ModernCard
+                        className={`p-4 cursor-pointer transition-all duration-300 ${
+                          selectedBanner?.id === banner.id
+                            ? 'ring-2 ring-blue-400 bg-blue-500/20'
+                            : 'hover:bg-purple-500/10'
+                        }`}
+                        onClick={() => handleBannerSelect(banner)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-lg">{banner.name}</h3>
+                          <div className="text-sm opacity-80">
+                            <p>Début: {new Intl.DateTimeFormat("fr-FR", { 
+                              dateStyle: "short", 
+                              timeStyle: "short" 
+                            }).format(new Date(banner.startsAt))}</p>
+                            <p>Fin: {new Intl.DateTimeFormat("fr-FR", { 
+                              dateStyle: "short", 
+                              timeStyle: "short" 
+                            }).format(new Date(banner.endsAt))}</p>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FaGem className="text-blue-400" />
+                              <span className="font-semibold">{banner.cout}</span>
+                            </div>
+                            <ModernButton
+                              variant="accent"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleBannerClick(banner);
+                              }}
+                              icon={<FaEye />}
+                            >
+                              Contenu
+                            </ModernButton>
+                          </div>
+                        </div>
+                      </ModernCard>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </ModernCard>
+          </motion.div>
+        </div>
+
+        {/* Modal pour afficher le contenu de la bannière */}
+        <ModernModal
+          isOpen={showBannerModal}
+          onClose={closeBannerModal}
+          title={`Contenu de la bannière : ${selectedBanner?.name}`}
+          size="lg"
+        >
+          <div className="space-y-6">
+            {/* Héros */}
+            {Array.isArray(bannerHeroes) && bannerHeroes.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold mb-4 text-purple-400">Héros disponibles</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {bannerHeroes.map((hero) => {
+                    // S'assurer que ownedHeroes est un tableau
+                    const ownedHeroesArray = Array.isArray(ownedHeroes) ? ownedHeroes : [];
+                    const ownedHero = ownedHeroesArray.find((h) => h.hero?.id === hero.id);
+                    return (
+                      <motion.div
+                        key={hero.id}
+                        className="text-center space-y-2"
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        <div className="relative">
+                          <img
+                            src={`/epic7-Hero/webp/${hero.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
+                            alt={hero.name}
+                            className="w-20 h-20 object-contain rounded-lg mx-auto"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "/epic7-Hero/webp/unknown.webp";
+                            }}
+                          />
+                          {ownedHero && (
+                            <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+                              ✓
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{hero.name}</p>
+                          <p className="text-xs opacity-80">{hero.rarity}</p>
+                          {ownedHero ? (
+                            <p className="text-xs text-green-400">
+                              Éveil: {ownedHero.awakeningLevel}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-red-400">Non possédé</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Équipements */}
+            {Array.isArray(bannerEquipments) && bannerEquipments.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold mb-4 text-orange-400">Équipements disponibles</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {bannerEquipments.map((equipment) => (
+                    <motion.div
+                      key={equipment.id}
+                      className="text-center space-y-2"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <img
+                        src={`/equipment/${equipment.name.toLowerCase().replace(/\s+/g, "-")}.webp`}
+                        alt={equipment.name}
+                        className="w-20 h-20 object-contain rounded-lg mx-auto"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "/epic7-Hero/webp/unknown.webp";
+                        }}
+                      />
+                      <div>
+                        <p className="font-semibold text-sm">{equipment.name}</p>
+                        <p className="text-xs opacity-80">{equipment.rarity}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ModernModal>
+      </motion.div>
+    </ModernPageLayout>
   );
 }
