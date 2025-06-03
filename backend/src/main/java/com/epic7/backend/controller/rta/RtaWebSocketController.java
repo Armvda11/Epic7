@@ -375,7 +375,7 @@ public class RtaWebSocketController {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
                 
             try {
-                // Casting explicite à BattleState
+                // CORRECTION: Vérifier d'abord si la bataille existe
                 BattleState state = (BattleState) battleManager.getBattleState(battleId);
                 
                 if (state != null) {
@@ -411,7 +411,7 @@ public class RtaWebSocketController {
                     // Envoyer l'état corrigé
                     messaging.convertAndSendToUser(
                         principal.getName(),
-                        "/queue/rta/state", 
+                        "/queue/rta/state/" + battleId, 
                         state
                     );
                     
@@ -424,6 +424,14 @@ public class RtaWebSocketController {
                         "Bataille introuvable"
                     );
                 }
+            } catch (IllegalStateException e) {
+                // CORRECTION: Gestion spécifique pour les batailles non trouvées
+                log.warn("Bataille {} non trouvée (probablement en cours de création): {}", battleId, e.getMessage());
+                messaging.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/rta/error", 
+                    "Bataille en cours de création, veuillez patienter..."
+                );
             } catch (ClassCastException e) {
                 log.error("Erreur de casting de l'état de bataille: {}", e.getMessage());
                 messaging.convertAndSendToUser(

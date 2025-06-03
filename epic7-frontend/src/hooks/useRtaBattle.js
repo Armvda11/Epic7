@@ -279,10 +279,11 @@ export default function useRtaBattle() {
         }
       }
       
-      // Retour à la phase de sélection après 5 secondes
+      // CORRECTION: Retour immédiat à la phase de sélection pour permettre un nouveau combat
+      console.log('🎯 Combat terminé, retour immédiat à la sélection');
       setTimeout(() => {
         resetBattle();
-      }, 5000);
+      }, 1500); // Réduit à 1.5 secondes pour pouvoir refaire un combat plus rapidement
     });
     
     webSocketService.on('onNextTurn', (heroId) => {
@@ -290,10 +291,8 @@ export default function useRtaBattle() {
       setActiveHeroId(heroId);
     });
     
-    // Tenter une connexion au démarrage
-    webSocketService.connect().catch(() => {
-      toast.error('Impossible de se connecter au serveur de combat');
-    });
+    // SUPPRESSION: Ne plus se connecter automatiquement au démarrage
+    // Le WebSocket se connectera seulement quand on lance un combat via joinQueue
     
     // Nettoyage à la destruction du composant
     return () => {
@@ -326,22 +325,32 @@ export default function useRtaBattle() {
       return;
     }
     
-    // Passer en phase "matchmaking"
-    setPhase('matchmaking');
-    setWaitingTime(0);
+    console.log('🚀 Démarrage d\'un nouveau combat - Réinitialisation du WebSocket...');
     
-    // Démarrer le compteur de temps d'attente
-    clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setWaitingTime(prev => prev + 1);
-    }, 1000);
-    
-    // Rejoindre le matchmaking
-    webSocketService.joinMatchmaking(heroIds)
+    // CORRECTION: Réinitialiser complètement le WebSocket pour chaque nouveau combat
+    webSocketService.resetForNewBattle()
       .then(() => {
+        console.log('✅ WebSocket réinitialisé, démarrage du matchmaking...');
+        
+        // Passer en phase "matchmaking"
+        setPhase('matchmaking');
+        setWaitingTime(0);
+        
+        // Démarrer le compteur de temps d'attente
+        clearInterval(timerRef.current);
+        timerRef.current = setInterval(() => {
+          setWaitingTime(prev => prev + 1);
+        }, 1000);
+        
+        // Rejoindre le matchmaking
+        return webSocketService.joinMatchmaking(heroIds);
+      })
+      .then(() => {
+        console.log('🎯 En file d\'attente pour un combat...');
         // toast.info('En file d\'attente pour un combat...');
       })
       .catch((error) => {
+        console.error('❌ Erreur lors du démarrage du combat:', error);
         // toast.error(`Erreur: ${error.message}`);
         resetBattle();
       });
@@ -486,6 +495,8 @@ export default function useRtaBattle() {
   
   // Réinitialiser l'état de bataille
   const resetBattle = useCallback(() => {
+    console.log('🔄 Réinitialisation de l\'état de bataille');
+    
     clearInterval(timerRef.current);
     setPhase('selection');
     setBattleId(null);
@@ -500,14 +511,11 @@ export default function useRtaBattle() {
       targetId: null
     });
     
-    // S'assurer que la connexion WebSocket est active
-    if (!isConnected) {
-      // toast.info("Reconnexion au serveur...");
-      webSocketService.connect().catch(error => {
-        // toast.error(`Impossible de se reconnecter: ${error.message}`);
-      });
-    }
-  }, [isConnected]);
+    // Nettoyer les abonnements WebSocket liés au combat
+    webSocketService.cleanupBattleSubscriptions();
+    
+    console.log('✅ État de bataille réinitialisé');
+  }, []);
 
   return {
     phase,

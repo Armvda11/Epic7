@@ -363,12 +363,12 @@ public class RtaBattleServiceImpl implements BattleManager {
 
     @Override
     public void endRtaBattle(String battleId, Long winnerId) {
-        // CORRECTION: Nettoyer complètement la session à la fin du combat
-        BattleState removedState = activeBattles.remove(battleId);
-        if (removedState != null) {
-            log.info("Session de combat nettoyée pour battleId: {}", battleId);
+        // CORRECTION: Supprimer immédiatement la bataille terminée
+        BattleState state = activeBattles.remove(battleId);
+        if (state != null) {
+            log.info("Combat terminé pour battleId: {}, session supprimée immédiatement", battleId);
         } else {
-            log.warn("Tentative de nettoyage d'une session inexistante: {}", battleId);
+            log.warn("Tentative de fin de combat pour une session inexistante: {}", battleId);
         }
     }
 

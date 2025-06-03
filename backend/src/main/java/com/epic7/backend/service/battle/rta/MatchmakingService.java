@@ -75,14 +75,32 @@ public class MatchmakingService {
             // Générer un ID de bataille
             String battleId = UUID.randomUUID().toString();
             
-            // Démarrer la bataille
-            battleManager.startRtaBattle(
+            // CORRECTION: Démarrer la bataille et vérifier qu'elle est bien créée
+            boolean battleCreated = battleManager.startRtaBattle(
                 battleId,
                 user, opponent.getUser(),
                 heroIds, opponent.getHeroIds()
             );
             
-            log.info("Match trouvé: {} vs {}", user.getUsername(), opponent.getUser().getUsername());
+            if (!battleCreated) {
+                log.error("Échec de la création de la bataille {}", battleId);
+                // Remettre les joueurs en file d'attente
+                queue.put(userId, new QueueEntry(user, heroIds));
+                queue.put(opponentId, opponent);
+                return null;
+            }
+            
+            // CORRECTION: Vérifier que la bataille est bien accessible avant de retourner l'ID
+            try {
+                battleManager.getBattleState(battleId);
+                log.info("Bataille {} créée avec succès pour {} vs {}", battleId, user.getUsername(), opponent.getUser().getUsername());
+            } catch (Exception e) {
+                log.error("Bataille {} créée mais non accessible: {}", battleId, e.getMessage());
+                // Remettre les joueurs en file d'attente
+                queue.put(userId, new QueueEntry(user, heroIds));
+                queue.put(opponentId, opponent);
+                return null;
+            }
             
             return new MatchResponse(opponent.getUser(), battleId);
         } else {
