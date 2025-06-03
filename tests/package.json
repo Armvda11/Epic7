@@ -1,0 +1,22 @@
+{
+  "name": "epic7-rta-tests",
+  "version": "1.0.0",
+  "description": "Tests RTA pour Epic7 avec configuration exacte du seeder",
+  "main": "test-rta-simple.js",
+  "scripts": {
+    "test": "node test-rta-simple.js",
+    "test-connection": "node test-node-rta-connection.js",
+    "test-stomp": "node test-stomp-rta-connection.js",
+    "test-simple": "node test-simple-stomp.js",
+    "demo": "node demo-rta-integration.js"
+  },
+  "keywords": ["epic7", "rta", "websocket", "stomp"],
+  "author": "Epic7 Team",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "ws": "^8.18.2",
+    "sockjs-client": "^1.6.1",
+    "@stomp/stompjs": "^7.0.0"
+  }
+}

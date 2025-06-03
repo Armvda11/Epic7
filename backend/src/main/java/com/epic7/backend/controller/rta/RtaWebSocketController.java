@@ -255,22 +255,100 @@ public class RtaWebSocketController {
         // Si en recherche de match, retirer de la file
         matchmakingService.leave(user);
         
-        // Si en combat, terminer le combat
+        // Si en combat, terminer le combat avec abandon
         try {
             BattleState state = (BattleState) battleManager.getBattleState(battleId);
             state.setFinished(true);
             state.getLogs().add(user.getUsername() + " a abandonné le combat.");
             
-            // Notifier l'autre joueur de l'abandon
+            // Déterminer le gagnant (l'autre joueur)
+            String abandonningUserId = user.getId().toString();
+            String winnerId = null;
+            String winnerName = "Adversaire";
+            
+            if (state.getPlayer1Id().equals(abandonningUserId)) {
+                winnerId = state.getPlayer2Id();
+                winnerName = state.getPlayer2Name() != null ? state.getPlayer2Name() : "Joueur 2";
+            } else if (state.getPlayer2Id().equals(abandonningUserId)) {
+                winnerId = state.getPlayer1Id();
+                winnerName = state.getPlayer1Name() != null ? state.getPlayer1Name() : "Joueur 1";
+            }
+            
+            // Ajouter le message de victoire dans les logs
+            state.getLogs().add("🏆 " + winnerName + " remporte la victoire par abandon!");
+            
+            // Créer des états personnalisés pour chaque joueur
+            BattleState abandonerState = new BattleState();
+            BattleState winnerState = new BattleState();
+            
+            // Copier l'état de base
+            abandonerState.setParticipants(state.getParticipants());
+            abandonerState.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            abandonerState.setRoundCount(state.getRoundCount());
+            abandonerState.setFinished(true);
+            abandonerState.setLogs(state.getLogs());
+            abandonerState.setCooldowns(state.getCooldowns());
+            abandonerState.setPlayer1Id(state.getPlayer1Id());
+            abandonerState.setPlayer2Id(state.getPlayer2Id());
+            abandonerState.setPlayer1Name(state.getPlayer1Name());
+            abandonerState.setPlayer2Name(state.getPlayer2Name());
+            abandonerState.setCurrentUserId(abandonningUserId);
+            
+            winnerState.setParticipants(state.getParticipants());
+            winnerState.setCurrentTurnIndex(state.getCurrentTurnIndex());
+            winnerState.setRoundCount(state.getRoundCount());
+            winnerState.setFinished(true);
+            winnerState.setLogs(state.getLogs());
+            winnerState.setCooldowns(state.getCooldowns());
+            winnerState.setPlayer1Id(state.getPlayer1Id());
+            winnerState.setPlayer2Id(state.getPlayer2Id());
+            winnerState.setPlayer1Name(state.getPlayer1Name());
+            winnerState.setPlayer2Name(state.getPlayer2Name());
+            winnerState.setCurrentUserId(winnerId);
+            
+            // Envoyer les états personnalisés à chaque joueur
+            User player1 = userRepository.findById(Long.parseLong(state.getPlayer1Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 1 non trouvé"));
+            User player2 = userRepository.findById(Long.parseLong(state.getPlayer2Id()))
+                .orElseThrow(() -> new RuntimeException("Joueur 2 non trouvé"));
+            
+            if (state.getPlayer1Id().equals(abandonningUserId)) {
+                // Player1 abandonne, Player2 gagne
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    abandonerState
+                );
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    winnerState
+                );
+            } else {
+                // Player2 abandonne, Player1 gagne
+                messaging.convertAndSendToUser(
+                    player1.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    winnerState
+                );
+                messaging.convertAndSendToUser(
+                    player2.getEmail(),
+                    "/queue/rta/state/" + battleId,
+                    abandonerState
+                );
+            }
+            
+            // Notifier la fin du combat
             messaging.convertAndSend(
                 "/topic/rta/end/" + battleId,
                 state
             );
             
             // Terminer la session
-            battleManager.endRtaBattle(battleId, null);
+            battleManager.endRtaBattle(battleId, winnerId != null ? Long.parseLong(winnerId) : null);
         } catch (IllegalStateException e) {
             // Combat déjà terminé ou inexistant, rien à faire
+            log.warn("Tentative d'abandon d'un combat inexistant: {}", battleId);
         }
     }
 

@@ -141,31 +141,7 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
               )}
             </div>
             
-            {rtaMode && (
-              <div className="col-span-2 mt-4 relative">
-                <h3 className="text-lg font-semibold text-red-400 mb-1">⚔️ Héros adverses (simulation)</h3>
-                <p className="text-xs text-gray-400 mb-2">
-                  Pour tester votre équipe contre différentes combinaisons d'adversaires.
-                  Ces héros ne seront pas utilisés dans le vrai combat RTA.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  {[2, 3].map(i => (
-                    <DroppableSlot 
-                      key={i} 
-                      slotId={i} 
-                      hero={selectedHeroes[i]} 
-                      onRemove={handleRemoveHero} 
-                      isEnemy={true}
-                    />
-                  ))}
-                </div>
-                
-                <div className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded px-2 py-0.5">
-                  {enemyHeroes.filter(Boolean).length}/2 sélectionnés
-                </div>
-              </div>
-            )}
-            
+            {/* Section "Héros adverses" seulement en mode normal (pas RTA) */}
             {!rtaMode && (
               <div className="col-span-2 mt-4 relative">
                 <h3 className="text-lg font-semibold text-red-400 mb-1">⚔️ Héros adverses</h3>

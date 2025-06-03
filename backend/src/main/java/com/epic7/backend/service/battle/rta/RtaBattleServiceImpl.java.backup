@@ -43,9 +43,6 @@ public class RtaBattleServiceImpl implements BattleManager {
             log.info("Nettoyage d'une ancienne session pour battleId: {}", battleId);
             activeBattles.remove(battleId);
         }
-        
-        // Nettoyer également les anciennes sessions (plus de 30 minutes)
-        cleanupOldBattles();
 
         // Construire les participants
         List<BattleParticipant> participants = new ArrayList<>();
@@ -186,6 +183,9 @@ public class RtaBattleServiceImpl implements BattleManager {
     }
     
     /**
+     * Vérifie si le combat est terminé (un camp a été éliminé).
+     */
+    /**
      * Vérifie si un des deux joueurs a gagné dans le mode RTA (tous les héros de l'autre sont morts)
      * @param state L'état actuel du combat
      * @return true si un joueur a gagné, false sinon
@@ -227,16 +227,35 @@ public class RtaBattleServiceImpl implements BattleManager {
         
         // Vérifier si un des joueurs n'a plus de héros vivants
         if (playerAliveStatus.containsValue(false)) {
-            // Trouver le gagnant - utiliser une variable finale
-            final String winnerIdFinal = findWinnerId(playerAliveStatus);
+            // Trouver le gagnant
+            String winnerId = null;
+            
+            for (Map.Entry<String, Boolean> entry : playerAliveStatus.entrySet()) {
+                if (entry.getValue()) { // Ce joueur est vivant
+                    winnerId = entry.getKey();
+                    break;
+                }
+            }
             
             // Ajouter le résultat aux logs avec un meilleur message
-            if (winnerIdFinal != null) {
-                String winnerName = playerNames.get(winnerIdFinal);
+            if (winnerId != null) {
+                String winnerName = playerNames.get(winnerId);
                 state.getLogs().add("🏆 " + winnerName + " remporte la victoire!");
                 
                 // CORRECTION: Attribution des récompenses au gagnant
-                giveVictoryReward(winnerIdFinal, winnerName, state);
+                try {
+                    User winner = userRepository.findById(Long.valueOf(winnerId))
+                        .orElseThrow(() -> new IllegalArgumentException("Joueur introuvable : " + winnerId));
+                    
+                    // Exemple: ajouter 100 diamants au gagnant
+                    int rewardDiamonds = 100;
+                    winner.setDiamonds(winner.getDiamonds() + rewardDiamonds);
+                    userRepository.save(winner);
+                    
+                    state.getLogs().add("💰 " + winnerName + " reçoit " + rewardDiamonds + " diamants en récompense!");
+                } catch (Exception e) {
+                    state.getLogs().add("⚠️ Erreur lors de l'attribution de la récompense: " + e.getMessage());
+                }
             } else {
                 state.getLogs().add("⚠️ Match nul! Tous les héros sont morts.");
             }
@@ -246,62 +265,10 @@ public class RtaBattleServiceImpl implements BattleManager {
         
         return false;
     }
-    
-    /**
-     * Trouve l'ID du gagnant parmi les statuts des joueurs
-     */
-    private String findWinnerId(Map<String, Boolean> playerAliveStatus) {
-        for (Map.Entry<String, Boolean> entry : playerAliveStatus.entrySet()) {
-            if (entry.getValue()) { // Ce joueur est vivant
-                return entry.getKey();
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * Attribue les récompenses de victoire au gagnant
-     */
-    private void giveVictoryReward(String winnerId, String winnerName, BattleState state) {
-        try {
-            User winner = userRepository.findById(Long.valueOf(winnerId))
-                .orElseThrow(() -> new IllegalArgumentException("Joueur introuvable : " + winnerId));
-            
-            // Récompense : 100 diamants au gagnant (configurable)
-            int rewardDiamonds = 100;
-            winner.setDiamonds(winner.getDiamonds() + rewardDiamonds);
-            userRepository.save(winner);
-            
-            state.getLogs().add("💎 " + winnerName + " reçoit " + rewardDiamonds + " diamants en récompense!");
-            log.info("Récompense attribuée : {} diamants à l'utilisateur {} (ID: {})", 
-                     rewardDiamonds, winner.getUsername(), winnerId);
-        } catch (Exception e) {
-            state.getLogs().add("⚠️ Erreur lors de l'attribution de la récompense: " + e.getMessage());
-            log.error("Erreur lors de l'attribution de la récompense pour le joueur {}: {}", winnerId, e.getMessage());
-        }
-    }
-    
-    /**
-     * Nettoie les anciennes sessions pour éviter les fuites mémoire
-     */
-    private void cleanupOldBattles() {
-        // Pour l'instant, simple nettoyage basé sur la taille
-        // Dans une vraie implémentation, on utiliserait un timestamp
-        if (activeBattles.size() > 50) {
-            log.info("Nettoyage de {} anciennes sessions de combat", activeBattles.size());
-            activeBattles.clear();
-        }
-    }
 
     @Override
     public void endRtaBattle(String battleId, Long winnerId) {
-        // CORRECTION: Nettoyer complètement la session à la fin du combat
-        BattleState removedState = activeBattles.remove(battleId);
-        if (removedState != null) {
-            log.info("Session de combat nettoyée pour battleId: {}", battleId);
-        } else {
-            log.warn("Tentative de nettoyage d'une session inexistante: {}", battleId);
-        }
+        activeBattles.remove(battleId);
     }
 
     @Override

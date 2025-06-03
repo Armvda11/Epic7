@@ -7,7 +7,7 @@ import webSocketService from '../services/webSocketService';
  * Hook pour gérer le combat en temps réel (RTA - Real Time Arena)
  */
 export default function useRtaBattle() {
-  // Phase du combat: 'selection', 'matchmaking', 'battle'
+  // Phase du combat: 'selection', 'matchmaking', 'prebattle', 'battle'
   const [phase, setPhase] = useState('selection');
   
   // ID de bataille une fois le match trouvé
@@ -15,6 +15,9 @@ export default function useRtaBattle() {
   
   // État actuel de la bataille
   const [battleState, setBattleState] = useState(null);
+  
+  // Données de match pour l'écran de pré-bataille
+  const [matchData, setMatchData] = useState(null);
   
   // Temps d'attente en file
   const [waitingTime, setWaitingTime] = useState(0);
@@ -61,13 +64,15 @@ export default function useRtaBattle() {
     
     webSocketService.on('onMatchFound', (newBattleId) => {
       console.log('Match trouvé avec ID:', newBattleId);
-      setPhase('battle');
+      
+      // Passer en phase de pré-bataille au lieu de directement en bataille
+      setPhase('prebattle');
       setBattleId(newBattleId);
       clearInterval(timerRef.current);
-      // toast.success('Match trouvé! Le combat commence...');
       
-      // Demander immédiatement l'état initial de la bataille
-      // Cette requête permet de s'assurer que les deux joueurs ont un état initial
+      // toast.success('Match trouvé! Préparation du combat...');
+      
+      // Demander immédiatement l'état initial pour récupérer les données du match
       setTimeout(() => {
         webSocketService.requestBattleState(newBattleId);
       }, 500);
@@ -80,14 +85,32 @@ export default function useRtaBattle() {
         // Vérifier que l'état est complet
         if (!state.participants || state.participants.length === 0) {
           console.error("État de bataille incomplet reçu, participants manquants:", state);
+          return; // Ne plus demander de resynchronisation
+        }
+        
+        // Si nous sommes en phase prebattle, extraire les données du match
+        if (phase === 'prebattle' && state.player1Id && state.player2Id) {
+          // Créer les données de match pour l'écran de pré-bataille
+          const player1Heroes = state.participants.filter(p => p.userId === state.player1Id);
+          const player2Heroes = state.participants.filter(p => p.userId === state.player2Id);
           
-          // Ne pas mettre à jour l'état et demander une mise à jour
-          if (battleId) {
-            setTimeout(() => {
-              webSocketService.requestBattleState(battleId);
-            }, 800);
-          }
-          return;
+          setMatchData({
+            player1: {
+              id: state.player1Id,
+              username: state.player1Name || "Joueur 1",
+              level: 99, // Sera remplacé par les vraies données si disponibles
+              heroes: player1Heroes
+            },
+            player2: {
+              id: state.player2Id,
+              username: state.player2Name || "Joueur 2", 
+              level: 99,
+              heroes: player2Heroes
+            },
+            // Ajouter aussi directement les noms pour compatibilité
+            player1Name: state.player1Name,
+            player2Name: state.player2Name
+          });
         }
         
         // Vérification et correction de l'indice de tour
@@ -213,10 +236,37 @@ export default function useRtaBattle() {
       console.log('Combat terminé:', finalState);
       setBattleState(finalState);
       
-      if (finalState.winner === 'YOU') {
-        // toast.success('Victoire! 🎉');
-      } else {
-        // toast.error('Défaite! 😢');
+      // Déterminer le gagnant en fonction de l'état final
+      if (finalState && finalState.participants) {
+        const myHeroes = finalState.participants.filter(p => p.userId === finalState.currentUserId);
+        const enemyHeroes = finalState.participants.filter(p => p.userId !== finalState.currentUserId);
+        
+        const myAliveHeroes = myHeroes.filter(h => h.currentHp > 0);
+        const enemyAliveHeroes = enemyHeroes.filter(h => h.currentHp > 0);
+        
+        // Vérifier s'il y a un message d'abandon dans les logs
+        const abandonMessage = finalState.logs.find(log => log.includes("abandonné") || log.includes("abandon"));
+        const victoryMessage = finalState.logs.find(log => log.includes("🏆") && log.includes("victoire"));
+        
+        if (abandonMessage || victoryMessage) {
+          // Cas d'abandon - déterminer le résultat basé sur les logs
+          if (victoryMessage && victoryMessage.includes(finalState.player1Name) && finalState.currentUserId === finalState.player1Id) {
+            // toast.success('Victoire! 🎉 Votre adversaire a abandonné!');
+          } else if (victoryMessage && victoryMessage.includes(finalState.player2Name) && finalState.currentUserId === finalState.player2Id) {
+            // toast.success('Victoire! 🎉 Votre adversaire a abandonné!');
+          } else if (abandonMessage && abandonMessage.includes("abandonné")) {
+            // toast.error('Défaite! 😢 Vous avez abandonné le combat!');
+          }
+        } else {
+          // Cas normal - vérifier les héros vivants
+          if (myAliveHeroes.length > 0 && enemyAliveHeroes.length === 0) {
+            // toast.success('Victoire! 🎉 Tous les héros ennemis ont été vaincus!');
+          } else if (myAliveHeroes.length === 0 && enemyAliveHeroes.length > 0) {
+            // toast.error('Défaite! 😢 Tous vos héros ont été vaincus!');
+          } else {
+            // toast.info('Combat terminé!');
+          }
+        }
       }
       
       // Retour à la phase de sélection après 5 secondes
@@ -242,48 +292,21 @@ export default function useRtaBattle() {
     };
   }, []);
   
-  // Mécanisme de détection de tour bloqué et heartbeat
+  // Mécanisme de heartbeat simple (sans resynchronisation)
   useEffect(() => {
-    // Démarrer un heartbeat toutes les 25 secondes
+    // Démarrer un heartbeat toutes les 30 secondes seulement pour maintenir la connexion
     const heartbeatInterval = setInterval(() => {
       if (isConnected) {
         webSocketService.sendHeartbeat();
       }
-    }, 25000);
-    
-    // Vérifier si le tour est bloqué
-    const checkStuckTurn = setInterval(() => {
-      // Ne vérifier que pendant les phases de combat
-      if (phase !== 'battle' || !battleId || !battleState) return;
-      
-      // Récupérer les timestamps des derniers changements d'état
-      const lastStateUpdate = parseInt(sessionStorage.getItem(`battle_${battleId}_lastUpdate`) || '0');
-      const now = Date.now();
-      
-      // Si pas de mise à jour depuis plus de 20 secondes
-      if (lastStateUpdate > 0 && (now - lastStateUpdate) > 20000) {
-        console.warn("Aucune mise à jour d'état détectée depuis plus de 20 secondes, demande de rafraîchissement");
-        
-        // Demander un rafraîchissement de l'état
-        webSocketService.requestBattleState(battleId);
-        
-        // Mettre à jour le timestamp pour éviter les demandes trop fréquentes
-        sessionStorage.setItem(`battle_${battleId}_lastUpdate`, now.toString());
-      }
-    }, 10000); // Vérifier toutes les 10 secondes
+    }, 30000);
     
     return () => {
       clearInterval(heartbeatInterval);
-      clearInterval(checkStuckTurn);
     };
-  }, [isConnected, phase, battleId, battleState]);
+  }, [isConnected, phase]);
   
-  // Mise à jour du timestamp à chaque changement d'état
-  useEffect(() => {
-    if (battleState && battleId) {
-      sessionStorage.setItem(`battle_${battleId}_lastUpdate`, Date.now().toString());
-    }
-  }, [battleState, battleId]);
+  // Mise à jour du timestamp supprimée - pas de resynchronisation
   
   // Rejoindre la file d'attente avec les héros sélectionnés
   const joinQueue = useCallback((heroIds) => {
@@ -433,9 +456,14 @@ export default function useRtaBattle() {
     });
   }, [isOurTurn, currentSelection, useSkill]);
   
+  // Passer de la phase prebattle à battle
+  const startBattle = useCallback(() => {
+    setPhase('battle');
+  }, []);
+  
   // Quitter/abandonner le combat
   const leave = useCallback(() => {
-    if (battleId && phase === 'battle') {
+    if (battleId && (phase === 'battle' || phase === 'prebattle')) {
       webSocketService.leaveBattle(battleId);
       // toast.info('Vous avez quitté le combat');
     } else if (phase === 'matchmaking') {
@@ -452,6 +480,7 @@ export default function useRtaBattle() {
     setPhase('selection');
     setBattleId(null);
     setBattleState(null);
+    setMatchData(null);
     setWaitingTime(0);
     setActiveHeroId(null);
     setIsOurTurn(false);
@@ -475,6 +504,7 @@ export default function useRtaBattle() {
     waitingTime,
     battleId,
     battleState,
+    matchData,
     isConnected,
     isOurTurn,
     activeHeroId,
@@ -484,6 +514,7 @@ export default function useRtaBattle() {
     selectSkill,
     selectTarget,
     useSkill,
+    startBattle,
     leave,
     resetBattle
   };
