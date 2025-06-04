@@ -4,9 +4,10 @@ import HeroCard from '../components/hero/HeroCard';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import SkillCard from '../components/hero/SkillCard';
 import { heroImg, heroImgUnknown } from '../components/heroUtils';
-import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, ModernModal } from '../components/ui';
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, ModernModal, MusicController } from '../components/ui';
 import { FaUser, FaFilter, FaBolt, FaHeart, FaStar, FaEye, FaTools } from 'react-icons/fa';
 import { GiSwordWound, GiShield, GiArmorUpgrade } from 'react-icons/gi'; // Icônes de jeu
 
@@ -25,9 +26,14 @@ const MyHeroes = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const { language, t, theme } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
-  // 1️⃣ Charger les héros au montage
+  // 1️⃣ Charger les héros au montage et démarrer la musique
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     (async () => {
       try {
         const data = await getMyHeroes(token);
@@ -463,6 +469,9 @@ const MyHeroes = () => {
           </div>
         )}
       </ModernModal>
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 };

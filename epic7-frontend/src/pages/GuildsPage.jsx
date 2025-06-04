@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import { fetchUserProfile } from "../services/userService";
 import { 
   fetchUserGuild, 
@@ -33,7 +34,7 @@ import {
   FaCheck
 } from "react-icons/fa";
 import { motion } from "framer-motion";
-import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, ModernModal } from "../components/ui";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, ModernModal, MusicController } from "../components/ui";
 import GuildSearchModal from "../components/guilds/GuildSearchModal";
 import GuildMemberList from "../components/guilds/GuildMemberList";
 import CreateGuildModal from "../components/guilds/CreateGuildModal";
@@ -399,6 +400,7 @@ const GuildDetails = ({
 const GuildsPage = () => {
   const navigate = useNavigate();
   const { language, t } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
   const [user, setUser] = useState(null);
   const [userGuild, setUserGuild] = useState(null);
   const [guildMembers, setGuildMembers] = useState([]);
@@ -434,6 +436,10 @@ const GuildsPage = () => {
 
   // Load user, guild data, and recent guilds on component mount
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     const loadData = async () => {
       try {
         setLoading(true);
@@ -1001,6 +1007,8 @@ const GuildsPage = () => {
 
   return (
     <ModernPageLayout>
+      <MusicController />
+      
       {/* Search Modal Component */}
       <GuildSearchModal 
         isOpen={showSearchModal}

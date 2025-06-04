@@ -2,18 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaUsers } from 'react-icons/fa';
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import ChatComponent from '../components/chat/ChatComponent';
 import { fetchGuildById } from '../services/guildService';
+import { MusicController } from '../components/ui';
 
 const GuildChatPage = () => {
   const navigate = useNavigate();
   const { guildId } = useParams();
   const { t, language } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
   const [guild, setGuild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     const loadGuild = async () => {
       try {
         setLoading(true);
@@ -30,11 +37,12 @@ const GuildChatPage = () => {
     if (guildId) {
       loadGuild();
     }
-  }, [guildId]);
+  }, [guildId, preloadMusic, playDashboardMusic]);
 
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
+        <MusicController />
         <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
       </main>
     );
@@ -43,6 +51,7 @@ const GuildChatPage = () => {
   if (error || !guild) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white">
+        <MusicController />
         <div className="bg-red-100 dark:bg-red-900 p-6 rounded-lg max-w-md text-center">
           <p className="text-red-700 dark:text-red-300 mb-4">
             {error || t("guildNotFound", language)}
@@ -60,6 +69,7 @@ const GuildChatPage = () => {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
+      <MusicController />
       <div className="max-w-4xl mx-auto flex flex-col h-[calc(100vh-3rem)]">
         <header className="flex items-center justify-between mb-4">
           <button 

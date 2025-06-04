@@ -4,14 +4,24 @@ import { useNavigate } from 'react-router-dom';
 // import { toast } from 'react-toastify';
 import API from '../api/axiosInstance';
 import useRtaBattle from '../hooks/useRtaBattle';
+import { useMusic } from '../context/MusicContext';
 import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelectionPanel';
 import RtaMatchmakingScreen from '../components/rta/RtaMatchmakingScreen';
 import RtaBattleResultScreen from '../components/rta/RtaBattleResultScreen';
 import RtaPreBattleScreen from '../components/rta/RtaPreBattleScreen';
 import RtaBattle from '../components/rta/RtaBattle';
+import { MusicController } from '../components/ui';
 
 export default function RtaBattlePage() {
   const navigate = useNavigate();
+
+  // Hook pour la musique de fond
+  const {
+    preloadMusic,
+    playRtaSelectionMusic,
+    playRtaBattleMusic,
+    stopCurrentMusic
+  } = useMusic();
 
   // 1) États locaux pour la sélection des héros
   const [availableHeroes, setAvailableHeroes] = useState([]);
@@ -19,13 +29,27 @@ export default function RtaBattlePage() {
 
   // 2) Récupération des héros du joueur au montage
   useEffect(() => {
+    // Précharger la musique
+    preloadMusic();
+    
     API.get('/player-hero/my')
-      .then(res => setAvailableHeroes(res.data))
+      .then(res => {
+        setAvailableHeroes(res.data);
+        // Démarrer la musique de sélection RTA
+        setTimeout(() => {
+          playRtaSelectionMusic();
+        }, 500);
+      })
       .catch(err => {
         console.error('Erreur chargement héros:', err);
         // toast.error("Impossible de charger vos héros");
       });
-  }, []);
+      
+    // Nettoyage lors du démontage
+    return () => {
+      stopCurrentMusic();
+    };
+  }, [preloadMusic, playRtaSelectionMusic, stopCurrentMusic]);
 
   // 3) Hook RTA (matchmaking + combat)
   const {
@@ -47,6 +71,24 @@ export default function RtaBattlePage() {
     leave,          // fonction pour quitter/abandonner
     resetBattle
   } = useRtaBattle();
+
+  // Effet pour changer la musique selon la phase
+  useEffect(() => {
+    switch (phase) {
+      case 'selection':
+      case 'matchmaking':
+        // Musique de sélection/attente
+        playRtaSelectionMusic();
+        break;
+      case 'prebattle':
+      case 'battle':
+        // Musique de combat
+        playRtaBattleMusic();
+        break;
+      default:
+        break;
+    }
+  }, [phase, playRtaSelectionMusic, playRtaBattleMusic]);
 
   // 4) Lancement de la recherche de match
   const handleStart = () => {
@@ -72,33 +114,42 @@ export default function RtaBattlePage() {
   // 6) Rendu selon la phase
   if (phase === 'selection') {
     return (
-      <HeroSelectionPanel
-        availableHeroes={availableHeroes}
-        selectedHeroes={selectedHeroes}
-        setSelectedHeroes={setSelectedHeroes}
-        onStart={handleStart}
-        rtaMode={true}
-      />
+      <div className="relative">
+        <HeroSelectionPanel
+          availableHeroes={availableHeroes}
+          selectedHeroes={selectedHeroes}
+          setSelectedHeroes={setSelectedHeroes}
+          onStart={handleStart}
+          rtaMode={true}
+        />
+        <MusicController />
+      </div>
     );
   }
 
   if (phase === 'matchmaking') {
     return (
-      <RtaMatchmakingScreen
-        waitingTime={waitingTime}
-        onCancel={leave}
-        selectedHeroes={selectedHeroes}
-      />
+      <div className="relative">
+        <RtaMatchmakingScreen
+          waitingTime={waitingTime}
+          onCancel={leave}
+          selectedHeroes={selectedHeroes}
+        />
+        <MusicController />
+      </div>
     );
   }
 
   if (phase === 'prebattle') {
     return (
-      <RtaPreBattleScreen
-        matchData={matchData}
-        countdown={10}
-        onCountdownEnd={startBattle}
-      />
+      <div className="relative">
+        <RtaPreBattleScreen
+          matchData={matchData}
+          countdown={10}
+          onCountdownEnd={startBattle}
+        />
+        <MusicController />
+      </div>
     );
   }
 
@@ -126,25 +177,36 @@ export default function RtaBattlePage() {
     }
     
     // Si le combat est terminé, afficher l'écran de résultat
-    if (battleState.finished) {
+    if (battleState?.finished) {
       return (
-        <RtaBattleResultScreen
-          battleState={battleState}
-          onReturn={handleForfeit}
-        />
+        <div className="relative">
+          <RtaBattleResultScreen
+            battleState={battleState}
+            onReturn={handleForfeit}
+          />
+          <MusicController />
+        </div>
       );
     }
 
     return (
-      <RtaBattle
-        battleState={battleState}
-        battleId={battleId}
-        useSkill={useSkill}
-        onForfeit={handleForfeit}
-      />
+      <div className="relative">
+        <RtaBattle
+          battleState={battleState}
+          battleId={battleId}
+          useSkill={useSkill}
+          onForfeit={handleForfeit}
+        />
+        <MusicController />
+      </div>
     );
   }
 
   // cas par défaut
-  return <div className="flex items-center justify-center h-screen">Chargement...</div>;
+  return (
+    <div className="relative">
+      <div className="flex items-center justify-center h-screen">Chargement...</div>
+      <MusicController />
+    </div>
+  );
 }

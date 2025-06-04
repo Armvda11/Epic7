@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { performSummon, getBannerHeroes, getOwnedHeroes, getBannerEquipments, getRarestHero } from "../services/summonService";
 import API from "../api/axiosInstance";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import ModernPageLayout from "../components/ui/ModernPageLayout";
 import ModernCard from "../components/ui/ModernCard";
 import ModernButton from "../components/ui/ModernButton";
 import ModernModal from "../components/ui/ModernModal";
+import { MusicController } from "../components/ui";
 import { FaGem, FaMagic, FaStar, FaBolt, FaEye, FaGift } from "react-icons/fa";
 
 export default function SummonPage() {
@@ -22,10 +24,15 @@ export default function SummonPage() {
   const [rarestHero, setRarestHero] = useState(null);
   const [summonAnimation, setSummonAnimation] = useState(false);
   const { theme, t, language } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
   
-  // Récupérer le nombre de gemmes de l'utilisateur
+  // Récupérer le nombre de gemmes de l'utilisateur et initialiser la musique
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     const fetchUserDiamonds = async () => {
       try {
         const response = await API.get("/user/diamonds");
@@ -579,6 +586,9 @@ export default function SummonPage() {
             )}
           </div>
         </ModernModal>
+        
+        {/* Contrôleur de musique */}
+        <MusicController />
       </motion.div>
     </ModernPageLayout>
   );

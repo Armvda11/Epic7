@@ -8,6 +8,8 @@ import { useSettings } from "../context/SettingsContext";
 import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
+import { useMusic } from "../context/MusicContext";
+import { MusicController } from "../components/ui";
 import "../components/DashboardAnimations.css";
 
 import { 
@@ -40,6 +42,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const settings = useSettings();
   const { language, t, theme, toggleTheme } = settings;
+  
+  // Hook pour la musique de fond
+  const {
+    preloadMusic,
+    playDashboardMusic,
+    stopCurrentMusic
+  } = useMusic();
   
   // États principaux
   const [user, setUser] = useState(null);
@@ -143,7 +152,7 @@ const Dashboard = () => {
     },
   ];
 
-  // Chargement du profil utilisateur
+  // Chargement initial et musique
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -153,13 +162,25 @@ const Dashboard = () => {
           return;
         }
         setUser(data);
+        
+        // Précharger et démarrer la musique du dashboard
+        preloadMusic();
+        setTimeout(() => {
+          playDashboardMusic();
+        }, 1000); // Délai pour éviter les problèmes de lecture automatique
+        
       } catch (error) {
         console.error("Failed to load user profile:", error);
         navigate("/");
       }
     };
     loadUser();
-  }, [navigate]);
+    
+    // Nettoyage lors du démontage du composant
+    return () => {
+      stopCurrentMusic();
+    };
+  }, [navigate, preloadMusic, playDashboardMusic, stopCurrentMusic]);
 
   // Chargement des héros
   useEffect(() => {
@@ -945,6 +966,9 @@ const Dashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </div>
   );
 };

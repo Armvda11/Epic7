@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { getShopItems } from "../services/shopService";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import { buyItem } from "../services/shopService";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from "../components/ui";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, MusicController } from "../components/ui";
 import { FaFilter, FaShoppingCart, FaCoins, FaGem, FaClock } from "react-icons/fa";
 import "./Shop.css";
 
@@ -103,8 +104,15 @@ export default function ShopPage() {
 
   const navigate = useNavigate();
   const { t, language, theme } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
+  // Charger les articles et démarrer la musique
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
+    // Charger les articles
     (async () => {
       try {
         const data = await getShopItems();
@@ -115,7 +123,7 @@ export default function ShopPage() {
         setLoading(false);
       }
     })();
-  }, [language]);
+  }, [language, preloadMusic, playDashboardMusic]);
 
   // Mettre à jour les temps restants
   useEffect(() => {
@@ -497,6 +505,9 @@ export default function ShopPage() {
           </ModernCard>
         </motion.div>
       )}
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 }

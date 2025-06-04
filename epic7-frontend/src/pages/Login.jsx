@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { login } from "../services/authService";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMusic } from "../context/MusicContext";
 
 /**
  * Page de connexion , permet à l'utilisateur de se connecter à son compte. 
@@ -14,13 +15,29 @@ function Login() {
   const [message, setMessage] = useState(""); // État pour le message de retour
   const [shake, setShake] = useState(false); 
   const navigate = useNavigate(); // Redirection après la connexion
+  const { preloadMusic, playConnectionMusic, stopCurrentMusic } = useMusic(); // Hook de musique
 
   // Effet pour désactiver le défilement de la page (scroll) lors de l'affichage du formulaire
-  // ca faisait bizarre d'avoir du scroll sur la page de connexion
+  // et démarrer la musique de connexion
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = "auto");
-  }, []);
+    
+    // Précharger et démarrer la musique de connexion
+    preloadMusic();
+    // Arrêter toute musique en cours avant de jouer la musique de connexion
+    stopCurrentMusic(500);
+    
+    // Démarrer la musique de connexion après un court délai pour assurer la transition
+    const timer = setTimeout(() => {
+      playConnectionMusic();
+      console.log("Musique de connexion démarrée sur la page de login");
+    }, 600);
+    
+    return () => {
+      document.body.style.overflow = "auto";
+      clearTimeout(timer);
+    };
+  }, [preloadMusic, playConnectionMusic, stopCurrentMusic]);
 
   // Fonction pour gérer la connexion
   // Elle est appelée lors de la soumission du formulaire

@@ -188,7 +188,7 @@ export default function AttackEffect({ x, y, type = 'slash', isVisible, targetX,
             filter: 'blur(2px)'
           }}
           initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1.2, opacity: [0, 0.8, 0] }}
+          animate={{ scale: 1.2, opacity: [0, 0.8, 0] }}
           transition={{ duration: 1, ease: 'easeOut' }}
         />
       )}

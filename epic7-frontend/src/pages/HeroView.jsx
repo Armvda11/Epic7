@@ -4,9 +4,10 @@ import { equipItem, unequipItem, fetchHeroEquipmentView } from "../services/equi
 import EquipmentSlot from "../components/equipment/EquipmentSlot";
 import EquipmentDetailsPanel from "../components/equipment/EquipmentDetailsPanel";
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import { useNavigate } from 'react-router-dom';
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
-import { ModernPageLayout, ModernCard, ModernButton } from '../components/ui';
+import { ModernPageLayout, ModernCard, ModernButton, MusicController } from '../components/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaArrowLeft, FaInfoCircle, FaBolt, FaHeart, FaStar } from 'react-icons/fa';
 import { GiArmorUpgrade, GiSwordWound, GiShield } from 'react-icons/gi';
@@ -28,6 +29,7 @@ const HeroView = () => {
   const navigate = useNavigate(); // Navigation vers d'autres pages
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
   // Fonction pour charger l'inventaire du héros
   const loadHeroInventory = async () => {
@@ -72,10 +74,14 @@ const HeroView = () => {
     }
   };
 
-  // Chargement de l'inventaire du héros au premier rendu
+  // Chargement de l'inventaire du héros au premier rendu et initialisation de la musique
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     loadHeroInventory();
-  }, [heroId, language]);
+  }, [heroId, language, preloadMusic, playDashboardMusic]);
 
 
   // Fonction pour récupérer l'équipement équipé 
@@ -375,6 +381,9 @@ const HeroView = () => {
           </ModernCard>
         </motion.div>
       </motion.div>
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 };

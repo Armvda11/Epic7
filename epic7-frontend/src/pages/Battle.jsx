@@ -15,10 +15,12 @@ import TurnOrderBar from '../components/battle/TurnOrderBar';
 import SkillAnimation from '../components/battle/SkillAnimation';
 import BossSkillAnimation from '../components/battle/BossSkillAnimation';
 import { ModernCard, ModernButton } from '../components/ui';
+import { MusicController } from '../components/ui';
 import { useSettings } from '../context/SettingsContext';
 import { FaMagic, FaEye, FaSignOutAlt, FaUsers, FaDragon } from 'react-icons/fa';
 import { GiSwordWound, GiShield } from 'react-icons/gi';
 import { useBattleSounds } from '../hooks/useBattleSounds';
+import { useMusic } from '../context/MusicContext';
 
 // utilitaire de log
 function logBattleAction(message, data) {
@@ -28,40 +30,42 @@ function logBattleAction(message, data) {
 export default function Battle() {
   const { theme, t, language } = useSettings();
   
-  // 🗂 Sélection des héros
-  const [selectionPhase,    setSelectionPhase]     = useState(true);
-  const [availableHeroes,   setAvailableHeroes]   = useState([]);
-  const [selectedHeroes,    setSelectedHeroes]    = useState([null, null]);
+  // Hook pour la musique de fond
+  const {
+    preloadMusic,
+    playBossBattleMusic,
+    playRtaSelectionMusic,
+    stopCurrentMusic
+  } = useMusic();
+  
+  // Hook pour les sons de bataille
+  const { preloadSounds, playSoundForAction } = useBattleSounds();
+  
+  const navigate   = useNavigate();
+  const targetRefs = useRef({});
 
-  // 🛡️ État du combat
-  const [battleState,       setBattleState]       = useState(null);
-  const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
-  const [selectedSkillId,   setSelectedSkillId]   = useState(null);
+  // ═══ États du composant ═══════════════════════════════════════════════
+  const [battleState, setBattleState] = useState(null);
+  const [selectedHeroes, setSelectedHeroes] = useState([null, null, null, null]);
+  const [availableHeroes, setAvailableHeroes] = useState([]);
+  const [selectionPhase, setSelectionPhase] = useState(true);
+  const [selectedSkillId, setSelectedSkillId] = useState(null);
   const [selectedSkillType, setSelectedSkillType] = useState(null);
-  const [cooldowns,         setCooldowns]         = useState({});
-  const [floatingDamages,   setFloatingDamages]   = useState([]);
-  const [attackEffects,     setAttackEffects]     = useState([]);
-  const [battleParticles,   setBattleParticles]   = useState([]);
-  const [bossAttacking,     setBossAttacking]     = useState(false);
-  const [bossAttackCount,   setBossAttackCount]   = useState(0);
-  const [reward,            setReward]            = useState(null);
-
-  // 🎬 Animation des compétences
-  const [skillAnimation,    setSkillAnimation]    = useState({
+  const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
+  const [cooldowns, setCooldowns] = useState({});
+  const [reward, setReward] = useState(null);
+  const [bossAttacking, setBossAttacking] = useState(false);
+  const [bossAttackCount, setBossAttackCount] = useState(0);
+  
+  // États pour les animations
+  const [skillAnimation, setSkillAnimation] = useState({
     isVisible: false,
     heroCode: null,
     skillPosition: null
   });
-  
-  // 🐉 Animation des compétences du boss
-  const [bossAnimation,     setBossAnimation]     = useState({
-    isVisible: false,
-    bossCode: null
-  });
-
-  const navigate   = useNavigate();
-  const targetRefs = useRef({});
-  const { preloadSounds, playSoundForAction } = useBattleSounds();
+  const [floatingDamages, setFloatingDamages] = useState([]);
+  const [attackEffects, setAttackEffects] = useState([]);
+  const [battleParticles, setBattleParticles] = useState([]);
 
   // Animations variants
   const containerVariants = {
@@ -116,9 +120,20 @@ export default function Battle() {
       .then(res => setAvailableHeroes(res.data))
       .catch(err => console.error("Erreur fetchAvailableHeroes:", err));
     
-    // Précharger les sons
+    // Précharger les sons et la musique
     preloadSounds();
-  }, [preloadSounds]);
+    preloadMusic();
+    
+    // Démarrer la musique de sélection pour la phase de sélection des héros
+    setTimeout(() => {
+      playRtaSelectionMusic();
+    }, 500);
+    
+    // Nettoyage lors du démontage
+    return () => {
+      stopCurrentMusic();
+    };
+  }, [preloadSounds, preloadMusic, playRtaSelectionMusic, stopCurrentMusic]);
 
   // ─── Gestion des récompenses ───────────────────────────────────────────
   async function fetchReward() {
@@ -141,6 +156,12 @@ export default function Battle() {
       });
       await fetchBattleState();
       setSelectionPhase(false);
+      
+      // Démarrer la musique de combat contre le boss
+      setTimeout(() => {
+        playBossBattleMusic();
+      }, 1000);
+      
     } catch (err) {
       console.error("Erreur startCombat:", err);
     }
@@ -624,13 +645,16 @@ export default function Battle() {
   // ─── Rendu ─────────────────────────────────────────────────────────────
   if (selectionPhase) {
     return (
-      <HeroSelectionPanel
-        availableHeroes={availableHeroes}
-        selectedHeroes={selectedHeroes}
-        setSelectedHeroes={setSelectedHeroes}
-        onStart={startCombat}
-        rtaMode={false}
-      />
+      <div className="relative">
+        <HeroSelectionPanel
+          availableHeroes={availableHeroes}
+          selectedHeroes={selectedHeroes}
+          setSelectedHeroes={setSelectedHeroes}
+          onStart={startCombat}
+          rtaMode={false}
+        />
+        <MusicController />
+      </div>
     );
   }
   if (!battleState) {
@@ -1038,6 +1062,9 @@ export default function Battle() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Contrôleur de musique */}
+      <MusicController />
     </motion.div>
   );
 }

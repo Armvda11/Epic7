@@ -11,15 +11,17 @@ import { getUserHeroes } from '../services/heroService';
 import HeroProfileCard from '../components/hero/HeroProfileCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import { toast } from 'react-toastify';
 import { heroImg, heroImgUnknown } from '../components/heroUtils';
-import { ModernPageLayout, ModernCard, ModernButton, ModernModal } from '../components/ui';
+import { ModernPageLayout, ModernCard, ModernButton, ModernModal, MusicController } from '../components/ui';
 import { FaUser, FaUserPlus, FaUserCheck, FaUserMinus, FaCalendar, FaCrown, FaGamepad, FaStar, FaEye } from 'react-icons/fa';
 
 const UserProfile = () => {
 const { userId } = useParams();
 const navigate = useNavigate();
 const { t, language, theme } = useSettings();
+const { preloadMusic, playDashboardMusic } = useMusic();
 const [user, setUser] = useState(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
@@ -48,6 +50,10 @@ try {
 };
 
 useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     const loadUserProfile = async () => {
     try {
         setLoading(true);
@@ -63,7 +69,7 @@ useEffect(() => {
     };
 
     loadUserProfile();
-}, [userId, language, t]);
+}, [userId, language, t, preloadMusic, playDashboardMusic]);
 
 const handleSendFriendRequest = async () => {
     try {
@@ -414,6 +420,7 @@ if (!user) {
 
 return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-6">
+    <MusicController />
     <div className="max-w-6xl mx-auto">
         {/* Return button */}
         <button 
