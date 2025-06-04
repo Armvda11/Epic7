@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import API from '../api/axiosInstance';
 import BattleHeroCard from '../components/battle/BattleHeroCard';
 import BattleSkillBar from '../components/battle/BattleSkillBar';
@@ -12,6 +13,10 @@ import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelecti
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
 import SkillAnimation from '../components/battle/SkillAnimation';
+import { ModernCard, ModernButton } from '../components/ui';
+import { useSettings } from '../context/SettingsContext';
+import { FaMagic, FaEye, FaSignOutAlt, FaUsers, FaDragon } from 'react-icons/fa';
+import { GiSwordWound, GiShield } from 'react-icons/gi';
 import { useBattleSounds } from '../hooks/useBattleSounds';
 
 // utilitaire de log
@@ -20,6 +25,8 @@ function logBattleAction(message, data) {
 }
 
 export default function Battle() {
+  const { theme, t, language } = useSettings();
+  
   // 🗂 Sélection des héros
   const [selectionPhase,    setSelectionPhase]     = useState(true);
   const [availableHeroes,   setAvailableHeroes]   = useState([]);
@@ -47,6 +54,53 @@ export default function Battle() {
   const navigate   = useNavigate();
   const targetRefs = useRef({});
   const { preloadSounds, playSoundForAction } = useBattleSounds();
+
+  // Animations variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 24
+      }
+    }
+  };
+
+  const heroCardVariants = {
+    hidden: { scale: 0.8, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 25
+      }
+    },
+    hover: {
+      scale: 1.05,
+      y: -8,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 25
+      }
+    }
+  };
 
   // ─── Chargements initiaux ──────────────────────────────────────────────
   useEffect(() => {
@@ -331,7 +385,72 @@ export default function Battle() {
     );
   }
   if (!battleState) {
-    return <div className="text-center text-white animate-pulse mt-12">Chargement du combat...</div>;
+    return (
+      <div className={`h-screen w-screen relative overflow-hidden ${
+        theme === 'dark' 
+          ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
+          : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
+      }`}>
+        {/* Particules de fond */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {Array.from({ length: 20 }, (_, i) => (
+            <motion.div
+              key={i}
+              className={`absolute w-1 h-1 rounded-full ${
+                theme === 'dark' ? 'bg-blue-400/40' : 'bg-purple-400/40'
+              }`}
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0.4, 0.8, 0.4],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Contenu de chargement */}
+        <div className="relative z-10 flex items-center justify-center h-full">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <ModernCard className="text-center p-8">
+              <motion.div
+                className={`w-16 h-16 mx-auto mb-6 rounded-full ${
+                  theme === 'dark' 
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-500' 
+                    : 'bg-gradient-to-br from-purple-500 to-pink-500'
+                } flex items-center justify-center`}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              >
+                <GiBroadsword className="w-8 h-8 text-white" />
+              </motion.div>
+              <h2 className={`text-2xl font-bold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
+                {t("loadingBattle", language) || "Chargement du combat..."}
+              </h2>
+              <p className={`${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                {t("preparingArena", language) || "Préparation de l'arène..."}
+              </p>
+            </ModernCard>
+          </motion.div>
+        </div>
+      </div>
+    );
   }
 
   const current      = battleState.participants[battleState.currentTurnIndex];
@@ -341,109 +460,247 @@ export default function Battle() {
   const enemies      = battleState.participants.filter(p => !p.player && p.currentHp > 0);
 
   return (
-    <div className="relative h-screen w-screen bg-[url('/arena.webp')] bg-cover text-white overflow-hidden">
-      <HeroPortraitOverlay hero={current} />
-
-      {bossAttacking && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center">
-          <div className="bg-red-500/30 p-4 rounded-lg text-2xl font-bold animate-pulse">
-            {current.name} se prépare à attaquer...
-          </div>
-        </div>
-      )}
-
-      {/* ordre de tour */}
-      <div className="absolute top-20 left-0 pl-4 z-40">
-        <TurnOrderBar participants={players} currentId={current.id} nextId={battleState.participants[nextIdx]?.id}/>
-      </div>
-      <div className="absolute top-20 right-0 pr-4 z-40">
-        <TurnOrderBar participants={enemies} currentId={current.id} nextId={battleState.participants[nextIdx]?.id}/>
-      </div>
-
-      {/* zone avatars */}
-      <div className="absolute inset-0 flex items-center justify-between px-20">
-        {/* alliés */}
-        <div className="flex flex-col gap-12 items-start">
-          {[players.slice(0,2), players.slice(2)].map((row,i) => (
-            <div key={i} className="flex gap-8">
-              {row.map(h => (
-                <div key={h.id} ref={el => targetRefs.current[h.id] = el} className="battle-target">
-                  <BattleHeroCard
-                    hero={h}
-                    isCurrent={h.id === current.id}
-                    isNext={h.id === battleState.participants[nextIdx]?.id}
-                    highlight={getHighlightClass(h)}
-                    onClick={() => selectedSkillId && selectedSkillType==='HEAL' && useSkill(h.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-        {/* ennemis */}
-        <div className="flex flex-col gap-12 items-end">
-          {[enemies.slice(0,2), enemies.slice(2)].map((row,i) => (
-            <div key={i} className="flex gap-8">
-              {row.map(b => (
-                <div key={b.id} ref={el => targetRefs.current[b.id] = el} className="battle-target">
-                  <BattleHeroCard
-                    hero={b}
-                    isCurrent={b.id === current.id}
-                    highlight={getHighlightClass(b)}
-                    onClick={() => selectedSkillId && selectedSkillType==='DAMAGE' && useSkill(b.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* skill bar */}
-      {isPlayerTurn && currentHeroSkills.length > 0 && (
-        <div id="skill-bar" className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30">
-          <BattleSkillBar
-            currentHero={current}
-            currentHeroSkills={currentHeroSkills}
-            cooldowns={cooldowns}
-            selectedSkillId={selectedSkillId}
-            onSkillClick={handleSkillClick}
+    <motion.div 
+      className={`relative h-screen w-screen overflow-hidden ${
+        theme === 'dark' 
+          ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
+          : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
+      }`}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Arrière-plan avec arena overlay */}
+      <div 
+        className="absolute inset-0 opacity-30 bg-[url('/arena.webp')] bg-cover bg-center"
+        style={{ filter: 'blur(1px)' }}
+      />
+      
+      {/* Particules de fond */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 25 }, (_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute w-1 h-1 rounded-full ${
+              theme === 'dark' ? 'bg-blue-400/40' : 'bg-purple-400/40'
+            }`}
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -30, 0],
+              opacity: [0.4, 0.8, 0.4],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 3 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
           />
-        </div>
-      )}
+        ))}
+      </div>
 
+      {/* Portrait du héros actuel avec effet moderne */}
+      <motion.div variants={itemVariants}>
+        <HeroPortraitOverlay hero={current} />
+      </motion.div>
 
+      {/* Overlay d'attaque du boss avec effet moderne */}
+      <AnimatePresence>
+        {bossAttacking && (
+          <motion.div 
+            className="absolute inset-0 z-40 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            >
+              <ModernCard className="p-6 text-center backdrop-blur-md bg-red-500/20 border-red-400/30">
+                <div className="flex items-center gap-3 mb-2">
+                  <FaDragon className="text-red-400 text-2xl" />
+                  <h3 className="text-2xl font-bold text-white">
+                    {t("bossAttacking", language) || "Boss en action"}
+                  </h3>
+                </div>
+                <p className="text-red-200">
+                  {current.name} {t("preparingAttack", language) || "se prépare à attaquer..."}
+                </p>
+              </ModernCard>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* dégâts flottants */}
-      {floatingDamages.map(fd => <FloatingDamage key={fd.id} {...fd} />)}
+      {/* Barres d'ordre de tour avec cartes modernes */}
+      <motion.div 
+        className="absolute top-20 left-0 pl-4 z-40"
+        variants={itemVariants}
+      >
+        <ModernCard className="p-4 backdrop-blur-md bg-white/10 border-white/20">
+          <div className="flex items-center gap-2 mb-3">
+            <FaUsers className="text-green-400" />
+            <span className="text-sm font-medium text-white">
+              {t("heroes", language) || "Héros"}
+            </span>
+          </div>
+          <TurnOrderBar 
+            participants={players} 
+            currentId={current.id} 
+            nextId={battleState.participants[nextIdx]?.id}
+          />
+        </ModernCard>
+      </motion.div>
 
-      {/* effets d'attaque */}
-      {attackEffects.map(effect => (
-        <AttackEffect 
-          key={effect.id} 
-          x={effect.x} 
-          y={effect.y} 
-          type={effect.type}
-          isVisible={effect.isVisible}
-          onAnimationEnd={() => {
-            setAttackEffects(effects => effects.filter(e => e.id !== effect.id));
-          }}
-        />
-      ))}
+      <motion.div 
+        className="absolute top-20 right-0 pr-4 z-40"
+        variants={itemVariants}
+      >
+        <ModernCard className="p-4 backdrop-blur-md bg-white/10 border-white/20">
+          <div className="flex items-center gap-2 mb-3">
+            <FaDragon className="text-red-400" />
+            <span className="text-sm font-medium text-white">
+              {t("bosses", language) || "Boss"}
+            </span>
+          </div>
+          <TurnOrderBar 
+            participants={enemies} 
+            currentId={current.id} 
+            nextId={battleState.participants[nextIdx]?.id}
+          />
+        </ModernCard>
+      </motion.div>
 
-      {/* particules de combat */}
-      {battleParticles.map(particle => (
-        <BattleParticles
-          key={particle.id}
-          x={particle.x}
-          y={particle.y}
-          type={particle.type}
-          isVisible={particle.isVisible}
-          onAnimationEnd={() => {
-            setBattleParticles(particles => particles.filter(p => p.id !== particle.id));
-          }}
-        />
-      ))}
+      {/* Zone principale avec tous les participants */}
+      <div className="absolute inset-0 flex items-center justify-between px-20">
+        {/* Zone des héros alliés (à gauche) */}
+        <motion.div 
+          className="flex flex-col gap-12 items-start"
+          variants={itemVariants}
+        >
+          {[players.slice(0,2), players.slice(2)].map((row, i) => (
+            <div key={i} className="flex gap-8">
+              {row.map((hero, index) => (
+                <motion.div 
+                  key={hero.id} 
+                  ref={el => targetRefs.current[hero.id] = el} 
+                  className="battle-target"
+                  variants={heroCardVariants}
+                  whileHover="hover"
+                  custom={index}
+                >
+                  <BattleHeroCard
+                    hero={hero}
+                    isCurrent={hero.id === current.id}
+                    isNext={hero.id === battleState.participants[nextIdx]?.id}
+                    highlight={getHighlightClass(hero)}
+                    onClick={() => selectedSkillId && selectedSkillType==='HEAL' && useSkill(hero.id)}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Zone des ennemis (à droite) */}
+        <motion.div 
+          className="flex flex-col gap-12 items-end"
+          variants={itemVariants}
+        >
+          {[enemies.slice(0,2), enemies.slice(2)].map((row, i) => (
+            <div key={i} className="flex gap-8">
+              {row.map((boss, index) => (
+                <motion.div 
+                  key={boss.id} 
+                  ref={el => targetRefs.current[boss.id] = el} 
+                  className="battle-target"
+                  variants={heroCardVariants}
+                  whileHover="hover"
+                  custom={index}
+                >
+                  <BattleHeroCard
+                    hero={boss}
+                    isCurrent={boss.id === current.id}
+                    highlight={getHighlightClass(boss)}
+                    onClick={() => selectedSkillId && selectedSkillType==='DAMAGE' && useSkill(boss.id)}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Barre de compétences moderne */}
+      <AnimatePresence>
+        {isPlayerTurn && currentHeroSkills.length > 0 && (
+          <motion.div 
+            id="skill-bar" 
+            className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30"
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <ModernCard className="p-4 backdrop-blur-md bg-white/10 border-white/20">
+              <div className="flex items-center gap-2 mb-3">
+                <FaMagic className="text-purple-400" />
+                <span className="text-sm font-medium text-white">
+                  {t("skills", language) || "Compétences"} - {current?.name}
+                </span>
+              </div>
+              <BattleSkillBar
+                currentHero={current}
+                currentHeroSkills={currentHeroSkills}
+                cooldowns={cooldowns}
+                selectedSkillId={selectedSkillId}
+                onSkillClick={handleSkillClick}
+              />
+            </ModernCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Effets de combat */}
+      <AnimatePresence>
+        {floatingDamages.map(fd => <FloatingDamage key={fd.id} {...fd} />)}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {attackEffects.map(effect => (
+          <AttackEffect 
+            key={effect.id} 
+            x={effect.x} 
+            y={effect.y} 
+            type={effect.type}
+            isVisible={effect.isVisible}
+            onAnimationEnd={() => {
+              setAttackEffects(effects => effects.filter(e => e.id !== effect.id));
+            }}
+          />
+        ))}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {battleParticles.map(particle => (
+          <BattleParticles
+            key={particle.id}
+            x={particle.x}
+            y={particle.y}
+            type={particle.type}
+            isVisible={particle.isVisible}
+            onAnimationEnd={() => {
+              setBattleParticles(particles => particles.filter(p => p.id !== particle.id));
+            }}
+          />
+        ))}
+      </AnimatePresence>
 
       {/* Animation de compétence */}
       <SkillAnimation
@@ -453,21 +710,38 @@ export default function Battle() {
         onAnimationEnd={handleAnimationEnd}
       />
 
-      {/* fin */}
-      {battleState.finished && (
-        <BattleEndOverlay
-          status={battleState.logs.some(l => l.includes('Victoire')) ? 'VICTOIRE' : 'DÉFAITE'}
-          reward={reward}
-          onReturn={() => navigate('/dashboard')}
-        />
-      )}
+      {/* Overlay de fin de combat */}
+      <AnimatePresence>
+        {battleState.finished && (
+          <BattleEndOverlay
+            status={battleState.logs.some(l => l.includes('Victoire')) ? 'VICTOIRE' : 'DÉFAITE'}
+            reward={reward}
+            onReturn={() => navigate('/dashboard')}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* abandon */}
-      {isPlayerTurn && !battleState.finished && (
-        <div className="absolute bottom-4 right-4 z-50">
-          <BattleForfeitButton onClick={() => setSelectionPhase(true)} />
-        </div>
-      )}
-    </div>
+      {/* Bouton d'abandon moderne */}
+      <AnimatePresence>
+        {isPlayerTurn && !battleState.finished && (
+          <motion.div 
+            className="absolute bottom-4 right-4 z-50"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <ModernButton
+              variant="danger"
+              onClick={() => setSelectionPhase(true)}
+              icon={<FaSignOutAlt />}
+              className="text-white font-medium"
+            >
+              {t("forfeit", language) || "Abandonner"}
+            </ModernButton>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
