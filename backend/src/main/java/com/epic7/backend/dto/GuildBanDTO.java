@@ -1,11 +1,12 @@
 package com.epic7.backend.dto;
 
-import com.epic7.backend.model.GuildBan;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+
+import com.epic7.backend.repository.model.GuildBan;
 
 /**
  * DTO contenant les informations d'un bannissement de guilde.

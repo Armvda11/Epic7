@@ -1,8 +1,9 @@
 package com.epic7.backend.service;
 
-import com.epic7.backend.model.*;
-import com.epic7.backend.model.enums.Rarity;
 import com.epic7.backend.repository.*;
+import com.epic7.backend.repository.model.*;
+import com.epic7.backend.repository.model.enums.Rarity;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

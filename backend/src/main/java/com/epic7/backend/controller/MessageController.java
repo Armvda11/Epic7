@@ -1,6 +1,5 @@
 package com.epic7.backend.controller;
 
-import com.epic7.backend.model.User;
 import com.epic7.backend.service.MessageService;
 import com.epic7.backend.utils.JwtUtil;
 import com.epic7.backend.service.AuthService;
@@ -11,8 +10,10 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.epic7.backend.model.Message;
+
 import com.epic7.backend.dto.MessageInfoDTO;
+import com.epic7.backend.repository.model.Message;
+import com.epic7.backend.repository.model.User;
 import com.epic7.backend.dto.MessageDTO;
 
 

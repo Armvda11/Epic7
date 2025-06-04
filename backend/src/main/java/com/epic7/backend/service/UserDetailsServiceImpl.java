@@ -1,7 +1,8 @@
 package com.epic7.backend.service;
 
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.User;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

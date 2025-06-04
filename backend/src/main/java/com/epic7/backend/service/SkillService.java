@@ -1,10 +1,11 @@
 package com.epic7.backend.service;
 
 import com.epic7.backend.dto.SkillDTO;
-import com.epic7.backend.model.PlayerHero;
-import com.epic7.backend.model.Skill;
 import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.SkillRepository;
+import com.epic7.backend.repository.model.PlayerHero;
+import com.epic7.backend.repository.model.Skill;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

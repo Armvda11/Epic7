@@ -1,6 +1,7 @@
 package com.epic7.backend.dto;
 
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.User;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

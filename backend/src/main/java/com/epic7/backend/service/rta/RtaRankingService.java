@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 
 import com.epic7.backend.dto.rta.RtaRankingDTO;
 import com.epic7.backend.dto.rta.RtaTierInfoDTO;
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.User;
 
 import lombok.RequiredArgsConstructor;
 

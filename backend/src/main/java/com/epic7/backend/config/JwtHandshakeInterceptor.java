@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.utils.JwtUtil;
 

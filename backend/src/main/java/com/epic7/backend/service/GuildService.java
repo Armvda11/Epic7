@@ -4,9 +4,9 @@ import com.epic7.backend.dto.GuildBanDTO;
 import com.epic7.backend.dto.GuildDTO;
 import com.epic7.backend.dto.GuildInfoDTO;
 import com.epic7.backend.dto.GuildMemberDTO;
-import com.epic7.backend.model.*;
-import com.epic7.backend.model.enums.GuildRole;
 import com.epic7.backend.repository.*;
+import com.epic7.backend.repository.model.*;
+import com.epic7.backend.repository.model.enums.GuildRole;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

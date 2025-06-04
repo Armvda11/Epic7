@@ -6,8 +6,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.Skill;
+import com.epic7.backend.repository.model.Hero;
+import com.epic7.backend.repository.model.Skill;
 
 /**
  * SkillRepository est une interface qui étend JpaRepository pour gérer les opérations CRUD sur l'entité Skill.
@@ -21,7 +21,7 @@ public interface SkillRepository extends JpaRepository<Skill, Long> {
    List<Skill> findByHeroId(Long heroId);
 
    // Récupère uniquement d'une héros par ID de héros et par catégorie
-   List<Skill> findByHeroAndCategory(Hero hero, com.epic7.backend.model.skill_kit.SkillCategory category);
+   List<Skill> findByHeroAndCategory(Hero hero, com.epic7.backend.repository.model.skill_kit.SkillCategory category);
 
    //  Récupère une compétence par nom (utile en debug / dev)
    Optional<Skill> findByName(String name);

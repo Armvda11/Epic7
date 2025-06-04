@@ -5,18 +5,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.epic7.backend.dto.ShopItemDTO;
-import com.epic7.backend.model.Equipment;
-import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.ShopItem;
-import com.epic7.backend.model.ShopPurchase;
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.ShopItemRepository;
 import com.epic7.backend.repository.ShopPurchaseRepository;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.Equipment;
+import com.epic7.backend.repository.model.Hero;
+import com.epic7.backend.repository.model.ShopItem;
+import com.epic7.backend.repository.model.ShopPurchase;
+import com.epic7.backend.repository.model.User;
 
 import lombok.RequiredArgsConstructor;
 
@@ -54,6 +55,7 @@ public class ShopService {
      * @param itemId    L'identifiant de l'article à acheter.
      * @return          Un message de confirmation de l'achat.
      */
+    @Transactional
     public String purchaseItem(User user, Long itemId) {
 
 
@@ -72,6 +74,15 @@ public class ShopService {
                 
         if (item == null) {
             return "Article introuvable";
+        }
+
+        // Validations de sécurité
+        if (item.getQuantityPerPurchase() <= 0) {
+            return "Quantité d'achat invalide";
+        }
+        
+        if (item.getPriceInGold() < 0 || item.getPriceInDiamonds() < 0) {
+            return "Prix invalide";
         }
 
         switch (item.getType()) {
@@ -99,8 +110,7 @@ public class ShopService {
         // Vérifier limitation
         if (item.getMaxPurchasePerUser() != null) {
             int count = purchaseRepo.countByUserAndShopItem(user, item);
-            if (count + item.getQuantityPerPurchase() >= item.getMaxPurchasePerUser()) {
-                //throw new IllegalStateException("Limite d'achat atteinte.");
+            if (count + item.getQuantityPerPurchase() > item.getMaxPurchasePerUser()) {
                 return "Limite d'achat atteinte.";
             }
         }
@@ -141,17 +151,25 @@ public class ShopService {
                         "Vous avez acheté l'équipement : " + equipment.getName() + " (x " + item.getQuantityPerPurchase().toString() + ")", null);
             }
             case GOLD -> {
+                // Achat d'or avec des diamants uniquement
+                if (item.getPriceInGold() > 0) {
+                    throw new IllegalStateException("L'or ne peut pas être acheté avec de l'or");
+                }
                 // Envoi d'un message au joueur pour l'informer de l'achat
                 messageService.sendMessage("Shop", user, "Achat d'or",
                         "Vous avez acheté de l'or : " + item.getQuantityPerPurchase(), null);
-                // Ajouter l'or à la liste des équipements possédés par l'utilisateur
+                // Ajouter l'or à l'utilisateur
                 user.setGold(user.getGold() + item.getQuantityPerPurchase());
             }
             case DIAMOND -> {
+                // Achat de diamants avec de l'or uniquement
+                if (item.getPriceInDiamonds() > 0) {
+                    throw new IllegalStateException("Les diamants ne peuvent pas être achetés avec des diamants");
+                }
                 // Envoi d'un message au joueur pour l'informer de l'achat
                 messageService.sendMessage("Shop", user, "Achat de diamants",
                         "Vous avez acheté des diamants : " + item.getQuantityPerPurchase(), null);
-                // Ajouter les diamants à la liste des équipements possédés par l'utilisateur
+                // Ajouter les diamants à l'utilisateur
                 user.setDiamonds(user.getDiamonds() + item.getQuantityPerPurchase());
             }
             
@@ -162,8 +180,19 @@ public class ShopService {
 
         // Enregistrer l'achat dans la base de données
         userRepository.save(user); // Enregistrer l'utilisateur avec les mises à jour
-        purchaseRepo.save(ShopPurchase.builder().user(user).shopItem(item).quantity(1).totalDiamondsPrice(item.getPriceInDiamonds()).totalGoldPrice(item.getPriceInGold())
-        .totalPrice(item.getPriceInDiamonds()+item.getPriceInGold()).build());
+        
+        // Calculer le prix total basé sur la quantité achetée
+        int totalDiamondsPrice = item.getPriceInDiamonds() * item.getQuantityPerPurchase();
+        int totalGoldPrice = item.getPriceInGold() * item.getQuantityPerPurchase();
+        
+        purchaseRepo.save(ShopPurchase.builder()
+            .user(user)
+            .shopItem(item)
+            .quantity(item.getQuantityPerPurchase())
+            .totalDiamondsPrice(totalDiamondsPrice)
+            .totalGoldPrice(totalGoldPrice)
+            .totalPrice(totalDiamondsPrice + totalGoldPrice)
+            .build());
         return "Achat réussi !";
     }
 

@@ -1,9 +1,10 @@
 package com.epic7.backend.config.seeds;
 
-import com.epic7.backend.model.Message;
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.MessageRepository;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.Message;
+import com.epic7.backend.repository.model.User;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.epic7.backend.service.MessageService;

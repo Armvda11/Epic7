@@ -1,8 +1,8 @@
 package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.HeroViewDTO;
-import com.epic7.backend.model.Hero;
 import com.epic7.backend.repository.HeroRepository;
+import com.epic7.backend.repository.model.Hero;
 import com.epic7.backend.service.HeroService;
 
 import lombok.RequiredArgsConstructor;

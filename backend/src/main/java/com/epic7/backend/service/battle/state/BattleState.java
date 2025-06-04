@@ -6,8 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
-import com.epic7.backend.model.enums.ShopItemType;
+import com.epic7.backend.repository.model.enums.ShopItemType;
 import com.epic7.backend.service.battle.model.BattleParticipant;
 
 @Data

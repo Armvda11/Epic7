@@ -1,7 +1,8 @@
 package com.epic7.backend.utils;
 
 import com.epic7.backend.dto.ShopItemDTO;
-import com.epic7.backend.model.ShopItem;
+import com.epic7.backend.repository.model.ShopItem;
+
 import org.springframework.stereotype.Component;
 
 import java.util.List;

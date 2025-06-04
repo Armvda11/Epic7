@@ -3,8 +3,9 @@ package com.epic7.backend.service.battle.engine;
 import com.epic7.backend.dto.SkillDTO;
 import com.epic7.backend.dto.boss.SimpleBattleStateDTO;
 import com.epic7.backend.dto.boss.SkillActionResultDTO;
-import com.epic7.backend.model.Skill;
-import com.epic7.backend.model.skill_kit.TargetGroup;
+import com.epic7.backend.repository.model.Skill;
+import com.epic7.backend.repository.model.skill_kit.TargetGroup;
+
 import java.util.List;
 import com.epic7.backend.service.SkillService;
 import com.epic7.backend.service.battle.model.BattleParticipant;

@@ -1,11 +1,11 @@
 package com.epic7.backend.service;
 
 import com.epic7.backend.dto.PlayerHeroViewDTO;
-import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.PlayerEquipment;
-import com.epic7.backend.model.PlayerHero;
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.PlayerHeroRepository;
+import com.epic7.backend.repository.model.Hero;
+import com.epic7.backend.repository.model.PlayerEquipment;
+import com.epic7.backend.repository.model.PlayerHero;
+import com.epic7.backend.repository.model.User;
 
 import java.util.List;
 

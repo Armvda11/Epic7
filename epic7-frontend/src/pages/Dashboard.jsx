@@ -470,7 +470,7 @@ const Dashboard = () => {
                   <span className={`font-bold ${
                     theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
                   }`}>
-                    {user.gems || 0}
+                    {user.diamonds || 0}
                   </span>
                 </motion.div>
 

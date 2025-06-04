@@ -2,7 +2,7 @@ package com.epic7.backend.service.battle.manager;
 
 import java.util.List;
 
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.User;
 
 /**
  * Interface pour la gestion des combats PvP RTA (Real-Time Arena).

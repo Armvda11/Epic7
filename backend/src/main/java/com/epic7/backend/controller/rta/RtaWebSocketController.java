@@ -8,13 +8,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.epic7.backend.dto.rta.JoinMatchMessage;
 import com.epic7.backend.dto.rta.SkillActionMessage;
-import com.epic7.backend.model.User;
 import com.epic7.backend.service.battle.manager.BattleManager;
 import com.epic7.backend.service.battle.rta.MatchmakingService;
 import com.epic7.backend.service.battle.rta.MatchmakingService.MatchResponse;
 
 import com.epic7.backend.service.battle.state.BattleState;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.User;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

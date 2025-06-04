@@ -1,12 +1,12 @@
 package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.SummonResultDTO;
-import com.epic7.backend.model.Banner;
-import com.epic7.backend.model.Equipment;
-import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.PlayerHero;
-import com.epic7.backend.model.SummonResult;
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.Banner;
+import com.epic7.backend.repository.model.Equipment;
+import com.epic7.backend.repository.model.Hero;
+import com.epic7.backend.repository.model.PlayerHero;
+import com.epic7.backend.repository.model.SummonResult;
+import com.epic7.backend.repository.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.SummonService;
 import com.epic7.backend.utils.JwtUtil;

@@ -1,0 +1,78 @@
+/* Animations pour la page Shop */
+
+@keyframes price-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.price-pulse {
+  animation: price-pulse 2s ease-in-out infinite;
+}
+
+.currency-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.shop-card-hover:hover .price-container {
+  animation: price-pulse 1s ease-in-out;
+}
+
+/* Effet de brillance pour les cartes en promotion */
+.promo-glow {
+  box-shadow: 0 0 20px rgba(255, 69, 0, 0.3);
+  animation: promo-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes promo-glow {
+  from {
+    box-shadow: 0 0 20px rgba(255, 69, 0, 0.3);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(255, 69, 0, 0.6);
+  }
+}
+
+/* Style pour les prix en promotion */
+.sale-price {
+  position: relative;
+}
+
+.sale-price::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 40%, rgba(255, 215, 0, 0.3) 50%, transparent 60%);
+  animation: shine 2s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

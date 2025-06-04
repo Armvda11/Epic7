@@ -4,8 +4,8 @@ import com.epic7.backend.dto.EquipmentDTO;
 import com.epic7.backend.dto.ExtendedEquipmentDTO;
 import com.epic7.backend.dto.HeroEquipmentViewDTO;
 import com.epic7.backend.dto.InventoryDTO;
-import com.epic7.backend.model.*;
 import com.epic7.backend.repository.*;
+import com.epic7.backend.repository.model.*;
 
 import lombok.RequiredArgsConstructor;
 

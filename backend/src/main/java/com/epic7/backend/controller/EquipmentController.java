@@ -2,8 +2,8 @@ package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.HeroEquipmentViewDTO;
 import com.epic7.backend.dto.InventoryDTO;
-import com.epic7.backend.model.PlayerEquipment;
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.PlayerEquipment;
+import com.epic7.backend.repository.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.EquipmentService;
 import com.epic7.backend.utils.JwtUtil;

@@ -7,8 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
-import com.epic7.backend.model.User;
+import com.epic7.backend.repository.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ShopService;
 import com.epic7.backend.utils.JwtUtil;

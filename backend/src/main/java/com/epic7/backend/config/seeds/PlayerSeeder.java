@@ -5,16 +5,16 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
-import com.epic7.backend.model.Equipment;
-import com.epic7.backend.model.Hero;
-import com.epic7.backend.model.PlayerEquipment;
-import com.epic7.backend.model.PlayerHero;
-import com.epic7.backend.model.User;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.PlayerEquipmentRepository;
 import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.UserRepository;
+import com.epic7.backend.repository.model.Equipment;
+import com.epic7.backend.repository.model.Hero;
+import com.epic7.backend.repository.model.PlayerEquipment;
+import com.epic7.backend.repository.model.PlayerHero;
+import com.epic7.backend.repository.model.User;
 
 import lombok.RequiredArgsConstructor;
 
