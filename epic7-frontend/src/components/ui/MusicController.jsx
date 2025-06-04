@@ -6,7 +6,7 @@ import { useMusic } from '../../context/MusicContext';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function MusicController({ className = "" }) {
-  const { theme } = useSettings();
+  const { theme, musicVolume, updateMusicVolume } = useSettings();
   const {
     setVolume,
     pauseMusic,
@@ -15,10 +15,15 @@ export default function MusicController({ className = "" }) {
     currentTrack
   } = useMusic();
 
-  const [volume, setVolumeState] = useState(0.3);
   const [isMuted, setIsMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Synchroniser le volume avec les paramètres
+  useEffect(() => {
+    setVolume(musicVolume);
+    setIsMuted(musicVolume === 0);
+  }, [musicVolume, setVolume]);
 
   // Synchroniser l'état de pause avec l'audio réel
   useEffect(() => {
@@ -38,24 +43,25 @@ export default function MusicController({ className = "" }) {
   // Gérer le changement de volume
   const handleVolumeChange = useCallback((newVolume) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
-    setVolumeState(clampedVolume);
-    setVolume(clampedVolume);
+    updateMusicVolume(clampedVolume);
     
     if (clampedVolume === 0) {
       setIsMuted(true);
     } else if (isMuted) {
       setIsMuted(false);
     }
-  }, [setVolume, isMuted]);
+  }, [updateMusicVolume, isMuted]);
 
   // Basculer muet/non muet
   const toggleMute = useCallback(() => {
     if (isMuted) {
-      handleVolumeChange(0.3); // Volume par défaut
+      updateMusicVolume(0.3); // Volume par défaut quand on désactive le muet
+      setIsMuted(false);
     } else {
-      handleVolumeChange(0);
+      updateMusicVolume(0);
+      setIsMuted(true);
     }
-  }, [isMuted, handleVolumeChange]);
+  }, [isMuted, updateMusicVolume]);
 
   // Basculer pause/lecture
   const togglePlayPause = useCallback(() => {
@@ -73,8 +79,8 @@ export default function MusicController({ className = "" }) {
 
   // Obtenir l'icône de volume appropriée
   const getVolumeIcon = () => {
-    if (isMuted || volume === 0) return FaVolumeMute;
-    if (volume < 0.5) return FaVolumeDown;
+    if (isMuted || musicVolume === 0) return FaVolumeMute;
+    if (musicVolume < 0.5) return FaVolumeDown;
     return FaVolumeUp;
   };
 
@@ -184,7 +190,7 @@ export default function MusicController({ className = "" }) {
                   min="0"
                   max="1"
                   step="0.1"
-                  value={volume}
+                  value={musicVolume}
                   onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
                   className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${
                     theme === 'dark'
@@ -196,9 +202,9 @@ export default function MusicController({ className = "" }) {
                       theme === 'dark' ? '#3b82f6' : '#6366f1'
                     } 0%, ${
                       theme === 'dark' ? '#3b82f6' : '#6366f1'
-                    } ${volume * 100}%, ${
+                    } ${musicVolume * 100}%, ${
                       theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'
-                    } ${volume * 100}%, ${
+                    } ${musicVolume * 100}%, ${
                       theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'
                     } 100%)`
                   }}
@@ -210,7 +216,7 @@ export default function MusicController({ className = "" }) {
             {/* Indicateur de volume */}
             <div className="text-center">
               <span className="text-xs opacity-60">
-                {Math.round(volume * 100)}%
+                {Math.round(musicVolume * 100)}%
               </span>
             </div>
           </motion.div>

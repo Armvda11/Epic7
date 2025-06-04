@@ -1,10 +1,12 @@
 // src/hooks/useBackgroundMusic.js
 import { useCallback, useRef, useEffect } from 'react';
+import { useSettings } from '../context/SettingsContext';
 
 /**
  * Hook pour gérer la musique de fond dans toute l'application
  */
 export function useBackgroundMusic() {
+  const { musicVolume } = useSettings();
   const audioRefs = useRef({});
   const currentTrackRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
@@ -25,7 +27,7 @@ export function useBackgroundMusic() {
       if (!audioRefs.current[key]) {
         const audio = new Audio(src);
         audio.loop = true;
-        audio.volume = 0.3; // Volume par défaut
+        audio.volume = musicVolume; // Utiliser le volume persistant
         audio.preload = 'auto';
         
         // Gestionnaires d'événements
@@ -40,7 +42,16 @@ export function useBackgroundMusic() {
         audioRefs.current[key] = audio;
       }
     });
-  }, []);
+  }, [musicVolume]);
+
+  // Mettre à jour le volume de toutes les pistes quand musicVolume change
+  useEffect(() => {
+    Object.values(audioRefs.current).forEach(audio => {
+      if (audio) {
+        audio.volume = musicVolume;
+      }
+    });
+  }, [musicVolume]);
 
   // Fonction pour faire un fade out progressif
   const fadeOut = useCallback((audio, duration = 1000, callback) => {
@@ -101,7 +112,9 @@ export function useBackgroundMusic() {
   }, [fadeOut]);
 
   // Jouer une piste spécifique avec transition
-  const playMusic = useCallback((trackName, volume = 0.3, fadeInDuration = 1000, fadeOutDuration = 1000) => {
+  const playMusic = useCallback((trackName, customVolume = null, fadeInDuration = 1000, fadeOutDuration = 1000) => {
+    // Utiliser le volume personnalisé ou celui des paramètres
+    const targetVolume = customVolume !== null ? customVolume : musicVolume;
     // Annuler tout timeout de fade en cours
     if (fadeTimeoutRef.current) {
       clearTimeout(fadeTimeoutRef.current);
@@ -127,21 +140,21 @@ export function useBackgroundMusic() {
           // Démarrer la nouvelle piste après le fade out
           currentTrackRef.current = trackName;
           newAudio.currentTime = 0; // Recommencer depuis le début
-          fadeIn(newAudio, volume, fadeInDuration);
+          fadeIn(newAudio, targetVolume, fadeInDuration);
         });
       } else {
         // Pas de musique en cours, démarrer directement
         currentTrackRef.current = trackName;
         newAudio.currentTime = 0;
-        fadeIn(newAudio, volume, fadeInDuration);
+        fadeIn(newAudio, targetVolume, fadeInDuration);
       }
     } else {
       // Pas de musique en cours, démarrer directement
       currentTrackRef.current = trackName;
       newAudio.currentTime = 0;
-      fadeIn(newAudio, volume, fadeInDuration);
+      fadeIn(newAudio, targetVolume, fadeInDuration);
     }
-  }, [fadeIn, fadeOut]);
+  }, [fadeIn, fadeOut, musicVolume]);
 
   // Changer le volume de la piste actuelle
   const setVolume = useCallback((volume) => {
@@ -193,23 +206,23 @@ export function useBackgroundMusic() {
 
   // Fonctions spécifiques pour chaque section du jeu
   const playDashboardMusic = useCallback(() => {
-    playMusic('dashboard', 0.25, 2000, 1000);
+    playMusic('dashboard', null, 2000, 1000);
   }, [playMusic]);
 
   const playRtaSelectionMusic = useCallback(() => {
-    playMusic('rtaSelection', 0.35, 1500, 1000);
+    playMusic('rtaSelection', null, 1500, 1000);
   }, [playMusic]);
 
   const playRtaBattleMusic = useCallback(() => {
-    playMusic('rtaBattle', 0.4, 1000, 800);
+    playMusic('rtaBattle', null, 1000, 800);
   }, [playMusic]);
 
   const playBossBattleMusic = useCallback(() => {
-    playMusic('bossBattle', 0.45, 800, 800);
+    playMusic('bossBattle', null, 800, 800);
   }, [playMusic]);
 
   const playConnectionMusic = useCallback(() => {
-    playMusic('connection', 0.3, 500, 500);
+    playMusic('connection', null, 500, 500);
   }, [playMusic]);
 
   // Nettoyage lors du démontage

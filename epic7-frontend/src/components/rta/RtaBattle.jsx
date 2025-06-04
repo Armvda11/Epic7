@@ -9,14 +9,19 @@ import SkillAnimation from '../battle/SkillAnimation';
 import FloatingDamage from '../battle/FloatingDamage';
 import AttackEffect from '../battle/AttackEffect';
 import BattleParticles from '../battle/BattleParticles';
-import { ModernCard, ModernButton } from '../ui';
+import { ModernCard, ModernButton, VolumeControl } from '../ui';
 import { useSettings } from '../../context/SettingsContext';
+import { useHeroSounds } from '../../hooks/useHeroSounds';
 import { FaMagic, FaEye, FaSignOutAlt, FaBug, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import { GiBroadsword, GiShield } from 'react-icons/gi';
 import API from '../../api/axiosInstance';
 
 export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }) {
   const { theme, t, language } = useSettings();
+  
+  // Hook pour les sons spécifiques des héros
+  const { preloadHeroSounds, preloadMultipleHeroSounds, playHeroSkillSound, stopAllHeroSounds } = useHeroSounds();
+  
   const [selectedSkillId, setSelectedSkillId] = useState(null);
   const [selectedSkillType, setSelectedSkillType] = useState(null);
   const [currentHeroSkills, setCurrentHeroSkills] = useState([]);
@@ -130,9 +135,21 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
         }
       };
       
+      // Précharger les sons des héros participants
+      const preloadParticipantSounds = async () => {
+        try {
+          const heroNames = battleState.participants.map(hero => hero.name).filter(Boolean);
+          console.log('Préchargement des sons pour les héros:', heroNames);
+          await preloadMultipleHeroSounds(heroNames);
+        } catch (error) {
+          console.error('Erreur lors du préchargement des sons de héros:', error);
+        }
+      };
+      
       preloadHeroImages();
+      preloadParticipantSounds();
     }
-  }, [battleState?.participants]);
+  }, [battleState?.participants, preloadMultipleHeroSounds]);
 
   // Mettre à jour les compétences du héros actuel lorsque le battleState change
   useEffect(() => {
@@ -279,6 +296,9 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
         position: skill.position,
         target: target.name 
       });
+
+      // Jouer le son spécifique du héros basé sur la position de la compétence
+      playHeroSkillSound(currentHero.name, skill.position);
 
       // Si c'est la compétence position 2, déclencher l'animation vidéo
       if (skill.position === 2) {
@@ -873,6 +893,19 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
           />
         ))}
       </AnimatePresence>
+
+      {/* Contrôleur de volume pour RTA */}
+      <VolumeControl
+        position="top-right"
+        isVisible={true}
+        showLabels={false}
+        onVolumeChange={(type, volume) => {
+          if (type === 'hero') {
+            // Mettre à jour le volume des sons déjà préchargés
+            stopAllHeroSounds();
+          }
+        }}
+      />
     </motion.div>
   );
 }

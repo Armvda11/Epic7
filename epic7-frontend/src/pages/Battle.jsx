@@ -14,12 +14,13 @@ import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
 import SkillAnimation from '../components/battle/SkillAnimation';
 import BossSkillAnimation from '../components/battle/BossSkillAnimation';
-import { ModernCard, ModernButton } from '../components/ui';
+import { ModernCard, ModernButton, VolumeControl } from '../components/ui';
 import { MusicController } from '../components/ui';
 import { useSettings } from '../context/SettingsContext';
 import { FaMagic, FaEye, FaSignOutAlt, FaUsers, FaDragon } from 'react-icons/fa';
 import { GiSwordWound, GiShield } from 'react-icons/gi';
 import { useBattleSounds } from '../hooks/useBattleSounds';
+import { useHeroSounds } from '../hooks/useHeroSounds';
 import { useMusic } from '../context/MusicContext';
 
 // utilitaire de log
@@ -40,6 +41,9 @@ export default function Battle() {
   
   // Hook pour les sons de bataille
   const { preloadSounds, playSoundForAction } = useBattleSounds();
+  
+  // Hook pour les sons spécifiques des héros
+  const { preloadHeroSounds, preloadMultipleHeroSounds, playHeroSkillSound, stopAllHeroSounds } = useHeroSounds();
   
   const navigate   = useNavigate();
   const targetRefs = useRef({});
@@ -62,6 +66,10 @@ export default function Battle() {
     isVisible: false,
     heroCode: null,
     skillPosition: null
+  });
+  const [bossAnimation, setBossAnimation] = useState({
+    isVisible: false,
+    bossCode: null
   });
   const [floatingDamages, setFloatingDamages] = useState([]);
   const [attackEffects, setAttackEffects] = useState([]);
@@ -117,7 +125,13 @@ export default function Battle() {
   // ─── Chargements initiaux ──────────────────────────────────────────────
   useEffect(() => {
     API.get('/player-hero/my')
-      .then(res => setAvailableHeroes(res.data))
+      .then(res => {
+        setAvailableHeroes(res.data);
+        
+        // Précharger les sons des héros disponibles
+        const heroNames = res.data.map(hero => hero.name);
+        preloadMultipleHeroSounds(heroNames);
+      })
       .catch(err => console.error("Erreur fetchAvailableHeroes:", err));
     
     // Précharger les sons et la musique
@@ -132,8 +146,9 @@ export default function Battle() {
     // Nettoyage lors du démontage
     return () => {
       stopCurrentMusic();
+      stopAllHeroSounds();
     };
-  }, [preloadSounds, preloadMusic, playRtaSelectionMusic, stopCurrentMusic]);
+  }, [preloadSounds, preloadMusic, preloadMultipleHeroSounds, playRtaSelectionMusic, stopCurrentMusic, stopAllHeroSounds]);
 
   // ─── Gestion des récompenses ───────────────────────────────────────────
   async function fetchReward() {
@@ -490,7 +505,12 @@ export default function Battle() {
 
       // Ajouter l'effet d'attaque
       if (result.damageDealt > 0 || result.type === 'HEAL') {
-        // Jouer le son approprié
+        // Jouer le son spécifique du héros selon sa compétence
+        if (selectedSkill && actor.name) {
+          playHeroSkillSound(actor.name, selectedSkill.position);
+        }
+        
+        // Jouer également le son général d'action
         const isCritical = result.damageDealt > 1500;
         playSoundForAction(selectedSkill?.action || 'DAMAGE', isCritical, result.damageDealt);
         
@@ -1065,6 +1085,18 @@ export default function Battle() {
 
       {/* Contrôleur de musique */}
       <MusicController />
+
+      {/* Contrôleur de volume pendant les combats */}
+      <VolumeControl
+        position="top-right"
+        isVisible={!selectionPhase}
+        onVolumeChange={(type, volume) => {
+          if (type === 'hero') {
+            // Mettre à jour le volume des sons déjà préchargés
+            stopAllHeroSounds();
+          }
+        }}
+      />
     </motion.div>
   );
 }

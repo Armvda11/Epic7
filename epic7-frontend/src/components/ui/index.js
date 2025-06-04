@@ -5,3 +5,4 @@ export { default as ModernButton } from './ModernButton';
 export { default as ModernSearchBar } from './ModernSearchBar';
 export { default as ModernModal } from './ModernModal';
 export { default as MusicController } from './MusicController';
+export { default as VolumeControl } from './VolumeControl';

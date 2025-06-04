@@ -18,6 +18,17 @@ export const SettingsProvider = ({ children }) => {
   });
   
   const [language, setLanguage] = useState(() => localStorage.getItem("language") || "fr");
+  
+  // Initialize volume settings from localStorage
+  const [musicVolume, setMusicVolume] = useState(() => {
+    const saved = localStorage.getItem("musicVolume");
+    return saved ? parseFloat(saved) : 0.3;
+  });
+  
+  const [heroSoundsVolume, setHeroSoundsVolume] = useState(() => {
+    const saved = localStorage.getItem("heroSoundsVolume");
+    return saved ? parseFloat(saved) : 0.4;
+  });
 
   // Apply theme to the entire application
   useEffect(() => {
@@ -40,6 +51,15 @@ export const SettingsProvider = ({ children }) => {
     localStorage.setItem("language", language);
   }, [language]);
 
+  // Save volume preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem("musicVolume", musicVolume.toString());
+  }, [musicVolume]);
+
+  useEffect(() => {
+    localStorage.setItem("heroSoundsVolume", heroSoundsVolume.toString());
+  }, [heroSoundsVolume]);
+
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     //console.log(`Toggling theme from ${theme} to ${newTheme}`);
@@ -47,6 +67,17 @@ export const SettingsProvider = ({ children }) => {
   };
   
   const changeLanguage = (lang) => setLanguage(lang);
+
+  // Volume control functions
+  const updateMusicVolume = (volume) => {
+    const clampedVolume = Math.min(Math.max(volume, 0), 1);
+    setMusicVolume(clampedVolume);
+  };
+
+  const updateHeroSoundsVolume = (volume) => {
+    const clampedVolume = Math.min(Math.max(volume, 0), 1);
+    setHeroSoundsVolume(clampedVolume);
+  };
 
   // Use the imported translation function with current language
   const t = (key, lang = language) => translateFunction(key, lang);
@@ -61,7 +92,12 @@ export const SettingsProvider = ({ children }) => {
         t,
         // Add isLightMode and isDarkMode helpers for easier component logic 
         isLightMode: theme === "light",
-        isDarkMode: theme === "dark"
+        isDarkMode: theme === "dark",
+        // Volume settings
+        musicVolume,
+        heroSoundsVolume,
+        updateMusicVolume,
+        updateHeroSoundsVolume
       }}
     >
       {children}
