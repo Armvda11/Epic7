@@ -4,6 +4,8 @@ import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.epic7.backend.model.enums.ShopItemType;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -15,7 +17,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import com.epic7.backend.model.enums.ShopItemType;
 
 /**
  * Représente un objet dans la boutique du jeu.

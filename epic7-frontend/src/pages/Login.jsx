@@ -4,9 +4,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { login } from "../services/authService";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMusic } from "../context/MusicContext";
+import { useSettings } from "../context/SettingsContext";
 
 /**
- * Page de connexion , permet à l'utilisateur de se connecter à son compte. 
+ * Page de connexion, permet à l'utilisateur de se connecter à son compte. 
  */
 function Login() {
   const [email, setEmail] = useState(""); // État pour l'email
@@ -14,13 +16,30 @@ function Login() {
   const [message, setMessage] = useState(""); // État pour le message de retour
   const [shake, setShake] = useState(false); 
   const navigate = useNavigate(); // Redirection après la connexion
+  const { preloadMusic, playConnectionMusic, stopCurrentMusic } = useMusic(); // Hook de musique
+  const { t, language } = useSettings(); // Hook pour les traductions
 
   // Effet pour désactiver le défilement de la page (scroll) lors de l'affichage du formulaire
-  // ca faisait bizarre d'avoir du scroll sur la page de connexion
+  // et démarrer la musique de connexion
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = "auto");
-  }, []);
+    
+    // Précharger et démarrer la musique de connexion
+    preloadMusic();
+    // Arrêter toute musique en cours avant de jouer la musique de connexion
+    stopCurrentMusic(500);
+    
+    // Démarrer la musique de connexion après un court délai pour assurer la transition
+    const timer = setTimeout(() => {
+      playConnectionMusic();
+      console.log("Musique de connexion démarrée sur la page de login");
+    }, 600);
+    
+    return () => {
+      document.body.style.overflow = "auto";
+      clearTimeout(timer);
+    };
+  }, [preloadMusic, playConnectionMusic, stopCurrentMusic]);
 
   // Fonction pour gérer la connexion
   // Elle est appelée lors de la soumission du formulaire
@@ -31,7 +50,7 @@ function Login() {
       localStorage.setItem("token", response.token); // Stockage du token dans le localStorage
       navigate("/dashboard");
     } catch (error) {
-      setMessage("Échec de la connexion. Vérifie tes identifiants.");
+      setMessage(t("loginFailed", language));
       setShake(true);
       setTimeout(() => setShake(false), 500);
     }
@@ -57,12 +76,12 @@ function Login() {
         transition={{ duration: 0.4 }}
         aria-label="Connexion"
       >
-        <h2 className="text-3xl font-bold text-center mb-6">Connexion</h2>
+        <h2 className="text-3xl font-bold text-center mb-6">{t("login", language)}</h2>
 
         {/* Email */}
         <label className="block mb-4">
           <span className="text-sm font-medium text-gray-300 flex items-center gap-2">
-            <FaEnvelope /> Adresse e-mail
+            <FaEnvelope /> {t("email", language)}
           </span>
           <input
             type="email"
@@ -70,19 +89,19 @@ function Login() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="mt-1 w-full px-4 py-2 rounded-md bg-white/90 text-black focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-gray-500"
-            placeholder="email@example.com"
+            placeholder={t("emailPlaceholder", language)}
           />
         </label>
 
         {/* Password */}
         <label className="block mb-6">
           <span className="text-sm font-medium text-gray-300 flex items-center gap-2">
-            <FaLock /> Mot de passe
+            <FaLock /> {t("password", language)}
           </span>
           <input  type="password" value={password}  onChange={(e) => setPassword(e.target.value)}
             required
             className="mt-1 w-full px-4 py-2 rounded-md bg-white/90 text-black focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-gray-500"
-            placeholder="••••••••"
+            placeholder={t("passwordPlaceholder", language)}
           />
         </label>
 

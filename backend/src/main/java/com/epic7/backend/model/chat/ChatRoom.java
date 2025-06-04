@@ -3,6 +3,7 @@ package com.epic7.backend.model.chat;
 import java.util.List;
 
 import com.epic7.backend.model.enums.ChatType;
+
 import jakarta.persistence.*;
 import lombok.*;
 

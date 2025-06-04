@@ -8,6 +8,16 @@ export const heroImg = (name) => {
     return `/epic7-Hero/webp/${name.toLowerCase().replace(/ /g, '-')}.webp`;
 };
 
+// Fonction pour obtenir l'URL d'une image sprite d'un héros pour les combats
+export const heroImgBattle = (name) => {
+    // Vérifier si le nom commence par "boss" (insensible à la casse)
+    if (name.toLowerCase().startsWith("boss")) {
+        return `/epic7-Hero/webp/boss.webp`;
+    }
+    // Utiliser les sprites pour les combats
+    return `/epic7-Hero/sprite-hero/${name.toLowerCase().replace(/ /g, '-')}.png`;
+};
+
 // Fonction pour obtenir l'URL d'une image avif d'un héros
 export const heroImgAvif = (name) => 
     `/epic7-Hero/avif/${name.toLowerCase().replace(/ /g, '-')}.avif`;
@@ -23,6 +33,10 @@ export const normalizeHeroName = (name) =>
 
 // Fonction pour obtenir l'URL de l'unknown.png
 export const heroImgUnknown = () => 
+    `/epic7-Hero/sprite-hero/unknown.png`;
+
+// Fonction pour obtenir l'URL de l'image par défaut pour les erreurs de chargement en combat
+export const heroImgUnknownBattle = () => 
     `/epic7-Hero/sprite-hero/unknown.png`;
 
 

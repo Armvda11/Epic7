@@ -1,8 +1,9 @@
 package com.epic7.backend.event;
 
-import com.epic7.backend.model.chat.ChatMessage;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
+
+import com.epic7.backend.model.chat.ChatMessage;
 
 /**
  * Event that is fired when a chat message is sent

@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import axiosInstance from '../api/axiosInstance';
 import { toast } from 'react-toastify';
+import { MusicController } from '../components/ui';
 
 const RtaLeaderboard = () => {
   const { t, language } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myRankInfo, setMyRankInfo] = useState(null);
   const [myPosition, setMyPosition] = useState(null);
 
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     loadLeaderboard();
     loadMyRankInfo();
     loadMyPosition();
-  }, []);
+  }, [preloadMusic, playDashboardMusic]);
 
   const loadLeaderboard = async () => {
     try {
@@ -93,6 +100,7 @@ const RtaLeaderboard = () => {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-[#1e1b3a] dark:to-[#2a2250] text-gray-900 dark:text-white p-4">
+      <MusicController />
       <div className="max-w-6xl mx-auto">
         {/* En-tête */}
         <motion.div

@@ -4,9 +4,10 @@ import { equipItem, unequipItem, fetchHeroEquipmentView } from "../services/equi
 import EquipmentSlot from "../components/equipment/EquipmentSlot";
 import EquipmentDetailsPanel from "../components/equipment/EquipmentDetailsPanel";
 import { useSettings } from '../context/SettingsContext';
+import { useMusic } from '../context/MusicContext';
 import { useNavigate } from 'react-router-dom';
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
-import { ModernPageLayout, ModernCard, ModernButton } from '../components/ui';
+import { ModernPageLayout, ModernCard, ModernButton, MusicController } from '../components/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaArrowLeft, FaInfoCircle, FaBolt, FaHeart, FaStar } from 'react-icons/fa';
 import { GiArmorUpgrade, GiSwordWound, GiShield } from 'react-icons/gi';
@@ -28,6 +29,7 @@ const HeroView = () => {
   const navigate = useNavigate(); // Navigation vers d'autres pages
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
   // Fonction pour charger l'inventaire du héros
   const loadHeroInventory = async () => {
@@ -40,7 +42,7 @@ const HeroView = () => {
       setError(null);
     } catch (error) {
       console.error("Erreur lors du chargement :", error);
-      setError(t('equipmentLoadError', language) || "Erreur lors du chargement de l'équipement");
+      setError(t('equipmentLoadError', language));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ const HeroView = () => {
       setSelectedEquipment(null);
     } catch (error) {
       console.error("Erreur lors de l'équipement :", error);
-      setError(t('equipError', language) || "Erreur lors de l'équipement");
+      setError(t('equipError', language));
     }
   };
 
@@ -68,14 +70,18 @@ const HeroView = () => {
       setSelectedEquipment(null);
     } catch (error) {
       console.error("Erreur lors du déséquipement :", error);
-      setError(t('unequipError', language) || "Erreur lors du déséquipement");
+      setError(t('unequipError', language));
     }
   };
 
-  // Chargement de l'inventaire du héros au premier rendu
+  // Chargement de l'inventaire du héros au premier rendu et initialisation de la musique
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     loadHeroInventory();
-  }, [heroId, language]);
+  }, [heroId, language, preloadMusic, playDashboardMusic]);
 
 
   // Fonction pour récupérer l'équipement équipé 
@@ -203,7 +209,7 @@ const HeroView = () => {
               onError={e => e.target.src = heroImgUnknown}
             />
             <div className="absolute -top-2 -right-2 bg-purple-500 text-white text-sm px-2 py-1 rounded-full">
-              {t("level", language) || "Niveau"} {equipped.length > 0 ? (equipped[0]?.heroLevel || equipped[0]?.level || "1") : "1"}
+              {t("level", language)} {equipped.length > 0 ? (equipped[0]?.heroLevel || equipped[0]?.level || "1") : "1"}
             </div>
           </div>
 
@@ -213,7 +219,7 @@ const HeroView = () => {
               whileHover={{ scale: 1.05 }} 
               className={`p-3 rounded-lg bg-gradient-to-r ${getTypeColor('WEAPON')} bg-opacity-10 backdrop-blur-sm`}
             >
-              <h3 className="text-center font-semibold mb-2 text-white">{t("weapon", language) || "Arme"}</h3>
+              <h3 className="text-center font-semibold mb-2 text-white">{t("weapon", language)}</h3>
               <EquipmentSlot 
                 type="WEAPON" 
                 equipment={getEquippedByType("WEAPON")} 
@@ -226,7 +232,7 @@ const HeroView = () => {
               whileHover={{ scale: 1.05 }} 
               className={`p-3 rounded-lg bg-gradient-to-r ${getTypeColor('ARMOR')} bg-opacity-10 backdrop-blur-sm`}
             >
-              <h3 className="text-center font-semibold mb-2 text-white">{t("armor", language) || "Armure"}</h3>
+              <h3 className="text-center font-semibold mb-2 text-white">{t("armor", language)}</h3>
               <EquipmentSlot 
                 type="ARMOR" 
                 equipment={getEquippedByType("ARMOR")} 
@@ -239,7 +245,7 @@ const HeroView = () => {
               whileHover={{ scale: 1.05 }} 
               className={`p-3 rounded-lg bg-gradient-to-r ${getTypeColor('NECKLACE')} bg-opacity-10 backdrop-blur-sm`}
             >
-              <h3 className="text-center font-semibold mb-2 text-white">{t("necklace", language) || "Collier"}</h3>
+              <h3 className="text-center font-semibold mb-2 text-white">{t("necklace", language)}</h3>
               <EquipmentSlot 
                 type="NECKLACE" 
                 equipment={getEquippedByType("NECKLACE")} 
@@ -252,7 +258,7 @@ const HeroView = () => {
               whileHover={{ scale: 1.05 }} 
               className={`p-3 rounded-lg bg-gradient-to-r ${getTypeColor('BOOTS')} bg-opacity-10 backdrop-blur-sm`}
             >
-              <h3 className="text-center font-semibold mb-2 text-white">{t("boots", language) || "Bottes"}</h3>
+              <h3 className="text-center font-semibold mb-2 text-white">{t("boots", language)}</h3>
               <EquipmentSlot 
                 type="BOOTS" 
                 equipment={getEquippedByType("BOOTS")} 
@@ -289,7 +295,7 @@ const HeroView = () => {
                     <span className={`px-2 py-1 rounded text-xs ${
                       theme === 'dark' ? 'bg-green-900/60 text-green-200' : 'bg-green-100 text-green-800'
                     }`}>
-                      Niv. {selectedEquipment.level}
+                      {t("level", language)} {selectedEquipment.level}
                     </span>
                   </div>
                 </div>
@@ -308,7 +314,7 @@ const HeroView = () => {
                     icon={<FaArrowLeft />}
                     className="w-full"
                   >
-                    {t("backToList", language) || "Retour à la liste"}
+                    {t("backToList", language)}
                   </ModernButton>
                 </div>
               </div>
@@ -316,8 +322,8 @@ const HeroView = () => {
               <>
                 <h2 className="text-xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                   {selectedSlot  
-                    ? `${t("availableEquipment", language) || "Équipement disponible"} (${t(selectedSlot.toLowerCase(), language) || selectedSlot})`  
-                    : t("selectSlot", language) || "Sélectionner un emplacement"}
+                    ? `${t("availableEquipment", language)} (${t(selectedSlot.toLowerCase(), language)})`  
+                    : t("selectSlot", language)}
                 </h2>
 
                 {selectedSlot && (
@@ -325,7 +331,7 @@ const HeroView = () => {
                     theme === 'dark' ? 'bg-indigo-900/30 backdrop-blur-sm border border-indigo-700/30' : 'bg-indigo-50 border border-indigo-100'
                   }`}>
                     <p className="text-center">
-                      {t("selectEquipmentHelp", language) || "Sélectionnez un équipement pour voir les détails ou l'équiper"}
+                      {t("selectEquipmentHelp", language)}
                     </p>
                   </div>
                 )}
@@ -348,7 +354,7 @@ const HeroView = () => {
                           <div>
                             <p className="font-medium">{eq.name}</p>
                             <p className="text-sm text-slate-400 dark:text-slate-300">
-                              {t(eq.rarity.toLowerCase(), language) || eq.rarity} • Niv. {eq.level}
+                              {t(eq.rarity.toLowerCase(), language)} • {t("level", language)} {eq.level}
                             </p>
                           </div>
                           <FaInfoCircle className={`${
@@ -361,13 +367,13 @@ const HeroView = () => {
                 ) : selectedSlot ? (
                   <div className="p-8 text-center">
                     <FaInfoCircle className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                    <p className="text-slate-400 dark:text-slate-300">{t("noEquipmentAvailable", language) || "Aucun équipement disponible"}</p>
-                    <p className="text-sm text-slate-400 dark:text-slate-400 mt-2">{t("findMoreEquipment", language) || "Explorez le monde pour trouver plus d'équipement"}</p>
+                    <p className="text-slate-400 dark:text-slate-300">{t("noEquipmentAvailable", language)}</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-400 mt-2">{t("findMoreEquipment", language)}</p>
                   </div>
                 ) : (
                   <div className="p-8 text-center">
                     <GiArmorUpgrade className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-                    <p className="text-slate-400 dark:text-slate-300">{t("selectSlotToSeeEquipment", language) || "Sélectionnez un emplacement pour voir les équipements disponibles"}</p>
+                    <p className="text-slate-400 dark:text-slate-300">{t("selectSlotToSeeEquipment", language)}</p>
                   </div>
                 )}
               </>
@@ -375,6 +381,9 @@ const HeroView = () => {
           </ModernCard>
         </motion.div>
       </motion.div>
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 };

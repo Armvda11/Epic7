@@ -1,7 +1,7 @@
 // src/components/rta/RtaPreBattleScreen.jsx
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { heroImg, heroImgUnknown } from '../heroUtils';
+import { heroImgBattle, heroImgUnknownBattle } from '../heroUtils';
 
 export default function RtaPreBattleScreen({ matchData, countdown, onCountdownEnd }) {
   const [timeLeft, setTimeLeft] = useState(countdown || 10);
@@ -80,12 +80,12 @@ export default function RtaPreBattleScreen({ matchData, countdown, onCountdownEn
               >
                 <div className="w-24 h-24 rounded-lg overflow-hidden border-3 border-blue-500 shadow-xl bg-gradient-to-br from-blue-900 to-blue-700">
                   <img
-                    src={heroImg(hero.name)}
+                    src={heroImgBattle(hero.name)}
                     alt={hero.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = heroImgUnknown;
+                      e.target.src = heroImgUnknownBattle();
                     }}
                   />
                 </div>
@@ -164,12 +164,12 @@ export default function RtaPreBattleScreen({ matchData, countdown, onCountdownEn
               >
                 <div className="w-24 h-24 rounded-lg overflow-hidden border-3 border-red-500 shadow-xl bg-gradient-to-br from-red-900 to-red-700">
                   <img
-                    src={heroImg(hero.name)}
+                    src={heroImgBattle(hero.name)}
                     alt={hero.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = heroImgUnknown;
+                      e.target.src = heroImgUnknownBattle();
                     }}
                   />
                 </div>

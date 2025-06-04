@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { fetchFriends, removeFriend, sendFriendRequest, fetchUserProfile } from "../services/userService";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import { FaArrowLeft, FaUserPlus, FaUserMinus, FaSearch, FaSync, FaUserClock, FaUsers, FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from "../components/ui";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, MusicController } from "../components/ui";
 import { toast } from "react-toastify";
 
 const FriendsPage = () => {
@@ -17,6 +18,7 @@ const [requestStatus, setRequestStatus] = useState(null);
 const [retryCount, setRetryCount] = useState(0);
 const { language, t, theme } = useSettings();
 const navigate = useNavigate();
+const { preloadMusic, playDashboardMusic } = useMusic();
 
 // Debug log pour vérifier que le composant est chargé
 console.log("FriendsPage component mounted, retry count:", retryCount);
@@ -53,6 +55,10 @@ const loadFriends = useCallback(async () => {
 useEffect(() => {
     // Debug log pour vérifier que le useEffect s'exécute
     console.log("FriendsPage useEffect triggered");
+    
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
     
     // Vérifier si l'utilisateur est connecté avant de charger les amis
     const checkAuth = async () => {

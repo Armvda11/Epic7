@@ -1,4 +1,6 @@
 import { Routes, Route, Outlet } from "react-router-dom";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -18,40 +20,62 @@ import GlobalChatPage from './pages/GlobalChatPage';
 import GuildChatPage from './pages/GuildChatPage';
 import { ChatProvider } from './context/ChatContext';
 import { MailboxProvider } from './context/MailboxContext';
+import { MusicProvider } from './context/MusicContext';
 
 
 function App() {
   return (
     <MailboxProvider>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-          
-        {/* Protected routes - ChatProvider only wraps authenticated routes */}
-        <Route element={<PrivateRoute />}>
-          <Route element={
-            <ChatProvider>
-              <Outlet />
-            </ChatProvider>
-          }>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/my-heroes" element={<MyHeroes />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/battle" element={<Battle />} />
-            <Route path="/guilds" element={<GuildsPage />} />
-            <Route path="/summons" element={<SummonPage />} />
-            <Route path="/rta" element={<RtaBattlePage />} />
-            <Route path="/rta-leaderboard" element={<RtaLeaderboard />} />
-            <Route path="/hero/:heroId" element={<HeroView />} />
-            <Route path="/friends" element={<FriendsPage />} />
-            <Route path="/profile/:userId" element={<UserProfile />} />
-            <Route path="/global-chat" element={<GlobalChatPage />} />
-            <Route path="/guild/:guildId/chat" element={<GuildChatPage />} />
+      <MusicProvider>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+            
+          {/* Protected routes - ChatProvider only wraps authenticated routes */}
+          <Route element={<PrivateRoute />}>
+            <Route element={
+              <ChatProvider>
+                <Outlet />
+              </ChatProvider>
+            }>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/my-heroes" element={<MyHeroes />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/battle" element={<Battle />} />
+              <Route path="/guilds" element={<GuildsPage />} />
+              <Route path="/summons" element={<SummonPage />} />
+              <Route path="/rta" element={<RtaBattlePage />} />
+              <Route path="/rta-leaderboard" element={<RtaLeaderboard />} />
+              <Route path="/hero/:heroId" element={<HeroView />} />
+              <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/profile/:userId" element={<UserProfile />} />
+              <Route path="/global-chat" element={<GlobalChatPage />} />
+              <Route path="/guild/:guildId/chat" element={<GuildChatPage />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
+        </Routes>
+        
+        {/* Toast Container pour les notifications */}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+          toastStyle={{
+            fontSize: '14px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+          }}
+        />
+      </MusicProvider>
     </MailboxProvider>
   );
 }

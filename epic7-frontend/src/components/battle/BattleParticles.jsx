@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function BattleParticles({ x, y, type = 'damage', isVisible, onAnimationEnd }) {
+export default function BattleParticles({ x, y, type = 'damage', isVisible, onAnimationEnd, size = 'normal' }) {
   if (!isVisible) return null;
 
   const particleConfigs = {
@@ -28,14 +28,25 @@ export default function BattleParticles({ x, y, type = 'damage', isVisible, onAn
       colors: ['text-yellow-300', 'text-orange-400', 'text-red-400'],
       symbols: ['★', '✦', '◆', '▲', '♦'],
       spread: 100
+    },
+    // Effets spéciaux pour les attaques spéciales du boss
+    special: {
+      count: 20,
+      colors: ['text-purple-500', 'text-red-500', 'text-yellow-400', 'text-blue-500'],
+      symbols: ['★', '✧', '⚡', '✦', '⛔', '⚠️'],
+      spread: 150
     }
   };
 
   const config = particleConfigs[type] || particleConfigs.damage;
+  
+  // Ajuster le nombre de particules et la diffusion en fonction de la taille
+  const particleCount = size === 'large' ? config.count * 1.5 : config.count;
+  const particleSpread = size === 'large' ? config.spread * 1.3 : config.spread;
 
-  const particles = Array.from({ length: config.count }, (_, i) => {
-    const angle = (i / config.count) * 2 * Math.PI;
-    const spread = config.spread;
+  const particles = Array.from({ length: particleCount }, (_, i) => {
+    const angle = (i / particleCount) * 2 * Math.PI;
+    const spread = particleSpread;
     const distance = 30 + Math.random() * 40;
     
     return {
@@ -57,10 +68,10 @@ export default function BattleParticles({ x, y, type = 'damage', isVisible, onAn
       {particles.map((particle) => (
         <motion.div
           key={particle.id}
-          className={`absolute text-lg ${particle.color}`}
+          className={`absolute ${particle.color}`}
           style={{ 
             textShadow: '0 0 10px currentColor',
-            fontSize: type === 'critical' ? '1.2rem' : '1rem'
+            fontSize: size === 'large' ? '1.5rem' : (type === 'critical' || type === 'special' ? '1.2rem' : '1rem')
           }}
           initial={{ 
             x: 0, 

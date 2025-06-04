@@ -3,12 +3,13 @@ package com.epic7.backend.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.epic7.backend.model.enums.Element;
-import com.epic7.backend.model.enums.Rarity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+
+import com.epic7.backend.model.enums.Element;
+import com.epic7.backend.model.enums.Rarity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**

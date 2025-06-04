@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { heroImg } from '../heroUtils';
+import { heroImgBattle } from '../heroUtils';
 import API from '../../api/axiosInstance';
 
 export default function RtaMatchmakingScreen({ waitingTime, onCancel, selectedHeroes }) {
@@ -105,7 +105,7 @@ export default function RtaMatchmakingScreen({ waitingTime, onCancel, selectedHe
               whileHover={{ y: -5, transition: { duration: 0.2 } }}
             >
               <img
-                src={heroImg(hero.name)}
+                src={heroImgBattle(hero.name)}
                 alt={hero.name}
                 className="w-full h-full object-cover"
               />

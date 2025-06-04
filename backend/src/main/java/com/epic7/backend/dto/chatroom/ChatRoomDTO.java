@@ -2,6 +2,7 @@ package com.epic7.backend.dto.chatroom;
 
 import com.epic7.backend.model.chat.ChatRoom;
 import com.epic7.backend.model.enums.ChatType;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

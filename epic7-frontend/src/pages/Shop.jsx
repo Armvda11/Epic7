@@ -2,15 +2,65 @@ import { useState, useEffect } from "react";
 import { getShopItems } from "../services/shopService";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import { buyItem } from "../services/shopService";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
-import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from "../components/ui";
+import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar, MusicController } from "../components/ui";
 import { FaFilter, FaShoppingCart, FaCoins, FaGem, FaClock } from "react-icons/fa";
+import "./Shop.css";
 
 // Fonction pour formater le nom de l'image
 const formatImageName = (name) => {
   return name.toLowerCase().replace(/\s+/g, "-");
+};
+
+// Fonction pour formater les prix avec séparateurs de milliers
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('fr-FR').format(price);
+};
+
+// Détermine les devises nécessaires pour un item
+const getRequiredCurrencies = (item) => {
+  const currencies = [];
+  if (item.priceInDiamonds > 0) {
+    currencies.push({ type: 'diamonds', amount: item.priceInDiamonds });
+  }
+  if (item.priceInGold > 0) {
+    currencies.push({ type: 'gold', amount: item.priceInGold });
+  }
+  return currencies.length > 0 ? currencies : [{ type: 'free', amount: 0 }];
+};
+
+// Vérifie si l'utilisateur peut se permettre l'item
+const canAffordItem = (item, user) => {
+  if (!user) return false;
+  const hasEnoughDiamonds = item.priceInDiamonds <= user.diamonds;
+  const hasEnoughGold = item.priceInGold <= user.gold;
+  return hasEnoughDiamonds && hasEnoughGold;
+};
+
+// Fonction de compatibilité - détermine la devise principale d'un article pour l'affichage réduit
+const getPrimaryCurrency = (item) => {
+  // Si l'article coûte des diamants, c'est la devise principale
+  if (item.priceInDiamonds > 0) {
+    return { currency: "DIAMOND", price: item.priceInDiamonds };
+  }
+  // Sinon, c'est de l'or
+  return { currency: "GOLD", price: item.priceInGold };
+};
+
+// Fonction pour obtenir la variante du bouton selon la devise
+const getButtonVariantForCurrency = (item, isDisabled) => {
+  if (isDisabled) return "secondary";
+  const { currency } = getPrimaryCurrency(item);
+  return currency === "GOLD" ? "warning" : "primary";
+};
+
+// Fonction pour déterminer si un article est en promotion (prix < 100)
+const isOnSale = (item) => {
+  const { price } = getPrimaryCurrency(item);
+  return price < 100;
 };
 
 //Fonction pour recuperer le chemin en fonction du type d'item
@@ -30,12 +80,12 @@ const getItemPath = (type) => {
 };
 
 // Fonction pour calculer le temps restant
-const getTimeLeft = (endAt) => {
+const getTimeLeft = (endAt, t, language) => {
   const now = new Date();
   const endDate = new Date(endAt);
   const diff = endDate - now;
 
-  if (diff <= 0) return "Expiré";
+  if (diff <= 0) return t("expired", language);
 
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff / (1000 * 60)) % 60);
@@ -47,15 +97,29 @@ const getTimeLeft = (endAt) => {
 export default function ShopPage() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("Tous");
+  const [filter, setFilter] = useState(""); // Will be set after language is loaded
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeLefts, setTimeLefts] = useState({});
 
   const navigate = useNavigate();
   const { t, language, theme } = useSettings();
+  const { preloadMusic, playDashboardMusic } = useMusic();
 
+  // Initialize filter with translated "All" once language is available
   useEffect(() => {
+    if (language && !filter) {
+      setFilter(t("all", language));
+    }
+  }, [language, t, filter]);
+
+  // Charger les articles et démarrer la musique
+  useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
+    // Charger les articles
     (async () => {
       try {
         const data = await getShopItems();
@@ -66,7 +130,7 @@ export default function ShopPage() {
         setLoading(false);
       }
     })();
-  }, [language]);
+  }, [language, preloadMusic, playDashboardMusic]);
 
   // Mettre à jour les temps restants
   useEffect(() => {
@@ -74,7 +138,7 @@ export default function ShopPage() {
       const newTimeLefts = {};
       items.forEach(item => {
         if (item.endAt) {
-          newTimeLefts[item.id] = getTimeLeft(item.endAt);
+          newTimeLefts[item.id] = getTimeLeft(item.endAt, t, language);
         }
       });
       setTimeLefts(newTimeLefts);
@@ -82,12 +146,11 @@ export default function ShopPage() {
 
     updateTimeLefts();
     const interval = setInterval(updateTimeLefts, 1000);
-    return () => clearInterval(interval);
-  }, [items]);
+    return () => clearInterval(interval);    }, [items, t, language]);
 
-  const handleBuyItem = async (itemId, itemPrice, itemCurrency) => {
+  const handleBuyItem = async (itemId, item) => {
     try {
-      await buyItem(itemId, itemPrice, itemCurrency);
+      await buyItem(itemId);
       toast.success(t("itemPurchased", language) || "Article acheté avec succès!");
       
       // Recharger les articles pour mettre à jour les stocks
@@ -101,7 +164,7 @@ export default function ShopPage() {
 
   const filteredItems = items.filter((item) => {
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "Tous" || item.type === filter;
+    const matchFilter = filter === t("all", language) || item.type === filter;
     return matchSearch && matchFilter;
   });
 
@@ -132,7 +195,7 @@ export default function ShopPage() {
     return (
       <ModernPageLayout 
         title={t("shop", language)} 
-        subtitle="Chargement..."
+        subtitle={t("loading", language)}
         showBackButton={false}
       >
         <div className="flex items-center justify-center min-h-64">
@@ -156,7 +219,7 @@ export default function ShopPage() {
     return (
       <ModernPageLayout 
         title={t("shop", language)} 
-        subtitle="Erreur de chargement"
+        subtitle={t("loadingError", language)}
         showBackButton={false}
       >
         <ModernCard className="text-center">
@@ -165,7 +228,7 @@ export default function ShopPage() {
             variant="primary" 
             onClick={() => window.location.reload()}
           >
-            Réessayer
+            {t("retry", language)}
           </ModernButton>
         </ModernCard>
       </ModernPageLayout>
@@ -183,11 +246,11 @@ export default function ShopPage() {
             : 'bg-white/60 border-white/40 text-gray-800'
         }`}
       >
-        <option value="Tous">{t("all", language) || "Tous"}</option>
-        <option value="HERO">{t("heroes", language) || "Héros"}</option>
-        <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
-        <option value="GOLD">{t("gold", language) || "Or"}</option>
-        <option value="DIAMOND">{t("diamonds", language) || "Diamants"}</option>
+        <option value={t("all", language)}>{t("all", language)}</option>
+        <option value="HERO">{t("heroes", language)}</option>
+        <option value="EQUIPMENT">{t("equipment", language)}</option>
+        <option value="GOLD">{t("gold", language)}</option>
+        <option value="DIAMOND">{t("diamonds", language)}</option>
       </select>
     </div>
   );
@@ -195,14 +258,14 @@ export default function ShopPage() {
   return (
     <ModernPageLayout 
       title={t("shop", language)}
-      subtitle="Découvrez nos offres exclusives"
+      subtitle={t("discoverExclusiveOffers", language)}
       headerActions={headerActions}
     >
       {/* Barre de recherche moderne */}
       <ModernSearchBar
         value={search}
         onChange={setSearch}
-        placeholder={t("searchItem", language) || "Rechercher un article..."}
+        placeholder={t("searchItem", language)}
         className="mb-8 max-w-2xl mx-auto"
       />
 
@@ -214,8 +277,30 @@ export default function ShopPage() {
         animate="visible"
       >
         {filteredItems.map((item, index) => (
-          <motion.div key={item.id} variants={itemVariants}>
-            <ModernCard className="h-full flex flex-col">
+          <motion.div 
+            key={item.id} 
+            variants={itemVariants}
+            whileHover={{ 
+              y: -5,
+              transition: { type: "spring", stiffness: 300, damping: 20 }
+            }}
+            className="group"
+          >
+            <ModernCard className={`h-full flex flex-col transition-all duration-300 group-hover:shadow-2xl group-hover:border-opacity-50 relative shop-card-hover ${
+              isOnSale(item) ? 'promo-glow' : ''
+            }`}>
+              {/* Badge promotion */}
+              {isOnSale(item) && (
+                <div className="absolute top-2 right-2 z-10">                    <motion.div
+                      className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg"
+                      animate={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      🔥 PROMO
+                    </motion.div>
+                </div>
+              )}
+              
               {/* Image de l'article */}
               <div className="flex justify-center mb-4">
                 <img
@@ -242,57 +327,157 @@ export default function ShopPage() {
                   {item.description}
                 </p>
 
-                {/* Prix et devise */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    {item.currency === "GOLD" ? (
-                      <FaCoins className="text-yellow-500" />
-                    ) : (
-                      <FaGem className="text-purple-500" />
-                    )}
-                    <span className={`font-bold ${
-                      theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {item.price}
-                    </span>
-                  </div>
+                {/* Prix et devise(s) */}
+                <div className="mb-4">
+                  {getRequiredCurrencies(item).map((currency, index) => (
+                    <motion.div 
+                      key={currency.type}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-300 group-hover:scale-105 price-container ${
+                        index > 0 ? 'mt-2' : ''
+                      } ${
+                        isOnSale(item) ? 'sale-price currency-shimmer' : ''
+                      } ${
+                        currency.type === "gold" 
+                          ? theme === 'dark' 
+                            ? 'bg-yellow-500/20 border border-yellow-500/30 group-hover:bg-yellow-500/30 group-hover:border-yellow-400/50' 
+                            : 'bg-yellow-100/80 border border-yellow-300/50 group-hover:bg-yellow-200/90 group-hover:border-yellow-400/70'
+                          : currency.type === "diamonds"
+                            ? theme === 'dark'
+                              ? 'bg-purple-500/20 border border-purple-500/30 group-hover:bg-purple-500/30 group-hover:border-purple-400/50'
+                              : 'bg-purple-100/80 border border-purple-300/50 group-hover:bg-purple-200/90 group-hover:border-purple-400/70'
+                            : theme === 'dark'
+                              ? 'bg-green-500/20 border border-green-500/30 group-hover:bg-green-500/30 group-hover:border-green-400/50'
+                              : 'bg-green-100/80 border border-green-300/50 group-hover:bg-green-200/90 group-hover:border-green-400/70'
+                      }`}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <div className="flex items-center space-x-2">
+                        {currency.type === "gold" ? (
+                          <FaCoins className={`${
+                            theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
+                          } text-lg`} />
+                        ) : currency.type === "diamonds" ? (
+                          <FaGem className={`${
+                            theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                          } text-lg`} />
+                        ) : (
+                          <span className="text-lg">🆓</span>
+                        )}
+                        <span className={`font-bold text-lg ${
+                          currency.type === "gold"
+                            ? theme === 'dark' ? 'text-yellow-300' : 'text-yellow-700'
+                            : currency.type === "diamonds"
+                              ? theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
+                              : theme === 'dark' ? 'text-green-300' : 'text-green-700'
+                        }`}>
+                          {currency.amount === 0 ? t("free", language) : formatPrice(currency.amount)}
+                        </span>
+                        <span className={`text-sm font-medium ${
+                          currency.type === "gold"
+                            ? theme === 'dark' ? 'text-yellow-400/80' : 'text-yellow-600/80'
+                            : currency.type === "diamonds"
+                              ? theme === 'dark' ? 'text-purple-400/80' : 'text-purple-600/80'
+                              : theme === 'dark' ? 'text-green-400/80' : 'text-green-600/80'
+                        }`}>
+                          {currency.type === "gold" ? t("gold", language) : currency.type === "diamonds" ? t("diamonds", language) : ""}
+                        </span>
+                      </div>
+                      
+                      {currency.type !== "free" && index === 0 && item.stock !== null && (
+                        <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          item.stock === 0 
+                            ? theme === 'dark' 
+                              ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                              : 'bg-red-100/80 border border-red-300/50 text-red-600'
+                            : item.stock <= 5
+                              ? theme === 'dark'
+                                ? 'bg-orange-500/20 border border-orange-500/30 text-orange-400'
+                                : 'bg-orange-100/80 border border-orange-300/50 text-orange-600'
+                              : theme === 'dark'
+                                ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                                : 'bg-green-100/80 border border-green-300/50 text-green-600'
+                        }`}>
+                          {t("stock", language)}: {item.stock}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
                   
-                  {item.stock !== null && (
-                    <span className={`text-sm ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Stock: {item.stock}
-                    </span>
+                  {/* Affichage du stock si plus d'une devise et pas encore affiché */}
+                  {getRequiredCurrencies(item).length > 1 && item.stock !== null && (
+                    <div className={`flex justify-end mt-2`}>
+                      <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        item.stock === 0 
+                          ? theme === 'dark' 
+                            ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                            : 'bg-red-100/80 border border-red-300/50 text-red-600'
+                          : item.stock <= 5
+                            ? theme === 'dark'
+                              ? 'bg-orange-500/20 border border-orange-500/30 text-orange-400'
+                              : 'bg-orange-100/80 border border-orange-300/50 text-orange-600'
+                            : theme === 'dark'
+                              ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                              : 'bg-green-100/80 border border-green-300/50 text-green-600'
+                      }`}>
+                        {t("stock", language)}: {item.stock}
+                      </div>
+                    </div>
                   )}
                 </div>
 
+                {/* Avertissement pour prix mixte */}
+                {getRequiredCurrencies(item).length > 1 && (
+                  <div className={`mb-4 px-3 py-2 rounded-lg border-2 border-dashed ${
+                    theme === 'dark' 
+                      ? 'bg-orange-500/10 border-orange-500/30 text-orange-300' 
+                      : 'bg-orange-50/80 border-orange-300/50 text-orange-700'
+                  }`}>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">⚠️</span>
+                      <span className="text-sm font-medium">
+                        {t("mixedCost", language)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Temps restant si applicable */}
                 {item.endAt && (
-                  <div className="flex items-center space-x-2 mb-4">
-                    <FaClock className="text-orange-500" />
-                    <span className={`text-sm ${
-                      timeLefts[item.id] === "Expiré" 
-                        ? 'text-red-500' 
-                        : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  <div className={`flex items-center space-x-2 mb-4 px-3 py-2 rounded-lg ${
+                    timeLefts[item.id] === t("expired", language)
+                      ? theme === 'dark'
+                        ? 'bg-red-500/20 border border-red-500/30'
+                        : 'bg-red-100/80 border border-red-300/50'
+                      : theme === 'dark'
+                        ? 'bg-orange-500/20 border border-orange-500/30'
+                        : 'bg-orange-100/80 border border-orange-300/50'
+                  }`}>
+                    <FaClock className={`${
+                      timeLefts[item.id] === t("expired", language) ? 'text-red-500' : 'text-orange-500'
+                    }`} />
+                    <span className={`text-sm font-medium ${
+                      timeLefts[item.id] === t("expired", language) 
+                        ? 'text-red-500 font-bold' 
+                        : theme === 'dark' ? 'text-orange-300' : 'text-orange-700'
                     }`}>
-                      {timeLefts[item.id] || "Calculé..."}
+                      {timeLefts[item.id] || t("calculating", language)}
                     </span>
                   </div>
                 )}
 
                 {/* Bouton d'achat */}
                 <ModernButton
-                  variant={item.stock === 0 || timeLefts[item.id] === "Expiré" ? "secondary" : "accent"}
-                  disabled={item.stock === 0 || timeLefts[item.id] === "Expiré"}
-                  onClick={() => handleBuyItem(item.id, item.price, item.currency)}
+                  variant={getButtonVariantForCurrency(item, item.stock === 0 || timeLefts[item.id] === t("expired", language))}
+                  disabled={item.stock === 0 || timeLefts[item.id] === t("expired", language)}
+                  onClick={() => handleBuyItem(item.id, item)}
                   icon={<FaShoppingCart />}
                   className="w-full"
                 >
                   {item.stock === 0 
-                    ? t("outOfStock", language) || "Rupture de stock"
-                    : timeLefts[item.id] === "Expiré"
-                    ? t("expired", language) || "Expiré"
-                    : t("buy", language) || "Acheter"
+                    ? t("outOfStock", language)
+                    : timeLefts[item.id] === t("expired", language)
+                    ? t("expired", language)
+                    : t("buy", language)
                   }
                 </ModernButton>
               </div>
@@ -315,16 +500,19 @@ export default function ShopPage() {
             <h3 className={`text-xl font-bold mb-2 ${
               theme === 'dark' ? 'text-white' : 'text-gray-900'
             }`}>
-              Aucun article trouvé
+              {t("noItemsFound", language)}
             </h3>
             <p className={`${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Essayez de modifier votre recherche ou vos filtres
+              {t("modifySearchFilters", language)}
             </p>
           </ModernCard>
         </motion.div>
       )}
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 }

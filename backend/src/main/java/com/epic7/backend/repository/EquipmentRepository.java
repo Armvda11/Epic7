@@ -1,13 +1,14 @@
 package com.epic7.backend.repository;
 
-import com.epic7.backend.model.Equipment;
-import com.epic7.backend.model.enums.EquipmentType;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.enums.EquipmentType;
 
 /**
  * Interface de gestion des équipements dans la base de données.

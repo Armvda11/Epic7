@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 import EquipmentCard from "../components/equipment/EquipmentCard";
 import EquipmentDetails from "../components/equipment/EquipmentDetails";
 import { useSettings } from "../context/SettingsContext";
+import { useMusic } from "../context/MusicContext";
 import { fetchInventory } from "../services/equipmentService";
 import { useNavigate } from "react-router-dom";
-import { ModernPageLayout, ModernCard, ModernButton } from "../components/ui";
+import { ModernPageLayout, ModernCard, ModernButton, MusicController } from "../components/ui";
 import { FaArrowLeft, FaBox } from "react-icons/fa";
 
 // Cette page affiche l'inventaire de l'utilisateur
@@ -16,9 +17,14 @@ const Inventory = () => {
   const [selected, setSelected] = useState(null); // État pour stocker l'équipement sélectionné
   const { language, t } = useSettings(); // Récupération de la langue et des traductions
   const navigate = useNavigate();
+  const { preloadMusic, playDashboardMusic } = useMusic(); // Hook de musique
 
   // Fonction pour charger l'inventaire de l'utilisateur
   useEffect(() => {
+    // Précharger et démarrer la musique du dashboard
+    preloadMusic();
+    playDashboardMusic();
+    
     const loadInventory = async () => {
       try {
         const items = await fetchInventory();
@@ -28,7 +34,7 @@ const Inventory = () => {
       }
     };
     loadInventory();
-  }, []);
+  }, [preloadMusic, playDashboardMusic]);
 
   return (
     <ModernPageLayout>
@@ -112,6 +118,9 @@ const Inventory = () => {
           )}
         </motion.section>
       </div>
+      
+      {/* Contrôleur de musique */}
+      <MusicController />
     </ModernPageLayout>
   );
 };

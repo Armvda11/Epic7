@@ -912,6 +912,16 @@ class ChatService {
   }
 
   /**
+   * Supprime un callback
+   * @param {String} event - Nom de l'événement
+   */
+  off(event) {
+    if (this.callbacks[event]) {
+      delete this.callbacks[event];
+    }
+  }
+
+  /**
    * Se déconnecte du chat
    */
   disconnect() {

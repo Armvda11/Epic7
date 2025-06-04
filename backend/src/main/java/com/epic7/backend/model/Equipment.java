@@ -1,7 +1,8 @@
 package com.epic7.backend.model;
 
-import jakarta.persistence.*;
 import com.epic7.backend.model.enums.EquipmentType;
+
+import jakarta.persistence.*;
 import lombok.*;
 
 

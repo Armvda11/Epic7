@@ -54,4 +54,115 @@
   .scrollbar-dark {
     scrollbar-color: rgba(71, 85, 105, 0.5) rgba(30, 41, 59, 0.5);
   }
+
+  /* Scrollbar personnalisée pour les logs de développement */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.5);
+    border-radius: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.8);
+  }
+
+  /* Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.5) rgba(0, 0, 0, 0.2);
+  }
+
+  /* Scrollbar personnalisée moderne */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.3);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.6);
+  }
+
+  /* Mode sombre pour la scrollbar personnalisée */
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(71, 85, 105, 0.4);
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 0.7);
+  }
+
+  /* Firefox */
+  .custom-scrollbar {
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+  }
+
+  .dark .custom-scrollbar {
+    scrollbar-color: rgba(71, 85, 105, 0.4) transparent;
+  }
+  
+  /* Tooltips des héros - optimisations d'affichage */
+  .hero-tooltip-container {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  
+  /* S'assurer que le tooltip reste visible même près des bords */
+  @media (max-width: 768px) {
+    .hero-tooltip-container {
+      left: auto !important;
+      right: 0;
+      transform: none !important;
+    }
+  }
+
+  /* Animation de tremblement pour les attaques spéciales du boss */
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translate(-3px, 0) rotate(-1deg); }
+    20%, 40%, 60%, 80% { transform: translate(3px, 0) rotate(1deg); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  .battle-target {
+    position: relative;
+  }
+
+  .battle-target.targeted::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border: 2px dashed rgba(255, 0, 0, 0.6);
+    border-radius: 16px;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
 }

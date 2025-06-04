@@ -1,8 +1,78 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function AttackEffect({ x, y, type = 'slash', isVisible, onAnimationEnd }) {
+export default function AttackEffect({ x, y, type = 'slash', isVisible, targetX, targetY, beamColor, size = 'normal', onAnimationEnd }) {
   if (!isVisible) return null;
+
+  // Effet de rayon reliant le boss à sa cible
+  if (type === 'beam') {
+    // Calculer l'angle et la distance entre le boss et la cible
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    const beamColors = {
+      'red': 'from-red-600 to-red-300',
+      'blue': 'from-blue-600 to-blue-300',
+      'purple': 'from-purple-600 to-purple-300',
+      'green': 'from-green-600 to-green-300'
+    };
+    
+    const colorClass = beamColors[beamColor] || 'from-yellow-500 to-orange-300';
+    
+    return (
+      <div className="absolute pointer-events-none z-50" style={{ top: y, left: x }}>
+        <motion.div 
+          className={`absolute origin-left bg-gradient-to-r ${colorClass} rounded-full opacity-70`}
+          style={{
+            height: '12px',
+            width: distance,
+            rotate: angle,
+            transformOrigin: 'left center',
+            filter: 'blur(2px)'
+          }}
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={{ 
+            scaleX: [0, 1, 1, 0],
+            opacity: [0, 0.8, 0.8, 0]
+          }}
+          transition={{ 
+            duration: 1.2,
+            times: [0, 0.2, 0.8, 1]
+          }}
+          onAnimationComplete={onAnimationEnd}
+        />
+        
+        {/* Pulsations le long du rayon */}
+        {[...Array(3)].map((_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute h-4 w-4 rounded-full bg-${beamColor}-400`}
+            style={{
+              rotate: angle,
+              filter: 'blur(1px)'
+            }}
+            initial={{ 
+              x: 0,
+              opacity: 0,
+              scale: 1.5
+            }}
+            animate={{ 
+              x: [0, distance],
+              opacity: [0, 1, 0],
+              scale: [1, 2, 1]
+            }}
+            transition={{ 
+              duration: 1,
+              delay: i * 0.2,
+              ease: 'easeInOut'
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   const effects = {
     slash: {
@@ -57,13 +127,17 @@ export default function AttackEffect({ x, y, type = 'slash', isVisible, onAnimat
   };
 
   const effect = effects[type] || effects.impact;
+  
+  // Ajuster la taille des éléments en fonction du paramètre size
+  const sizeMultiplier = size === 'large' ? 1.5 : 1;
+  const textSize = size === 'large' ? 'text-7xl' : 'text-6xl';
 
   return (
     <div className="absolute pointer-events-none" style={{ top: y - 40, left: x - 40, zIndex: 60 }}>
       {effect.elements.map((element, index) => (
         <motion.div
           key={index}
-          className={`absolute text-6xl ${element.color} drop-shadow-2xl`}
+          className={`absolute ${textSize} ${element.color} drop-shadow-2xl`}
           style={{
             textShadow: '0 0 20px currentColor, 0 0 40px currentColor',
             left: index * 5, // Léger décalage pour chaque élément
@@ -84,11 +158,38 @@ export default function AttackEffect({ x, y, type = 'slash', isVisible, onAnimat
       {/* Onde de choc pour les gros impacts */}
       {(type === 'impact' || type === 'magic') && (
         <motion.div
-          className="absolute w-20 h-20 rounded-full border-4 border-white/50"
-          style={{ left: -40, top: -40 }}
+          className={`absolute rounded-full border-4 ${
+            type === 'magic' ? 'border-purple-400/50' : 'border-white/50'
+          }`}
+          style={{ 
+            left: -40 * sizeMultiplier, 
+            top: -40 * sizeMultiplier,
+            width: 20 * sizeMultiplier,
+            height: 20 * sizeMultiplier
+          }}
           initial={{ scale: 0, opacity: 0.8 }}
           animate={{ scale: 3, opacity: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
+        />
+      )}
+      
+      {/* Cercle de focus pour les attaques spéciales */}
+      {size === 'large' && (
+        <motion.div
+          className="absolute w-32 h-32 rounded-full"
+          style={{ 
+            left: -64, 
+            top: -64,
+            background: `radial-gradient(circle, ${
+              type === 'magic' ? 'rgba(147, 51, 234, 0.3)' : 
+              type === 'slash' ? 'rgba(239, 68, 68, 0.3)' : 
+              'rgba(249, 115, 22, 0.3)'
+            } 0%, transparent 70%)`,
+            filter: 'blur(2px)'
+          }}
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ scale: 1.2, opacity: [0, 0.8, 0] }}
+          transition={{ duration: 1, ease: 'easeOut' }}
         />
       )}
     </div>

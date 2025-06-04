@@ -14,10 +14,20 @@ export const getShopItems = async () => {
 
 export const buyItem = async (itemId) => {
   try {
-    const response = await API.post(`/shop/buy/${itemId}`); // Pas besoin d'envoyer le token si l'utilisateur est déjà authentifié côté serveur
-    return response.data; // Retourne la réponse du backend (message de succès ou erreur)
+    const response = await API.post(`/shop/buy/${itemId}`);
+    return response.data;
   } catch (error) {
     console.error("Erreur lors de l'achat :", error);
-    throw error;
+    
+    // Gestion spécifique des erreurs
+    if (error.response?.status === 400) {
+      throw new Error(error.response.data || "Achat impossible");
+    } else if (error.response?.status === 401) {
+      throw new Error("Vous devez être connecté pour effectuer un achat");
+    } else if (error.response?.status === 403) {
+      throw new Error("Vous n'avez pas l'autorisation d'effectuer cet achat");
+    } else {
+      throw new Error("Erreur serveur lors de l'achat");
+    }
   }
 };

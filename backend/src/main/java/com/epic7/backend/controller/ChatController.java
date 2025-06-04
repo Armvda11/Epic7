@@ -7,9 +7,9 @@ import com.epic7.backend.dto.chatroom.TypingDTO;
 import com.epic7.backend.model.User;
 import com.epic7.backend.model.chat.ChatMessage;
 import com.epic7.backend.model.chat.ChatRoom;
+import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ChatService;
-import com.epic7.backend.model.enums.ChatType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

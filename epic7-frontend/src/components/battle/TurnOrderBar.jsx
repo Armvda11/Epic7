@@ -1,5 +1,5 @@
 import React from 'react';
-import { heroImg } from '../heroUtils';
+import { heroImgBattle, heroImgUnknownBattle } from '../heroUtils';
 
 export default function TurnOrderBar({ participants, currentId, nextId }) {
   if (participants.length === 0) return null;
@@ -27,9 +27,12 @@ export default function TurnOrderBar({ participants, currentId, nextId }) {
             {/* Glow autour de l'image si current */}
             <div className={`relative w-8 h-8 rounded-full ${isCurrent ? 'shadow-glow' : ''}`}>
               <img
-                src={heroImg(hero.name)}
+                src={heroImgBattle(hero.name)}
                 alt={hero.name}
                 className="w-8 h-8 object-contain rounded-full"
+                onError={(e) => {
+                  e.target.src = heroImgUnknownBattle();
+                }}
               />
             </div>
 

@@ -1,10 +1,11 @@
 package com.epic7.backend.model;
 
-import com.epic7.backend.model.enums.GuildRole;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+
+import com.epic7.backend.model.enums.GuildRole;
 
 
 /**

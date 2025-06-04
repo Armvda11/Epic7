@@ -4,6 +4,7 @@ import com.epic7.backend.model.Message;
 import com.epic7.backend.model.User;
 import com.epic7.backend.repository.MessageRepository;
 import com.epic7.backend.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.epic7.backend.service.MessageService;
