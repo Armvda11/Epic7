@@ -13,6 +13,7 @@ import HeroSelectionPanel from '../components/battle/battleSelection/HeroSelecti
 import HeroPortraitOverlay from '../components/battle/HeroPortraitOverlay';
 import TurnOrderBar from '../components/battle/TurnOrderBar';
 import SkillAnimation from '../components/battle/SkillAnimation';
+import BossSkillAnimation from '../components/battle/BossSkillAnimation';
 import { ModernCard, ModernButton } from '../components/ui';
 import { useSettings } from '../context/SettingsContext';
 import { FaMagic, FaEye, FaSignOutAlt, FaUsers, FaDragon } from 'react-icons/fa';
@@ -42,6 +43,7 @@ export default function Battle() {
   const [attackEffects,     setAttackEffects]     = useState([]);
   const [battleParticles,   setBattleParticles]   = useState([]);
   const [bossAttacking,     setBossAttacking]     = useState(false);
+  const [bossAttackCount,   setBossAttackCount]   = useState(0);
   const [reward,            setReward]            = useState(null);
 
   // 🎬 Animation des compétences
@@ -49,6 +51,12 @@ export default function Battle() {
     isVisible: false,
     heroCode: null,
     skillPosition: null
+  });
+  
+  // 🐉 Animation des compétences du boss
+  const [bossAnimation,     setBossAnimation]     = useState({
+    isVisible: false,
+    bossCode: null
   });
 
   const navigate   = useNavigate();
@@ -152,6 +160,9 @@ export default function Battle() {
         setBossAttacking(true);
         setTimeout(handleBossAction, 1500);
       } else {
+        // S'assurer que le boss ne semble plus attaquer quand c'est au tour du joueur
+        setBossAttacking(false);
+        
         if (curr.player) {
           // ← 👉 Notez le bon endpoint `/api/skill/player-hero/...`
           const { data: skills } = await API.get(`/skill/player-hero/${curr.id}/skills`);
@@ -165,11 +176,106 @@ export default function Battle() {
       }
     } catch (err) {
       console.error("Erreur fetchBattleState:", err);
+      // En cas d'erreur, s'assurer que le joueur peut toujours jouer
+      setBossAttacking(false);
     }
   }
 
   async function handleBossAction() {
-    await new Promise(r => setTimeout(r, 1000));
+    // Délai initial pour une expérience plus naturelle
+    // On réduit légèrement le délai initial pour laisser place aux effets visuels
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Calculer les positions pour les effets visuels du boss
+    let targetElement, targetX, targetY;
+    
+    // Trouver un héros du joueur comme cible
+    const playerHeroes = battleState.participants.filter(p => p.player && p.currentHp > 0);
+    if (playerHeroes.length > 0) {
+      const targetHero = playerHeroes[Math.floor(Math.random() * playerHeroes.length)];
+      targetElement = targetRefs.current[targetHero.id];
+      
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        targetX = rect.left + rect.width / 2;
+        targetY = rect.top + rect.height / 2;
+      } else {
+        // Position par défaut si la cible n'est pas trouvée
+        targetX = window.innerWidth / 3;
+        targetY = window.innerHeight / 2;
+      }
+      
+      // Incrémenter le compteur d'attaques du boss
+      const newCount = bossAttackCount + 1;
+      setBossAttackCount(newCount);
+      
+      // Récupérer l'acteur courant (le boss)
+      const boss = battleState.participants.find(p => !p.player);
+      
+      // Déterminer le type d'effet pour l'attaque du boss
+      const effectTypes = ['impact', 'slash', 'magic'];
+      const effectType = effectTypes[Math.floor(Math.random() * effectTypes.length)];
+      
+      // Déterminer les dégâts (simulés pour l'affichage)
+      const damageAmount = Math.floor(Math.random() * 800) + 200;
+      
+      // Jouer le son approprié
+      const isCritical = Math.random() < 0.3;
+      playSoundForAction('DAMAGE', isCritical, damageAmount);
+      
+      // Ajouter l'effet d'attaque
+      const effectId = Date.now() + Math.random();
+      setAttackEffects(effects => [
+        ...effects,
+        {
+          id: effectId,
+          x: targetX,
+          y: targetY,
+          type: effectType,
+          isVisible: true
+        }
+      ]);
+      
+      // Afficher les dégâts flottants
+      const damageId = Date.now() + Math.random() + 1;
+      setFloatingDamages(damages => [
+        ...damages,
+        { 
+          id: damageId, 
+          x: targetX, 
+          y: targetY - 50, 
+          value: damageAmount, 
+          type: 'DAMAGE' 
+        }
+      ]);
+      
+      // Animation de compétence toutes les 2 attaques
+      if (newCount % 2 === 0 && boss) {
+        // Utiliser l'animation spéciale du boss
+        setBossAnimation({
+          isVisible: true,
+          bossCode: boss.name
+        });
+        
+        // Attendre l'animation avant de continuer
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        // Pour les attaques normales, ajouter un petit délai pour que les effets visuels soient visibles
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+      
+      // Retirer les effets après l'animation
+      setTimeout(() => {
+        setAttackEffects(effects => effects.filter(e => e.id !== effectId));
+        setFloatingDamages(damages => damages.filter(d => d.id !== damageId));
+      }, 2000);
+    }
+    
+    // Attendre un court délai supplémentaire pour que les animations soient bien visibles
+    // avant de passer au tour suivant
+    await new Promise(r => setTimeout(r, 400));
+    
+    // Mettre à jour l'état du combat
     await fetchBattleState();
     setBossAttacking(false);
   }
@@ -294,12 +400,19 @@ export default function Battle() {
         }, 2500);
       }
 
-      // tour du boss après un délai
+      // tour du boss après un délai plus naturel
       setTimeout(async () => {
+        // Afficher l'overlay d'attaque du boss
         setBossAttacking(true);
+        
+        // Délai pour que l'overlay soit visible avant le début des animations
+        // Cela donne l'impression que le boss "réfléchit" à son action
+        await new Promise(r => setTimeout(r, 600));
+        
+        // Déclencher l'action du boss avec les effets visuels
+        // (pas besoin de réinitialiser bossAttacking ici, car handleBossAction le fera)
         await fetchBattleState();
-        setBossAttacking(false);
-      }, 800);
+      }, 800); // Délai réduit pour une meilleure fluidité
     } catch (err) {
       console.error("Erreur useSkill:", err);
     }
@@ -312,6 +425,15 @@ export default function Battle() {
       isVisible: false,
       heroCode: null,
       skillPosition: null
+    });
+  }
+  
+  // ─── Gestion de la fin d'animation du boss ─────────────────────────────
+  function handleBossAnimationEnd() {
+    logBattleAction('🐉 FIN ANIMATION BOSS', 'Animation du boss terminée');
+    setBossAnimation({
+      isVisible: false,
+      bossCode: null
     });
   }
 
@@ -523,16 +645,56 @@ export default function Battle() {
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              <ModernCard className="p-6 text-center backdrop-blur-md bg-red-500/20 border-red-400/30">
+              <ModernCard className={`p-6 text-center backdrop-blur-md ${
+                bossAttackCount % 2 === 0 
+                  ? 'bg-purple-500/30 border-purple-400/40' 
+                  : 'bg-red-500/20 border-red-400/30'
+              }`}>
                 <div className="flex items-center gap-3 mb-2">
-                  <FaDragon className="text-red-400 text-2xl" />
+                  <FaDragon className={`text-2xl ${
+                    bossAttackCount % 2 === 0 ? 'text-purple-400' : 'text-red-400'
+                  }`} />
                   <h3 className="text-2xl font-bold text-white">
-                    {t("bossAttacking", language) || "Boss en action"}
+                    {bossAttackCount % 2 === 0 
+                      ? (t("bossPowerAttack", language) || "Attaque puissante!") 
+                      : (t("bossAttacking", language) || "Boss en action")}
                   </h3>
                 </div>
-                <p className="text-red-200">
-                  {current.name} {t("preparingAttack", language) || "se prépare à attaquer..."}
+                <p className={`${
+                  bossAttackCount % 2 === 0 ? 'text-purple-200' : 'text-red-200'
+                }`}>
+                  {current.name} {bossAttackCount % 2 === 0 
+                    ? (t("preparingSpecialAttack", language) || "prépare une attaque spéciale!") 
+                    : (t("preparingAttack", language) || "se prépare à attaquer...")}
                 </p>
+                
+                {/* Effets visuels supplémentaires pour les attaques spéciales */}
+                {bossAttackCount % 2 === 0 && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {Array.from({ length: 8 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-2 h-2 bg-purple-500 rounded-full"
+                        style={{
+                          left: `${Math.random() * 100}%`,
+                          top: `${Math.random() * 100}%`,
+                        }}
+                        animate={{
+                          scale: [0, 1.5, 0],
+                          opacity: [0, 0.8, 0],
+                          x: [0, (Math.random() - 0.5) * 50],
+                          y: [0, (Math.random() - 0.5) * 50],
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          repeatType: "loop",
+                          delay: Math.random() * 0.5,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </ModernCard>
             </motion.div>
           </motion.div>
@@ -709,6 +871,13 @@ export default function Battle() {
         skillPosition={skillAnimation.skillPosition}
         isVisible={skillAnimation.isVisible}
         onAnimationEnd={handleAnimationEnd}
+      />
+      
+      {/* Animation d'attaque spéciale du boss */}
+      <BossSkillAnimation
+        bossCode={bossAnimation.bossCode}
+        isVisible={bossAnimation.isVisible}
+        onAnimationEnd={handleBossAnimationEnd}
       />
 
       {/* Overlay de fin de combat */}
