@@ -224,7 +224,7 @@ export default function MusicController({ className = "" }) {
       </motion.div>
 
       {/* Styles CSS pour le slider */}
-      <style jsx>{`
+      <style jsx="true">{`
         .slider-thumb-dark::-webkit-slider-thumb {
           appearance: none;
           height: 16px;
