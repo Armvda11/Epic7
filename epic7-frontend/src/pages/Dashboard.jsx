@@ -7,6 +7,7 @@ import { fetchUserProfile, searchUsers } from "../services/userService";
 import { useSettings } from "../context/SettingsContext";
 import SettingsPanel from "../components/settings/SettingsPanel";
 import MailboxOverlay from "../components/MailboxOverlay/MailboxOverlay";
+import GlobalChat from "../components/chat/GlobalChat";
 import { heroImg, heroImgUnknown } from "../components/heroUtils";
 import { useMusic } from "../context/MusicContext";
 import { MusicController } from "../components/ui";
@@ -54,6 +55,7 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showMailbox, setShowMailbox] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   // États pour la recherche
   const [searchTerm, setSearchTerm] = useState("");
@@ -543,6 +545,20 @@ const Dashboard = () => {
                 </motion.button>
 
                 <motion.button
+                  onClick={() => setShowChat(true)}
+                  className={`p-3 rounded-xl backdrop-blur-sm transition-all duration-300 ${
+                    theme === 'dark' 
+                      ? 'bg-white/10 hover:bg-white/20 text-green-400' 
+                      : 'bg-white/40 hover:bg-white/60 text-green-600'
+                  }`}
+                  variants={buttonVariants}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <FaComments size={20} />
+                </motion.button>
+
+                <motion.button
                   onClick={() => setShowSettings(true)}
                   className={`p-3 rounded-xl backdrop-blur-sm transition-all duration-300 ${
                     theme === 'dark' 
@@ -962,6 +978,61 @@ const Dashboard = () => {
               transition={{ type: "spring", stiffness: 300, damping: 24 }}
             >
               <MailboxOverlay onClose={() => setShowMailbox(false)} />
+            </motion.div>
+          </motion.div>
+        )}
+        
+        {showChat && (
+          <motion.div 
+            className="fixed inset-0 backdrop-blur-sm bg-black/60 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0" onClick={() => setShowChat(false)} />
+            <motion.div 
+              className="relative z-50 w-full max-w-2xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            >
+              <div className={`rounded-2xl overflow-hidden ${
+                theme === 'dark' 
+                  ? 'bg-gray-900 border-white/20' 
+                  : 'bg-white border-gray-300/40'
+              } border shadow-2xl`}>
+                <div className={`p-4 border-b ${
+                  theme === 'dark' 
+                    ? 'bg-gray-800 border-white/10' 
+                    : 'bg-gray-100 border-gray-200'
+                } flex justify-between items-center`}>
+                  <h2 className={`text-xl font-bold ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-800'
+                  }`}>
+                    {t("globalChat", language) || "Chat Global"}
+                  </h2>
+                  <motion.button
+                    onClick={() => setShowChat(false)}
+                    className={`p-2 rounded-full ${
+                      theme === 'dark' 
+                        ? 'hover:bg-white/10' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-800'
+                    }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </motion.button>
+                </div>
+                <div className="h-[60vh]">
+                  <GlobalChat />
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
