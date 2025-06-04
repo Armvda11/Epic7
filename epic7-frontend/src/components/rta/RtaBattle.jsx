@@ -5,6 +5,10 @@ import BattleSkillBar from '../battle/BattleSkillBar';
 import BattleForfeitButton from '../battle/BattleForfeitButton';
 import HeroPortraitOverlay from '../battle/HeroPortraitOverlay';
 import TurnOrderBar from '../battle/TurnOrderBar';
+import SkillAnimation from '../battle/SkillAnimation';
+import FloatingDamage from '../battle/FloatingDamage';
+import AttackEffect from '../battle/AttackEffect';
+import BattleParticles from '../battle/BattleParticles';
 import { ModernCard, ModernButton } from '../ui';
 import { useSettings } from '../../context/SettingsContext';
 import { FaMagic, FaEye, FaSignOutAlt, FaBug, FaChevronUp, FaChevronDown } from 'react-icons/fa';
@@ -19,6 +23,16 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
   const [cooldowns, setCooldowns] = useState({});
   const [showDevLogs, setShowDevLogs] = useState(false);
   const targetRefs = useRef({});
+
+  // États pour les animations
+  const [skillAnimation, setSkillAnimation] = useState({
+    isVisible: false,
+    heroCode: null,
+    skillPosition: null
+  });
+  const [floatingDamages, setFloatingDamages] = useState([]);
+  const [attackEffects, setAttackEffects] = useState([]);
+  const [battleParticles, setBattleParticles] = useState([]);
 
   // Animations variants
   const containerVariants = {
@@ -175,8 +189,8 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Gérer le clic sur une compétence
-  const handleSkillClick = (skill) => {
+  // Gérer le clic sur une compétence avec animations
+  const handleSkillClick = async (skill) => {
     if (skill.category === 'PASSIVE') return;
     
     const currentHero = battleState.participants[battleState.currentTurnIndex];
@@ -186,10 +200,122 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
     
     if (selectedSkillId === skill.id) {
       const defaultTarget = battleState.participants.find(p => skill.action === 'HEAL' ? p.player : !p.player);
-      if (defaultTarget) useSkill(currentHero.id, skill.id, defaultTarget.id);
+      if (defaultTarget) {
+        await executeSkillWithAnimations(currentHero, skill, defaultTarget);
+      }
     } else {
       setSelectedSkillId(skill.id);
       setSelectedSkillType(skill.action);
+    }
+  };
+
+  // Fonction pour ajouter les effets visuels
+  const addVisualEffects = (skill, target) => {
+    // Calculer la position de la cible pour les effets visuels
+    const targetElement = targetRefs.current[target.id];
+    let targetPosition = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 }; // Position par défaut au centre
+    
+    if (targetElement) {
+      const rect = targetElement.getBoundingClientRect();
+      targetPosition = {
+        x: rect.left + rect.width / 2,  // Centre horizontal de l'élément
+        y: rect.top + rect.height / 2   // Centre vertical de l'élément
+      };
+      console.log('Position de la cible calculée (pixels):', targetPosition);
+      console.log('Rect de la cible:', rect);
+    } else {
+      console.warn('Élément cible non trouvé pour l\'ID:', target.id);
+    }
+
+    // Ajouter l'effet d'attaque
+    const effectId = Date.now();
+    console.log('Ajout de l\'effet d\'attaque:', effectId);
+    setAttackEffects(prev => [...prev, {
+      id: effectId,
+      type: skill.action === 'HEAL' ? 'heal' : (skill.element === 'FIRE' ? 'magic' : 'slash'),
+      position: targetPosition
+    }]);
+
+    // Simuler les dégâts/soins (en attente de la vraie logique)
+    const damage = Math.floor(Math.random() * 1000) + 500;
+    const isCritical = Math.random() < 0.3;
+    
+    // Ajouter les dégâts flottants
+    const damageId = Date.now() + 1;
+    console.log('Ajout des dégâts flottants:', damageId, damage);
+    setFloatingDamages(prev => [...prev, {
+      id: damageId,
+      value: damage,
+      type: skill.action === 'HEAL' ? 'HEAL' : 'DAMAGE',
+      isCritical,
+      position: targetPosition
+    }]);
+
+    // Ajouter des particules
+    const particleId = Date.now() + 2;
+    console.log('Ajout des particules:', particleId);
+    setBattleParticles(prev => [...prev, {
+      id: particleId,
+      type: skill.action === 'HEAL' ? 'heal' : 'damage',
+      position: targetPosition,
+      count: isCritical ? 15 : 10
+    }]);
+
+    // Nettoyer les effets après un délai
+    setTimeout(() => {
+      console.log('Nettoyage des effets visuels');
+      setAttackEffects(prev => prev.filter(effect => effect.id !== effectId));
+      setFloatingDamages(prev => prev.filter(damage => damage.id !== damageId));
+      setBattleParticles(prev => prev.filter(particle => particle.id !== particleId));
+    }, 3000);
+  };
+
+  // Fonction pour exécuter une compétence avec animations
+  const executeSkillWithAnimations = async (currentHero, skill, target) => {
+    try {
+      console.log('Exécution de la compétence avec animations:', { 
+        hero: currentHero.name, 
+        skill: skill.name, 
+        position: skill.position,
+        target: target.name 
+      });
+
+      // Si c'est la compétence position 2, déclencher l'animation vidéo
+      if (skill.position === 2) {
+        console.log('Déclenchement de l\'animation vidéo pour compétence position 2');
+        
+        setSkillAnimation({
+          isVisible: true,
+          heroCode: currentHero.name.toLowerCase().replace(/ /g, '-'),
+          skillPosition: skill.position
+        });
+
+        // Attendre 3 secondes pour l'animation complète
+        setTimeout(async () => {
+          console.log('Fin de l\'animation vidéo, déclenchement des effets');
+          setSkillAnimation(prev => ({ ...prev, isVisible: false }));
+          
+          // Ajouter les effets visuels
+          addVisualEffects(skill, target);
+
+          // Exécuter la vraie logique de compétence
+          console.log('Exécution de la logique de compétence');
+          useSkill(currentHero.id, skill.id, target.id);
+        }, 3000);
+      } else {
+        // Pour les autres compétences (position 0, 1, etc.), ajouter les effets visuels directement
+        console.log('Compétence sans animation vidéo, ajout des effets visuels directs');
+        
+        // Ajouter les effets visuels immédiatement
+        addVisualEffects(skill, target);
+        
+        // Exécuter la vraie logique de compétence
+        useSkill(currentHero.id, skill.id, target.id);
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'exécution de la compétence avec animations:', error);
+      // En cas d'erreur, exécuter la compétence normalement
+      useSkill(currentHero.id, skill.id, target.id);
     }
   };
 
@@ -455,10 +581,15 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                     isNext={hero.id === nextHeroId}
                     highlight={getHighlightClass(hero)}
                     isAlly={true}
-                    onClick={() => {
+                    onClick={async () => {
                       if (selectedSkillId && selectedSkillType === 'HEAL') {
                         console.log("Utilisation compétence sur allié:", { skillId: selectedSkillId, targetId: hero.id, hero });
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(hero.id));
+                        const selectedSkill = currentHeroSkills.find(skill => skill.id === Number(selectedSkillId));
+                        if (selectedSkill) {
+                          await executeSkillWithAnimations(currentHero, selectedSkill, hero);
+                        } else {
+                          useSkill(currentHero.id, Number(selectedSkillId), Number(hero.id));
+                        }
                       }
                     }}
                   />
@@ -499,7 +630,7 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                     isNext={enemy.id === nextHeroId}
                     highlight={getHighlightClass(enemy)}
                     isEnemy={true}
-                    onClick={() => {
+                    onClick={async () => {
                       if (selectedSkillId && selectedSkillType === 'DAMAGE') {
                         console.log("Utilisation compétence sur ennemi:", { 
                           skillId: selectedSkillId, 
@@ -508,7 +639,12 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                           typeOfTargetId: typeof enemy.id,
                           enemy 
                         });
-                        useSkill(currentHero.id, Number(selectedSkillId), Number(enemy.id));
+                        const selectedSkill = currentHeroSkills.find(skill => skill.id === Number(selectedSkillId));
+                        if (selectedSkill) {
+                          await executeSkillWithAnimations(currentHero, selectedSkill, enemy);
+                        } else {
+                          useSkill(currentHero.id, Number(selectedSkillId), Number(enemy.id));
+                        }
                       }
                     }}
                   />
@@ -683,6 +819,60 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Composants d'animation */}
+      <AnimatePresence>
+        {skillAnimation.isVisible && (
+          <SkillAnimation
+            heroCode={skillAnimation.heroCode}
+            skillPosition={skillAnimation.skillPosition}
+            isVisible={skillAnimation.isVisible}
+            onAnimationEnd={() => setSkillAnimation(prev => ({ ...prev, isVisible: false }))}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Dégâts flottants */}
+      <AnimatePresence>
+        {floatingDamages.map(damage => (
+          <FloatingDamage
+            key={damage.id}
+            value={damage.value}
+            x={damage.position.x}
+            y={damage.position.y}
+            type={damage.type}
+            onAnimationEnd={() => setFloatingDamages(prev => prev.filter(d => d.id !== damage.id))}
+          />
+        ))}
+      </AnimatePresence>
+
+      {/* Effets d'attaque */}
+      <AnimatePresence>
+        {attackEffects.map(effect => (
+          <AttackEffect
+            key={effect.id}
+            type={effect.type}
+            x={effect.position.x}
+            y={effect.position.y}
+            isVisible={true}
+            onAnimationEnd={() => setAttackEffects(prev => prev.filter(e => e.id !== effect.id))}
+          />
+        ))}
+      </AnimatePresence>
+
+      {/* Particules de bataille */}
+      <AnimatePresence>
+        {battleParticles.map(particle => (
+          <BattleParticles
+            key={particle.id}
+            type={particle.type}
+            x={particle.position.x}
+            y={particle.position.y}
+            isVisible={true}
+            onAnimationEnd={() => setBattleParticles(prev => prev.filter(p => p.id !== particle.id))}
+          />
+        ))}
+      </AnimatePresence>
     </motion.div>
   );
 }
