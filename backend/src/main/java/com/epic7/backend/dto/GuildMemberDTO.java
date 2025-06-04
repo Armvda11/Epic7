@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-import com.epic7.backend.repository.model.GuildMembership;
+import com.epic7.backend.model.GuildMembership;
 
 /**
  * DTO contenant les informations d'un membre de guilde.

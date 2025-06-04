@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.epic7.backend.repository.model.chat.ChatMessage;
+import com.epic7.backend.model.chat.ChatMessage;
 
 import java.util.List;
 

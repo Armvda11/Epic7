@@ -1,7 +1,6 @@
 package com.epic7.backend.service;
 
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.repository.model.User;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 /*Importer les exceptions */
 import com.epic7.backend.exception.FriendRequestException;
+import com.epic7.backend.model.User;
 
 
 /**

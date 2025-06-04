@@ -1,11 +1,11 @@
 package com.epic7.backend.config.seeds;
 
+import com.epic7.backend.model.*;
+import com.epic7.backend.model.enums.Element;
+import com.epic7.backend.model.enums.Rarity;
+import com.epic7.backend.model.skill_kit.*;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.SkillRepository;
-import com.epic7.backend.repository.model.*;
-import com.epic7.backend.repository.model.enums.Element;
-import com.epic7.backend.repository.model.enums.Rarity;
-import com.epic7.backend.repository.model.skill_kit.*;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

@@ -1,8 +1,8 @@
 package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.boss.*;
-import com.epic7.backend.repository.model.User;
-import com.epic7.backend.repository.model.enums.ShopItemType;
+import com.epic7.backend.model.User;
+import com.epic7.backend.model.enums.ShopItemType;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.battle.engine.BattleEngine;
 import com.epic7.backend.service.battle.manager.BossBattleManager;

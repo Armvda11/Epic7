@@ -2,7 +2,7 @@ package com.epic7.backend.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.epic7.backend.repository.model.Banner;
+import com.epic7.backend.model.Banner;
 
 import java.util.ArrayList;
 import java.util.Optional;

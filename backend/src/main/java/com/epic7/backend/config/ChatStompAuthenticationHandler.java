@@ -10,7 +10,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.lang.NonNull;
 
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.utils.JwtUtil;
 

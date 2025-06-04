@@ -1,14 +1,14 @@
 package com.epic7.backend.service;
 
 import com.epic7.backend.event.ChatMessageEvent;
+import com.epic7.backend.model.Guild;
+import com.epic7.backend.model.User;
+import com.epic7.backend.model.chat.ChatMessage;
+import com.epic7.backend.model.chat.ChatRoom;
+import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.repository.ChatMessageRepository;
 import com.epic7.backend.repository.ChatRoomRepository;
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.repository.model.Guild;
-import com.epic7.backend.repository.model.User;
-import com.epic7.backend.repository.model.chat.ChatMessage;
-import com.epic7.backend.repository.model.chat.ChatRoom;
-import com.epic7.backend.repository.model.enums.ChatType;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;

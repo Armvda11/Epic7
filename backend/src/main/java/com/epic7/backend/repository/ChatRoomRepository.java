@@ -4,8 +4,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.epic7.backend.repository.model.chat.ChatRoom;
-import com.epic7.backend.repository.model.enums.ChatType;
+import com.epic7.backend.model.chat.ChatRoom;
+import com.epic7.backend.model.enums.ChatType;
 
 import java.util.List;
 import java.util.Optional;

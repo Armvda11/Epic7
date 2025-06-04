@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.User;
 
 import java.util.List;
 import java.util.Optional;

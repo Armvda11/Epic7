@@ -1,11 +1,11 @@
 package com.epic7.backend.config.seeds;
 
+import com.epic7.backend.model.Banner;
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.Hero;
 import com.epic7.backend.repository.BannerRepository;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
-import com.epic7.backend.repository.model.Banner;
-import com.epic7.backend.repository.model.Equipment;
-import com.epic7.backend.repository.model.Hero;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

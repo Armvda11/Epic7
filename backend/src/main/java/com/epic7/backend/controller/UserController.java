@@ -2,7 +2,7 @@ package com.epic7.backend.controller;
 
 import com.epic7.backend.dto.UserProfileResponse;
 import com.epic7.backend.dto.UserStats;
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.UserService;
 import com.epic7.backend.utils.JwtUtil;

@@ -2,8 +2,8 @@ package com.epic7.backend.service;
 
 import com.epic7.backend.dto.HeroViewDTO;
 import com.epic7.backend.dto.SkillDTO;
-import com.epic7.backend.repository.model.Hero;
-import com.epic7.backend.repository.model.Skill;
+import com.epic7.backend.model.Hero;
+import com.epic7.backend.model.Skill;
 
 import org.springframework.stereotype.Service;
 

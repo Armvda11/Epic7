@@ -8,16 +8,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.epic7.backend.dto.ShopItemDTO;
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.Hero;
+import com.epic7.backend.model.ShopItem;
+import com.epic7.backend.model.ShopPurchase;
+import com.epic7.backend.model.User;
 import com.epic7.backend.repository.EquipmentRepository;
 import com.epic7.backend.repository.HeroRepository;
 import com.epic7.backend.repository.ShopItemRepository;
 import com.epic7.backend.repository.ShopPurchaseRepository;
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.repository.model.Equipment;
-import com.epic7.backend.repository.model.Hero;
-import com.epic7.backend.repository.model.ShopItem;
-import com.epic7.backend.repository.model.ShopPurchase;
-import com.epic7.backend.repository.model.User;
 
 import lombok.RequiredArgsConstructor;
 

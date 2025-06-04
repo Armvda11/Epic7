@@ -3,9 +3,9 @@ package com.epic7.backend.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.epic7.backend.repository.model.Guild;
-import com.epic7.backend.repository.model.GuildMembership;
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.Guild;
+import com.epic7.backend.model.GuildMembership;
+import com.epic7.backend.model.User;
 
 import java.util.List;
 import java.util.Optional;

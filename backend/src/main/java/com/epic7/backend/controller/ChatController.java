@@ -4,10 +4,10 @@ import com.epic7.backend.dto.chatroom.ChatMessageDTO;
 import com.epic7.backend.dto.chatroom.ChatRoomDTO;
 import com.epic7.backend.dto.chatroom.DeleteMessageDTO;
 import com.epic7.backend.dto.chatroom.TypingDTO;
-import com.epic7.backend.repository.model.User;
-import com.epic7.backend.repository.model.chat.ChatMessage;
-import com.epic7.backend.repository.model.chat.ChatRoom;
-import com.epic7.backend.repository.model.enums.ChatType;
+import com.epic7.backend.model.User;
+import com.epic7.backend.model.chat.ChatMessage;
+import com.epic7.backend.model.chat.ChatRoom;
+import com.epic7.backend.model.enums.ChatType;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.ChatService;
 

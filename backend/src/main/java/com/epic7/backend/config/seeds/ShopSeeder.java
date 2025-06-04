@@ -6,9 +6,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.epic7.backend.model.ShopItem;
+import com.epic7.backend.model.enums.ShopItemType;
 import com.epic7.backend.repository.ShopItemRepository;
-import com.epic7.backend.repository.model.ShopItem;
-import com.epic7.backend.repository.model.enums.ShopItemType;
 
 import lombok.*;
 

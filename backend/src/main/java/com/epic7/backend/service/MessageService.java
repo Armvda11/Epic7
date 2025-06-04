@@ -2,8 +2,8 @@ package com.epic7.backend.service;
 
 import org.springframework.stereotype.Service;
 
+import com.epic7.backend.model.*;
 import com.epic7.backend.repository.*;
-import com.epic7.backend.repository.model.*;
 
 import lombok.RequiredArgsConstructor;
 

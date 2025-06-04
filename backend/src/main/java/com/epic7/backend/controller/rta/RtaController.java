@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.epic7.backend.dto.rta.RtaRankingDTO;
 import com.epic7.backend.dto.rta.RtaTierInfoDTO;
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.User;
 import com.epic7.backend.service.AuthService;
 import com.epic7.backend.service.rta.RtaRankingService;
 import com.epic7.backend.utils.JwtUtil;

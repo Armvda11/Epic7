@@ -1,7 +1,7 @@
 package com.epic7.backend.service;
 
+import com.epic7.backend.model.User;
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.repository.model.User;
 import com.epic7.backend.utils.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

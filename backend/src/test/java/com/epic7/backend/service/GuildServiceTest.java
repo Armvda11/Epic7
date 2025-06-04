@@ -2,9 +2,9 @@ package com.epic7.backend.service;
 
 import com.epic7.backend.dto.GuildDTO;
 import com.epic7.backend.dto.GuildInfoDTO;
+import com.epic7.backend.model.*;
+import com.epic7.backend.model.enums.GuildRole;
 import com.epic7.backend.repository.*;
-import com.epic7.backend.repository.model.*;
-import com.epic7.backend.repository.model.enums.GuildRole;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

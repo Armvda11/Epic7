@@ -1,7 +1,7 @@
 package com.epic7.backend.dto;
 
-import com.epic7.backend.repository.model.Guild;
-import com.epic7.backend.repository.model.enums.GuildRank;
+import com.epic7.backend.model.Guild;
+import com.epic7.backend.model.enums.GuildRank;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.AllArgsConstructor;

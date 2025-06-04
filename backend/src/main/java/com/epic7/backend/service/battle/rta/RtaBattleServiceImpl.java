@@ -6,10 +6,10 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.epic7.backend.model.PlayerHero;
+import com.epic7.backend.model.User;
 import com.epic7.backend.repository.PlayerHeroRepository;
 import com.epic7.backend.repository.UserRepository;
-import com.epic7.backend.repository.model.PlayerHero;
-import com.epic7.backend.repository.model.User;
 import com.epic7.backend.service.battle.engine.BattleEngine;
 import com.epic7.backend.service.battle.engine.ParticipantFactory;
 import com.epic7.backend.service.battle.engine.SkillEngine;

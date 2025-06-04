@@ -1,10 +1,10 @@
 package com.epic7.backend.service.battle.engine;
 
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.Hero;
+import com.epic7.backend.model.PlayerEquipment;
+import com.epic7.backend.model.PlayerHero;
 import com.epic7.backend.repository.PlayerEquipmentRepository;
-import com.epic7.backend.repository.model.Equipment;
-import com.epic7.backend.repository.model.Hero;
-import com.epic7.backend.repository.model.PlayerEquipment;
-import com.epic7.backend.repository.model.PlayerHero;
 import com.epic7.backend.service.battle.model.BattleParticipant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

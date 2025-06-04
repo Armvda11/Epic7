@@ -4,9 +4,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.epic7.backend.repository.model.PlayerEquipment;
-import com.epic7.backend.repository.model.PlayerHero;
-import com.epic7.backend.repository.model.User;
+import com.epic7.backend.model.PlayerEquipment;
+import com.epic7.backend.model.PlayerHero;
+import com.epic7.backend.model.User;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +16,7 @@ public interface PlayerEquipmentRepository extends JpaRepository<PlayerEquipment
     List<PlayerEquipment> findByUserId(Long userId);
     List<PlayerEquipment> findByPlayerHeroId(Long id);
     
-    boolean existsByPlayerHeroAndEquipment(PlayerHero playerHero, com.epic7.backend.repository.model.Equipment equipment);
+    boolean existsByPlayerHeroAndEquipment(PlayerHero playerHero, com.epic7.backend.model.Equipment equipment);
     
 
 

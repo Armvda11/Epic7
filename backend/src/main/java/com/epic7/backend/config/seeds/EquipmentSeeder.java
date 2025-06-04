@@ -4,9 +4,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.epic7.backend.model.Equipment;
+import com.epic7.backend.model.enums.EquipmentType;
 import com.epic7.backend.repository.EquipmentRepository;
-import com.epic7.backend.repository.model.Equipment;
-import com.epic7.backend.repository.model.enums.EquipmentType;
 
 import lombok.*;
 
