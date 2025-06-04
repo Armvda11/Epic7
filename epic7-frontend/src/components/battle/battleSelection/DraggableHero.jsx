@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
 import HeroTooltip from './HeroTooltip';
-import { heroImg } from '../../heroUtils';
+import { heroImgBattle } from '../../heroUtils';
 import { useSettings } from '../../../context/SettingsContext';
 import { FaStar, FaGem } from 'react-icons/fa';
 
@@ -100,7 +100,7 @@ export default function DraggableHero({ hero }) {
       >
         {/* Image du héros */}
         <img 
-          src={heroImg(hero.name)} 
+          src={heroImgBattle(hero.name)} 
           alt={hero.name} 
           className="object-cover w-full h-full transition-transform duration-300 hover:scale-110" 
         />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import BattleHealthBar from './HealthBar';
-import { heroImg } from '../heroUtils';
+import { heroImgBattle, heroImgUnknownBattle } from '../heroUtils';
 
 export default function BattleHeroCard({ hero, isCurrent, isNext, highlight, onClick, isSelected, isAlly = false, isEnemy = false }) {
   // Vérifier que le héros existe
@@ -15,13 +15,13 @@ export default function BattleHeroCard({ hero, isCurrent, isNext, highlight, onC
   }
   
   // Debug de l'image
-  console.log(`Héros: ${hero.name} - URL image: ${heroImg(hero.name)}`);
+  console.log(`Héros: ${hero.name} - URL image sprite: ${heroImgBattle(hero.name)}`);
   
   // Gérer les erreurs d'image
   const handleImageError = (e) => {
-    console.error(`Erreur chargement image pour ${hero.name}`);
+    console.error(`Erreur chargement sprite pour ${hero.name}`);
     e.target.onerror = null;
-    e.target.src = '/epic7-Hero/webp/unknown.webp'; // Image par défaut
+    e.target.src = heroImgUnknownBattle(); // Image par défaut
   };
   
   return (
@@ -39,7 +39,7 @@ export default function BattleHeroCard({ hero, isCurrent, isNext, highlight, onC
 
       {/* Image du héros flottante */}
       <motion.img
-        src={heroImg(hero.name)}
+        src={heroImgBattle(hero.name)}
         alt={hero.name}
         onError={handleImageError}
         className={`w-28 h-40 object-contain pointer-events-none

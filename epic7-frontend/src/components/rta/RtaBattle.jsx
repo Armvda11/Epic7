@@ -15,6 +15,7 @@ import { useHeroSounds } from '../../hooks/useHeroSounds';
 import { FaMagic, FaEye, FaSignOutAlt, FaBug, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import { GiBroadsword, GiShield } from 'react-icons/gi';
 import API from '../../api/axiosInstance';
+import { heroImgBattle } from '../heroUtils';
 
 export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }) {
   const { theme, t, language } = useSettings();
@@ -99,22 +100,22 @@ export default function RtaBattle({ battleState, battleId, useSkill, onForfeit }
                 return;
               }
               
-              // Utiliser la fonction heroImg importée de '../battle/BattleHeroCard'
+              // Utiliser la fonction heroImgBattle importée
               const img = new Image();
-              const imgSrc = `/epic7-Hero/webp/${hero.name.toLowerCase().replace(/ /g, '-')}.webp`;
+              const imgSrc = heroImgBattle(hero.name);
               
-              console.log(`Préchargement de l'image pour ${hero.name}: ${imgSrc}`);
+              console.log(`Préchargement du sprite pour ${hero.name}: ${imgSrc}`);
               
               img.onload = () => {
-                console.log(`Image chargée avec succès pour ${hero.name}`);
+                console.log(`Sprite chargé avec succès pour ${hero.name}`);
                 resolve();
               };
               
               img.onerror = () => {
-                console.warn(`Erreur de chargement de l'image pour ${hero.name}, utilisation de l'image par défaut`);
-                // Charger l'image par défaut comme fallback
+                console.warn(`Erreur de chargement du sprite pour ${hero.name}, utilisation du sprite par défaut`);
+                // Charger le sprite par défaut comme fallback
                 const defaultImg = new Image();
-                defaultImg.src = '/epic7-Hero/webp/unknown.webp';
+                defaultImg.src = '/epic7-Hero/sprite-hero/unknown.png';
                 defaultImg.onload = resolve;
                 defaultImg.onerror = resolve;
               };

@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import DraggableHero from './DraggableHero';
 import DroppableSlot from './DroppableSlot';
-import { heroImg } from '../../heroUtils';
+import { heroImgBattle } from '../../heroUtils';
 import { ModernPageLayout, ModernCard, ModernButton, ModernSearchBar } from '../../ui';
 import { useSettings } from '../../../context/SettingsContext';
 import { FaMagic, FaUsers, FaFilter, FaPlay, FaArrowLeft, FaSearch, FaGem, FaBolt } from 'react-icons/fa';
@@ -441,7 +441,7 @@ export default function HeroSelectionPanel({ availableHeroes: initialHeroes, sel
                 }`}
               >
                 <img
-                  src={heroImg(activeHero.name)}
+                  src={heroImgBattle(activeHero.name)}
                   alt={activeHero.name}
                   className="object-cover w-full h-full"
                 />
