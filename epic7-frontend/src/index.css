@@ -136,4 +136,33 @@
       transform: none !important;
     }
   }
+
+  /* Animation de tremblement pour les attaques spéciales du boss */
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translate(-3px, 0) rotate(-1deg); }
+    20%, 40%, 60%, 80% { transform: translate(3px, 0) rotate(1deg); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  .battle-target {
+    position: relative;
+  }
+
+  .battle-target.targeted::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border: 2px dashed rgba(255, 0, 0, 0.6);
+    border-radius: 16px;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
 }

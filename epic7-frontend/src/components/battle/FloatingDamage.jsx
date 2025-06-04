@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-export default function FloatingDamage({ value, x, y, type = 'DAMAGE', onAnimationEnd }) {
+export default function FloatingDamage({ value, x, y, type = 'DAMAGE', isCritical: forceCritical, onAnimationEnd }) {
   // Couleur & ombre en fonction du type
   const baseColor = type === 'HEAL' ? 'text-green-400' : 'text-red-500';
   const baseShadow = type === 'HEAL' ? 'drop-shadow-md' : 'drop-shadow-2xl';
 
   // Dynamique : scale, taille, effet si gros dégâts
   const isBigHit = value > 200;
-  const isCritHit = value > 1500;
+  const isCritHit = forceCritical || value > 1500;
 
   const size = isCritHit ? 'text-5xl' : isBigHit ? 'text-4xl' : 'text-2xl';
   const scale = isCritHit ? 1.8 : isBigHit ? 1.5 : 1.2;

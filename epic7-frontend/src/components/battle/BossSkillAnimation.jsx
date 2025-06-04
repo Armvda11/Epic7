@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd }) {
   const [animationPhase, setAnimationPhase] = useState('entering'); // entering, playing, exiting
   const [showAnimation, setShowAnimation] = useState(false);
+  const [shakeScreen, setShakeScreen] = useState(false);
 
   // Déterminer le type d'effet visuel à afficher basé sur le boss
   const getBossEffectType = (bossCode) => {
@@ -29,6 +30,12 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
       // Phase d'entrée (fade in + zoom)
       const enterTimer = setTimeout(() => {
         setAnimationPhase('playing');
+        
+        // Déclencher un effet de tremblement de l'écran
+        setTimeout(() => {
+          setShakeScreen(true);
+          setTimeout(() => setShakeScreen(false), 1000);
+        }, 800);
       }, 300);
 
       // Phase de sortie après la durée de l'animation
@@ -50,6 +57,7 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
       // Reset quand pas visible
       setShowAnimation(false);
       setAnimationPhase('entering');
+      setShakeScreen(false);
     }
   }, [isVisible, onAnimationEnd]);
 
@@ -62,7 +70,12 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
     const baseClasses = "fixed inset-0 flex items-center justify-center z-50 pointer-events-none";
     
     if (animationPhase === 'entering') return `${baseClasses} opacity-0 scale-95`;
-    if (animationPhase === 'playing') return `${baseClasses} opacity-100 scale-100 transition-all duration-300`;
+    if (animationPhase === 'playing') {
+      if (shakeScreen) {
+        return `${baseClasses} opacity-100 scale-100 transition-all duration-300 animate-shake`;
+      }
+      return `${baseClasses} opacity-100 scale-100 transition-all duration-300`;
+    }
     if (animationPhase === 'exiting') return `${baseClasses} opacity-0 scale-105 transition-all duration-500`;
     
     return baseClasses;
@@ -116,16 +129,26 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
       {/* Overlay sombre avec transparence */}
       <div className="absolute inset-0 bg-black/70" />
       
+      {/* Effet de flash/lumière */}
+      {animationPhase === 'playing' && !shakeScreen && (
+        <motion.div 
+          className={`absolute inset-0 bg-${colors.secondary.split('-')[1]}-500/20`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.8, 0] }}
+          transition={{ duration: 0.8, times: [0, 0.1, 1] }}
+        />
+      )}
+      
       {/* Animation principale */}
       <motion.div 
         className={`relative z-10 w-[500px] h-[350px] rounded-xl overflow-hidden shadow-2xl border-4 border-${colors.secondary.split('-')[1]}-400 bg-gradient-to-br ${colors.primary} flex items-center justify-center`}
         animate={{ 
-          scale: [1, 1.05, 1],
-          rotate: [0, 1, -1, 0]
+          scale: shakeScreen ? [1, 1.08, 1] : [1, 1.05, 1],
+          rotate: shakeScreen ? [0, 2, -2, 0] : [0, 1, -1, 0]
         }}
         transition={{ 
-          duration: 2, 
-          repeat: 1,
+          duration: shakeScreen ? 0.5 : 2, 
+          repeat: shakeScreen ? 3 : 1,
           repeatType: 'reverse'
         }}
       >
@@ -171,7 +194,7 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
         
         {/* Effets de particules */}
         <div className="absolute inset-0 pointer-events-none">
-          {[...Array(15)].map((_, i) => (
+          {[...Array(20)].map((_, i) => (
             <motion.div
               key={i}
               className={`absolute w-3 h-3 ${colors.particles} rounded-full`}
@@ -194,7 +217,57 @@ export default function BossSkillAnimation({ bossCode, isVisible, onAnimationEnd
             />
           ))}
         </div>
+        
+        {/* Rayons de pouvoir partant du centre */}
+        {animationPhase === 'playing' && (
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(8)].map((_, i) => {
+              const angle = (i / 8) * 360;
+              return (
+                <motion.div
+                  key={i}
+                  className={`absolute left-1/2 top-1/2 h-1 bg-${colors.secondary.split('-')[1]}-400`}
+                  style={{
+                    width: '150px',
+                    transformOrigin: 'left center',
+                    rotate: angle,
+                    filter: 'blur(1px)'
+                  }}
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ 
+                    scaleX: [0, 1, 1, 0],
+                    opacity: [0, 0.8, 0.8, 0]
+                  }}
+                  transition={{ 
+                    duration: 1.5,
+                    delay: i * 0.1,
+                    times: [0, 0.3, 0.7, 1]
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
       </motion.div>
+      
+      {/* Ondes de choc extérieures */}
+      {animationPhase === 'playing' && (
+        <motion.div 
+          className={`absolute rounded-full border-2 border-${colors.secondary.split('-')[1]}-400/50`}
+          initial={{ width: 500, height: 350, opacity: 0.7, x: '-50%', y: '-50%' }}
+          animate={{ 
+            width: [500, 700],
+            height: [350, 550],
+            opacity: [0.7, 0],
+          }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          style={{ 
+            left: '50%',
+            top: '50%',
+            filter: 'blur(2px)'
+          }}
+        />
+      )}
     </div>
   );
 }

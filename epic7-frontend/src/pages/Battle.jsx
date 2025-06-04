@@ -182,9 +182,8 @@ export default function Battle() {
   }
 
   async function handleBossAction() {
-    // Délai initial pour une expérience plus naturelle
-    // On réduit légèrement le délai initial pour laisser place aux effets visuels
-    await new Promise(r => setTimeout(r, 1500));
+    // Délai initial réduit pour une expérience plus réactive
+    await new Promise(r => setTimeout(r, 800));
     
     // Calculer les positions pour les effets visuels du boss
     let targetElement, targetX, targetY;
@@ -192,9 +191,11 @@ export default function Battle() {
     // Trouver un héros du joueur comme cible
     const playerHeroes = battleState.participants.filter(p => p.player && p.currentHp > 0);
     if (playerHeroes.length > 0) {
+      // Choisir un héros aléatoire du joueur comme cible
       const targetHero = playerHeroes[Math.floor(Math.random() * playerHeroes.length)];
       targetElement = targetRefs.current[targetHero.id];
       
+      // Récupérer la position exacte de la cible pour les effets visuels
       if (targetElement) {
         const rect = targetElement.getBoundingClientRect();
         targetX = rect.left + rect.width / 2;
@@ -213,28 +214,148 @@ export default function Battle() {
       const boss = battleState.participants.find(p => !p.player);
       
       // Déterminer le type d'effet pour l'attaque du boss
-      const effectTypes = ['impact', 'slash', 'magic'];
-      const effectType = effectTypes[Math.floor(Math.random() * effectTypes.length)];
+      // Varier les types d'effet pour plus de diversité visuelle
+      let effectType;
+      if (newCount % 2 === 0) {
+        {/* Pour les attaques spéciales, privilégier des effets plus impressionnants */}
+        effectType = newCount % 6 === 0 ? 'magic' : 'slash';
+      } else {
+        effectType = 'impact';
+      }
+      
+      // Ajouter un effet de tremblement à l'écran pour les attaques spéciales
+      if (newCount % 2 === 0) {
+        const battleContainer = document.querySelector('.battle-container');
+        if (battleContainer) {
+          battleContainer.classList.add('animate-shake');
+          setTimeout(() => {
+            battleContainer.classList.remove('animate-shake');
+          }, 500);
+        }
+      }
       
       // Déterminer les dégâts (simulés pour l'affichage)
-      const damageAmount = Math.floor(Math.random() * 800) + 200;
+      // Augmenter les dégâts pour les attaques spéciales
+      const baseDamage = Math.floor(Math.random() * 500) + 200;
+      const damageAmount = newCount % 2 === 0 ? baseDamage * 2 : baseDamage;
       
-      // Jouer le son approprié
-      const isCritical = Math.random() < 0.3;
+      // Jouer le son approprié avec une chance plus élevée de critique pour les attaques spéciales
+      const isCritical = newCount % 2 === 0 ? Math.random() < 0.8 : Math.random() < 0.3;
       playSoundForAction('DAMAGE', isCritical, damageAmount);
       
-      // Ajouter l'effet d'attaque
-      const effectId = Date.now() + Math.random();
-      setAttackEffects(effects => [
-        ...effects,
+      // Effet de screen flash pour les attaques spéciales
+      if (newCount % 2 === 0) {
+        const flashOverlay = document.createElement('div');
+        flashOverlay.className = 'fixed inset-0 z-45 pointer-events-none';
+        flashOverlay.style.backgroundColor = effectType === 'magic' ? 'rgba(147, 51, 234, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        document.body.appendChild(flashOverlay);
+        
+        // Fade out puis supprimer
+        setTimeout(() => {
+          flashOverlay.style.transition = 'opacity 0.5s';
+          flashOverlay.style.opacity = '0';
+          setTimeout(() => {
+            document.body.removeChild(flashOverlay);
+          }, 500);
+        }, 100);
+      }
+      
+      // Attendre un court délai avant d'afficher les effets visuels
+      await new Promise(r => setTimeout(r, 400));
+      
+      // Ajouter plusieurs effets d'attaque pour les attaques spéciales
+      const effectCount = newCount % 2 === 0 ? 5 : 2; // Augmentation du nombre d'effets
+      
+      // Récupérer la position du boss pour l'effet de rayon
+      const bossElement = targetRefs.current[boss.id];
+      let bossX = window.innerWidth * 0.7; // Position par défaut
+      let bossY = window.innerHeight / 2;
+      
+      if (bossElement) {
+        const bossRect = bossElement.getBoundingClientRect();
+        bossX = bossRect.left + bossRect.width / 2;
+        bossY = bossRect.top + bossRect.height / 2;
+      }
+      
+      // Effet de rayon reliant le boss à la cible pour les attaques spéciales
+      if (newCount % 2 === 0) {
+        const beamId = Date.now() + Math.random() + 0.5;
+        setAttackEffects(effects => [
+          ...effects,
+          {
+            id: beamId,
+            x: bossX,
+            y: bossY,
+            targetX: targetX,
+            targetY: targetY,
+            type: 'beam',
+            beamColor: effectType === 'magic' ? 'purple' : effectType === 'slash' ? 'blue' : 'red',
+            isVisible: true
+          }
+        ]);
+        
+        // Laisser le rayon apparaître un moment avant les impacts
+        await new Promise(r => setTimeout(r, 300));
+      }
+      
+      // Effets d'impact en séquence
+      for (let i = 0; i < effectCount; i++) {
+        const effectId = Date.now() + Math.random() + i;
+        // Ajouter une variation plus importante dans la position pour les effets multiples
+        const offsetX = i === 0 ? 0 : (Math.random() - 0.5) * 90;
+        const offsetY = i === 0 ? 0 : (Math.random() - 0.5) * 90;
+        
+        // Varier les types d'effets pour plus de diversité
+        let currentEffectType = effectType;
+        if (newCount % 2 === 0 && i > 0) {
+          // Pour les attaques spéciales, alterner entre différents types d'effets
+          const effectTypes = ['magic', 'slash', 'impact'];
+          currentEffectType = effectTypes[i % effectTypes.length];
+        }
+        
+        setAttackEffects(effects => [
+          ...effects,
+          {
+            id: effectId,
+            x: targetX + offsetX,
+            y: targetY + offsetY,
+            type: currentEffectType,
+            isVisible: true,
+            size: newCount % 2 === 0 ? 'large' : 'normal' // Taille augmentée pour attaques spéciales
+          }
+        ]);
+        
+        // Ajouter un léger décalage entre les effets
+        if (i < effectCount - 1) {
+          await new Promise(r => setTimeout(r, 120));
+        }
+      }
+      
+      // Ajouter des particules pour plus de spectacle (comme pour les attaques du joueur)
+      const particleType = newCount % 2 === 0 ? 'special' : (isCritical ? 'critical' : effectType);
+      const particleId = Date.now() + Math.random() + 0.1;
+      setBattleParticles(particles => [
+        ...particles,
         {
-          id: effectId,
+          id: particleId,
           x: targetX,
           y: targetY,
-          type: effectType,
+          type: particleType,
+          size: newCount % 2 === 0 ? 'large' : 'normal',
           isVisible: true
         }
       ]);
+      
+      // Ajouter un effet de tremblement au héros ciblé
+      if (targetElement) {
+        targetElement.classList.add('targeted');
+        setTimeout(() => {
+          targetElement.classList.remove('targeted');
+        }, 1500);
+      }
+      
+      // Attendre un court instant avant d'afficher les dégâts
+      await new Promise(r => setTimeout(r, 200));
       
       // Afficher les dégâts flottants
       const damageId = Date.now() + Math.random() + 1;
@@ -244,8 +365,9 @@ export default function Battle() {
           id: damageId, 
           x: targetX, 
           y: targetY - 50, 
-          value: damageAmount, 
-          type: 'DAMAGE' 
+          value: Math.round(damageAmount), 
+          type: 'DAMAGE',
+          isCritical: isCritical  // Passer l'information de critique au composant
         }
       ]);
       
@@ -264,11 +386,15 @@ export default function Battle() {
         await new Promise(resolve => setTimeout(resolve, 800));
       }
       
-      // Retirer les effets après l'animation
+      // Retirer les effets après l'animation (avec un délai suffisamment long)
       setTimeout(() => {
-        setAttackEffects(effects => effects.filter(e => e.id !== effectId));
+        setAttackEffects(effects => effects.filter(e => e.id !== particleId));
+        setBattleParticles(particles => particles.filter(p => p.id !== particleId));
+      }, 1500);
+      
+      setTimeout(() => {
         setFloatingDamages(damages => damages.filter(d => d.id !== damageId));
-      }, 2000);
+      }, 2500);
     }
     
     // Attendre un court délai supplémentaire pour que les animations soient bien visibles
@@ -584,7 +710,7 @@ export default function Battle() {
 
   return (
     <motion.div 
-      className={`relative h-screen w-screen overflow-hidden ${
+      className={`battle-container relative h-screen w-screen overflow-hidden ${
         theme === 'dark' 
           ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
           : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
