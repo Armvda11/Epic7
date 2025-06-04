@@ -30,7 +30,7 @@ export default function Battle() {
   // 🗂 Sélection des héros
   const [selectionPhase,    setSelectionPhase]     = useState(true);
   const [availableHeroes,   setAvailableHeroes]   = useState([]);
-  const [selectedHeroes,    setSelectedHeroes]    = useState([null, null, null, null]);
+  const [selectedHeroes,    setSelectedHeroes]    = useState([null, null]);
 
   // 🛡️ État du combat
   const [battleState,       setBattleState]       = useState(null);
@@ -125,6 +125,7 @@ export default function Battle() {
   // ─── Boucle de combat ──────────────────────────────────────────────────
   async function startCombat() {
     try {
+      // Utiliser tous les héros sélectionnés (maintenant seulement 2 emplacements)
       const heroIds = selectedHeroes.filter(Boolean).map(h => h.id);
       await API.post('/combat/start', {
         bossHeroId: 1,
