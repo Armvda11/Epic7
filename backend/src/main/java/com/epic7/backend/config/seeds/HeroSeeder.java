@@ -63,6 +63,11 @@ public void seedHeroesAndSkills() {
         }
 }
 
+public Hero ajouterHero(String name, Element el, Rarity rarity, int atk, int def, int spd, int hp) {
+        Hero hero = createHero(name, el, rarity, atk, def, spd, hp);
+        return heroRepo.save(hero);
+}
+
 private Hero createHero(String name, Element el, Rarity rarity, int atk, int def, int spd, int hp) {
         return Hero.builder()
                 .name(name)

@@ -17,7 +17,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(
-    origins = "http://localhost:5173", 
+    origins =
+        "http://localhost:5173", 
     allowedHeaders = {"Authorization", "Content-Type", "X-User-Id", "x-user-id"}
 )
 public class AuthController {
