@@ -142,7 +142,7 @@ const MyHeroes = () => {
     return (
       <ModernPageLayout 
         title={t("myHeroes", language)} 
-        subtitle="Chargement de votre collection..."
+        subtitle={t("loadingCollection", language)}
         showBackButton={false}
       >
         <div className="flex items-center justify-center min-h-64">
@@ -166,7 +166,7 @@ const MyHeroes = () => {
     return (
       <ModernPageLayout 
         title={t("myHeroes", language)} 
-        subtitle="Erreur de chargement"
+        subtitle={t("loadingError", language)}
         showBackButton={false}
       >
         <ModernCard className="text-center">
@@ -175,7 +175,7 @@ const MyHeroes = () => {
             variant="primary" 
             onClick={() => window.location.reload()}
           >
-            Réessayer
+            {t("retryButton", language)}
           </ModernButton>
         </ModernCard>
       </ModernPageLayout>
@@ -195,7 +195,7 @@ const MyHeroes = () => {
       >
         {ELEMENTS.map(e => (
           <option key={e} value={e}>
-            {e === 'ALL' ? t("all", language) || "Tous" : `${getElementIcon(e)} ${t(e.toLowerCase(), language) || e}`}
+            {e === 'ALL' ? t("all", language) : `${getElementIcon(e)} ${t(e.toLowerCase(), language)}`}
           </option>
         ))}
       </select>
@@ -210,7 +210,7 @@ const MyHeroes = () => {
       >
         {RARITIES.map(r => (
           <option key={r} value={r}>
-            {r === 'ALL' ? t("all", language) || "Tous" : t(r.toLowerCase(), language) || r}
+            {r === 'ALL' ? t("all", language) : t(r.toLowerCase(), language)}
           </option>
         ))}
       </select>
@@ -220,14 +220,14 @@ const MyHeroes = () => {
   return (
     <ModernPageLayout 
       title={t("myHeroes", language)}
-      subtitle={`${filteredHeroes.length} héros dans votre collection`}
+      subtitle={`${filteredHeroes.length} ${t("heroesInCollection", language)}`}
       headerActions={headerActions}
     >
       {/* Barre de recherche moderne */}
       <ModernSearchBar
         value={searchTerm}
         onChange={setSearchTerm}
-        placeholder={t("searchHero", language) || "Rechercher un héros..."}
+        placeholder={t("searchHero", language)}
         className="mb-8 max-w-2xl mx-auto"
       />
 
@@ -253,7 +253,7 @@ const MyHeroes = () => {
                     onError={e => e.target.src = heroImgUnknown}
                   />
                   <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 py-0.5 rounded">
-                    Lv.{hero.level || 1}
+                    {t("level", language)}{hero.level || 1}
                   </div>
                 </div>
                 
@@ -267,12 +267,12 @@ const MyHeroes = () => {
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     getElementColor(hero.element || hero.hero?.element)
                   }`}>
-                    {t((hero.element || hero.hero?.element)?.toLowerCase(), language) || (hero.element || hero.hero?.element)}
+                    {t((hero.element || hero.hero?.element)?.toLowerCase(), language)}
                   </span>
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     getRarityColor(hero.rarity || hero.hero?.rarity)
                   }`}>
-                    {t((hero.rarity || hero.hero?.rarity)?.toLowerCase(), language) || (hero.rarity || hero.hero?.rarity)}
+                    {t((hero.rarity || hero.hero?.rarity)?.toLowerCase(), language)}
                   </span>
                 </div>
                 
@@ -322,12 +322,12 @@ const MyHeroes = () => {
             <h3 className={`text-xl font-bold mb-2 ${
               theme === 'dark' ? 'text-white' : 'text-slate-800'
             }`}>
-              Aucun héros trouvé
+              {t("noHeroesFound", language)}
             </h3>
             <p className={`${
               theme === 'dark' ? 'text-slate-300' : 'text-slate-600'
             }`}>
-              Essayez de modifier votre recherche ou vos filtres
+              {t("modifySearchFilters", language)}
             </p>
           </ModernCard>
         </motion.div>
@@ -346,15 +346,15 @@ const MyHeroes = () => {
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                   getElementColor(selectedHero.element || selectedHero.hero?.element)
                 }`}>
-                  {t((selectedHero.element || selectedHero.hero?.element)?.toLowerCase(), language) || (selectedHero.element || selectedHero.hero?.element)}
+                  {t((selectedHero.element || selectedHero.hero?.element)?.toLowerCase(), language)}
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                   getRarityColor(selectedHero.rarity || selectedHero.hero?.rarity)
                 }`}>
-                  {t((selectedHero.rarity || selectedHero.hero?.rarity)?.toLowerCase(), language) || (selectedHero.rarity || selectedHero.hero?.rarity)}
+                  {t((selectedHero.rarity || selectedHero.hero?.rarity)?.toLowerCase(), language)}
                 </span>
                 <span className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded">
-                  Niveau {selectedHero.level || 1}
+                  {t("level", language)} {selectedHero.level || 1}
                 </span>
               </div>
 
@@ -373,7 +373,7 @@ const MyHeroes = () => {
               }`}>
                 <div className="flex items-center space-x-2 mb-1">
                   <GiSwordWound className="text-red-500" />
-                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("attack", language) || "Attaque"}</span>
+                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("attack", language)}</span>
                 </div>
                 <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                   {selectedHero.totalAttack || selectedHero.hero?.baseAttack || 0}
@@ -385,7 +385,7 @@ const MyHeroes = () => {
               }`}>
                 <div className="flex items-center space-x-2 mb-1">
                   <GiShield className="text-blue-500" />
-                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("defense", language) || "Défense"}</span>
+                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("defense", language)}</span>
                 </div>
                 <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                   {selectedHero.totalDefense || selectedHero.hero?.baseDefense || 0}
@@ -397,7 +397,7 @@ const MyHeroes = () => {
               }`}>
                 <div className="flex items-center space-x-2 mb-1">
                   <FaBolt className="text-yellow-500" />
-                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("speed", language) || "Vitesse"}</span>
+                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("speed", language)}</span>
                 </div>
                 <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                   {selectedHero.totalSpeed || selectedHero.hero?.baseSpeed || 0}
@@ -409,7 +409,7 @@ const MyHeroes = () => {
               }`}>
                 <div className="flex items-center space-x-2 mb-1">
                   <FaHeart className="text-pink-500" />
-                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("health", language) || "Santé"}</span>
+                  <span className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t("health", language)}</span>
                 </div>
                 <span className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                   {selectedHero.totalHealth || selectedHero.hero?.health || 0}
@@ -420,13 +420,13 @@ const MyHeroes = () => {
             {/* Section équipement - AJOUTÉE */}
             <div className="mt-4 mb-4">
               <h3 className="text-lg font-semibold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                {t("equipment", language) || "Équipement"}
+                {t("equipment", language)}
               </h3>
               <div className={`p-4 rounded-lg ${
                 theme === 'dark' ? 'bg-indigo-900/30 backdrop-blur-sm border border-indigo-700/30' : 'bg-indigo-50 border border-indigo-100'
               }`}>
                 <p className={`text-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                  {t("equipmentDescription", language) || "Améliorez votre héros en lui équipant des objets puissants"}
+                  {t("equipmentDescription", language)}
                 </p>
                 <div className="flex justify-center">
                   <ModernButton
@@ -435,7 +435,7 @@ const MyHeroes = () => {
                     icon={<FaEye />}
                     className="w-full"
                   >
-                    {t("viewHeroDetails", language) || "Voir les détails du héros"}
+                    {t("viewHeroDetails", language)}
                   </ModernButton>
                 </div>
               </div>
@@ -445,7 +445,7 @@ const MyHeroes = () => {
             {skills.length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  {t("skills", language) || "Capacités"}
+                  {t("skills", language)}
                 </h3>
                 <div>
                   <div className="grid grid-cols-1 gap-3">

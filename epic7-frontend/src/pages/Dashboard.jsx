@@ -78,7 +78,7 @@ const Dashboard = () => {
       gradient: "from-emerald-500 via-emerald-600 to-emerald-700",
       shadowColor: "shadow-emerald-500/40",
       hoverScale: 1.05,
-      description: "Gérez vos objets"
+      description: t("manageItemsDescription", language) || "Gérez vos objets"
     },
     { 
       id: 'heroes',
@@ -88,7 +88,7 @@ const Dashboard = () => {
       gradient: "from-purple-500 via-purple-600 to-purple-700",
       shadowColor: "shadow-purple-500/40",
       hoverScale: 1.05,
-      description: "Collection de héros"
+      description: t("heroCollectionDescription", language) || "Collection de héros"
     },
     { 
       id: 'friends',
@@ -98,7 +98,7 @@ const Dashboard = () => {
       gradient: "from-blue-500 via-blue-600 to-blue-700",
       shadowColor: "shadow-blue-500/40",
       hoverScale: 1.05,
-      description: "Liste d'amis"
+      description: t("friendsListDescription", language) || "Liste d'amis"
     },
     { 
       id: 'guilds',
@@ -108,7 +108,7 @@ const Dashboard = () => {
       gradient: "from-orange-500 via-orange-600 to-orange-700",
       shadowColor: "shadow-orange-500/40",
       hoverScale: 1.05,
-      description: "Rejoindre une guilde"
+      description: t("joinGuildDescription", language) || "Rejoindre une guilde"
     },
     { 
       id: 'battle',
@@ -118,7 +118,7 @@ const Dashboard = () => {
       gradient: "from-red-500 via-red-600 to-red-700",
       shadowColor: "shadow-red-500/40",
       hoverScale: 1.05,
-      description: "Arena PvP"
+      description: t("arenaPvpDescription", language) || "Arena PvP"
     },
     { 
       id: 'shop',
@@ -128,7 +128,7 @@ const Dashboard = () => {
       gradient: "from-yellow-500 via-yellow-600 to-yellow-700",
       shadowColor: "shadow-yellow-500/40",
       hoverScale: 1.05,
-      description: "Acheter des objets"
+      description: t("buyItemsDescription", language) || "Acheter des objets"
     },
     { 
       id: 'summon',
@@ -138,7 +138,7 @@ const Dashboard = () => {
       gradient: "from-pink-500 via-pink-600 to-pink-700",
       shadowColor: "shadow-pink-500/40",
       hoverScale: 1.05,
-      description: "Invoquer des héros"
+      description: t("summonHeroesDescription", language) || "Invoquer des héros"
     },
     { 
       id: 'quests',
@@ -148,7 +148,7 @@ const Dashboard = () => {
       gradient: "from-indigo-500 via-indigo-600 to-indigo-700",
       shadowColor: "shadow-indigo-500/40",
       hoverScale: 1.05,
-      description: "Aventures épiques"
+      description: t("epicAdventuresDescription", language) || "Aventures épiques"
     },
   ];
 
@@ -425,7 +425,7 @@ const Dashboard = () => {
                   <p className={`text-sm ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                   }`}>
-                    Niveau {user.level || 1}
+                    {t("level", language)} {user.level || 1}
                   </p>
                 </div>
               </motion.button>
@@ -452,7 +452,7 @@ const Dashboard = () => {
                 animate={{ opacity: [0.7, 1, 0.7] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                Aventure épique vous attend
+                {t("epicAdventureAwaits", language) || "Aventure épique vous attend"}
               </motion.p>
             </motion.div>
 
@@ -600,7 +600,7 @@ const Dashboard = () => {
                 }`} />
                 <input
                   type="text"
-                  placeholder="Rechercher des joueurs..."
+                  placeholder={t("searchPlayers", language) || "Rechercher des joueurs..."}
                   value={searchTerm}
                   onChange={handleSearchChange}
                   className={`flex-1 bg-transparent outline-none placeholder-gray-500 ${
@@ -654,7 +654,7 @@ const Dashboard = () => {
                           <p className={`text-sm ${
                             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                           }`}>
-                            Niveau {result.level || 1}
+                            {t("level", language)} {result.level || 1}
                           </p>
                         </div>
                       </div>
@@ -753,12 +753,12 @@ const Dashboard = () => {
                   <h3 className={`text-xl font-bold ${
                     theme === 'dark' ? 'text-white' : 'text-gray-800'
                   }`}>
-                    {allHeroes[currentHeroIndex]?.name || "Héros Mystérieux"}
+                    {allHeroes[currentHeroIndex]?.name || t("mysteriousHero", language) || "Héros Mystérieux"}
                   </h3>
                   <p className={`text-sm ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                   }`}>
-                    ⭐ {allHeroes[currentHeroIndex]?.stars || 5} étoiles
+                    ⭐ {allHeroes[currentHeroIndex]?.stars || 5} {t("stars", language) || "étoiles"}
                   </p>
                 </motion.div>
               )}
@@ -773,12 +773,12 @@ const Dashboard = () => {
                 <h2 className={`text-3xl font-bold mb-4 ${
                   theme === 'dark' ? 'text-white' : 'text-gray-800'
                 }`}>
-                  Bienvenue, {user.username} !
+                  {(t("welcomeUser", language) || "Bienvenue, {username} !").replace("{username}", user.username)}
                 </h2>
                 <p className={`text-lg ${
                   theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                 }`}>
-                  Prêt pour une nouvelle aventure épique dans le monde d'Epic Seven ?
+                  {t("readyForNewAdventure", language) || "Prêt pour une nouvelle aventure épique dans le monde d'Epic Seven ?"}
                 </p>
               </div>
 
@@ -805,7 +805,7 @@ const Dashboard = () => {
                       <p className={`text-sm ${
                         theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                       }`}>
-                        Héros
+                        {t("heroes", language) || "Héros"}
                       </p>
                     </div>
                   </div>

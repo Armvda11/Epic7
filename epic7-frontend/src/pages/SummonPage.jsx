@@ -117,7 +117,7 @@ export default function SummonPage() {
   // Pour invoquer un héros ou un équipement
   const handleSummon = async () => {
     if (!selectedBanner) {
-      setResult({ error: true, message: "❌ Il faut sélectionner une bannière avant d'invoquer." });
+      setResult({ error: true, message: t("selectBannerBeforeSummon", language) });
       return;
     }
 
@@ -151,7 +151,7 @@ export default function SummonPage() {
       if (error.response && error.response.data && error.response.data.message) {
         setResult({ error: true, message: error.response.data.message });
       } else {
-        setResult({ error: true, message: "❌ Une erreur inattendue s'est produite." });
+        setResult({ error: true, message: t("unexpectedError", language) });
       }
     } finally {
       setLoading(false);
@@ -198,8 +198,8 @@ export default function SummonPage() {
 
   return (
     <ModernPageLayout 
-      title="🔮 Invocation"
-      subtitle="Découvrez de nouveaux héros et équipements"
+      title={`🔮 ${t("summon", language)}`}
+      subtitle={t("discoverNewHeroes", language)}
       backTo="/dashboard"
     >
       <motion.div
@@ -242,7 +242,7 @@ export default function SummonPage() {
                 <div className="flex items-center justify-center gap-3">
                   <FaGem className="text-2xl text-blue-400" />
                   <span className="text-2xl font-bold">{userDiamonds}</span>
-                  <span className="text-lg opacity-80">Gemmes</span>
+                  <span className="text-lg opacity-80">{t("gems", language)}</span>
                 </div>
               </ModernCard>
             </motion.div>
@@ -267,9 +267,9 @@ export default function SummonPage() {
                         🔮
                       </motion.div>
                       <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        Invocation en cours...
+                        {t("summoningInProgress", language)}
                       </h3>
-                      <p className="text-lg opacity-80">Les forces mystiques œuvrent...</p>
+                      <p className="text-lg opacity-80">{t("mysticalForcesWork", language)}</p>
                     </motion.div>
                   ) : result ? (
                     <motion.div
@@ -284,7 +284,7 @@ export default function SummonPage() {
                       ) : (
                         <>
                           <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                            Résultat de l'invocation
+                            {t("summonResult", language)}
                           </h2>
                           <div className="flex flex-col items-center space-y-4">
                             <motion.img
@@ -319,15 +319,15 @@ export default function SummonPage() {
                               {result.type === "Hero" && (
                                 <div className="space-y-2">
                                   <p className="text-green-400 font-semibold">
-                                    Niveau d'éveil : {result.awakeningLevel}
+                                    {t("awakeningLevel", language)}: {result.awakeningLevel}
                                   </p>
                                   {result.awakeningLevel === 0 ? (
                                     <p className="text-blue-400 flex items-center justify-center gap-2">
-                                      <FaGift /> Nouveau héros débloqué !
+                                      <FaGift /> {t("newHeroUnlocked", language)}
                                     </p>
                                   ) : (
                                     <p className="text-yellow-400 flex items-center justify-center gap-2">
-                                      <FaBolt /> Éveil amélioré !
+                                      <FaBolt /> {t("awakeningImproved", language)}
                                     </p>
                                   )}
                                 </div>
@@ -335,7 +335,7 @@ export default function SummonPage() {
                               
                               {result.type === "Equipment" && (
                                 <p className="text-purple-400 flex items-center justify-center gap-2">
-                                  <FaGift /> Nouvel équipement obtenu !
+                                  <FaGift /> {t("newEquipmentObtained", language)}
                                 </p>
                               )}
                             </div>
@@ -365,12 +365,12 @@ export default function SummonPage() {
                         🔮
                       </motion.div>
                       <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        Prêt pour l'invocation
+                        {t("readyForSummon", language)}
                       </h2>
                       <p className="text-lg opacity-80">
                         {selectedBanner ? 
-                          `Bannière sélectionnée : ${selectedBanner.name}` : 
-                          "Sélectionnez une bannière pour commencer"
+                          `${t("selectedBanner", language)}: ${selectedBanner.name}` : 
+                          t("selectBannerToStart", language)
                         }
                       </p>
                     </motion.div>
@@ -391,7 +391,7 @@ export default function SummonPage() {
                     icon={<FaMagic />}
                     className="text-xl px-8 py-4"
                   >
-                    {loading ? "Invocation..." : "Invoquer"}
+                    {loading ? t("summoning", language) : t("invokeNow", language)}
                   </ModernButton>
                 </motion.div>
               </ModernCard>
@@ -420,10 +420,10 @@ export default function SummonPage() {
                         transition={{ type: "spring", stiffness: 300 }}
                       />
                       <div>
-                        <h3 className="text-xl font-bold text-yellow-400">Héros Vedette</h3>
+                        <h3 className="text-xl font-bold text-yellow-400">{t("rareHero", language)}</h3>
                         <p className="text-lg font-semibold">{rarestHero.name}</p>
                         <p className="text-sm opacity-80">{rarestHero.rarity} • {rarestHero.element}</p>
-                        <p className="text-sm text-purple-400">Obtenez-le dès maintenant !</p>
+                        <p className="text-sm text-purple-400">{t("getItNow", language)}</p>
                       </div>
                     </div>
                   </ModernCard>
@@ -436,7 +436,7 @@ export default function SummonPage() {
           <motion.div variants={itemVariants} className="space-y-4">
             <ModernCard className="p-6">
               <h2 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Bannières Actives
+                {t("activeBanners", language)}
               </h2>
               
               <div className="space-y-4">
@@ -462,11 +462,11 @@ export default function SummonPage() {
                         <div className="space-y-2">
                           <h3 className="font-bold text-lg">{banner.name}</h3>
                           <div className="text-sm opacity-80">
-                            <p>Début: {new Intl.DateTimeFormat("fr-FR", { 
+                            <p>{t("start", language)}: {new Intl.DateTimeFormat(language === "fr" ? "fr-FR" : "en-US", { 
                               dateStyle: "short", 
                               timeStyle: "short" 
                             }).format(new Date(banner.startsAt))}</p>
-                            <p>Fin: {new Intl.DateTimeFormat("fr-FR", { 
+                            <p>{t("end", language)}: {new Intl.DateTimeFormat(language === "fr" ? "fr-FR" : "en-US", { 
                               dateStyle: "short", 
                               timeStyle: "short" 
                             }).format(new Date(banner.endsAt))}</p>
@@ -485,7 +485,7 @@ export default function SummonPage() {
                               }}
                               icon={<FaEye />}
                             >
-                              Contenu
+                              {t("content", language)}
                             </ModernButton>
                           </div>
                         </div>
@@ -502,14 +502,14 @@ export default function SummonPage() {
         <ModernModal
           isOpen={showBannerModal}
           onClose={closeBannerModal}
-          title={`Contenu de la bannière : ${selectedBanner?.name}`}
+          title={`${t("bannerContent", language)}: ${selectedBanner?.name}`}
           size="lg"
         >
           <div className="space-y-6">
             {/* Héros */}
             {Array.isArray(bannerHeroes) && bannerHeroes.length > 0 && (
               <div>
-                <h3 className="text-xl font-bold mb-4 text-purple-400">Héros disponibles</h3>
+                <h3 className="text-xl font-bold mb-4 text-purple-400">{t("availableHeroes", language)}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {bannerHeroes.map((hero) => {
                     // S'assurer que ownedHeroes est un tableau
@@ -542,10 +542,10 @@ export default function SummonPage() {
                           <p className="text-xs opacity-80">{hero.rarity}</p>
                           {ownedHero ? (
                             <p className="text-xs text-green-400">
-                              Éveil: {ownedHero.awakeningLevel}
+                              {t("awakeningLevel", language)}: {ownedHero.awakeningLevel}
                             </p>
                           ) : (
-                            <p className="text-xs text-red-400">Non possédé</p>
+                            <p className="text-xs text-red-400">{t("notOwned", language)}</p>
                           )}
                         </div>
                       </motion.div>
@@ -558,7 +558,7 @@ export default function SummonPage() {
             {/* Équipements */}
             {Array.isArray(bannerEquipments) && bannerEquipments.length > 0 && (
               <div>
-                <h3 className="text-xl font-bold mb-4 text-orange-400">Équipements disponibles</h3>
+                <h3 className="text-xl font-bold mb-4 text-orange-400">{t("availableEquipment", language)}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {bannerEquipments.map((equipment) => (
                     <motion.div

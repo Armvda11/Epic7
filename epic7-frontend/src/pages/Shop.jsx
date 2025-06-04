@@ -80,12 +80,12 @@ const getItemPath = (type) => {
 };
 
 // Fonction pour calculer le temps restant
-const getTimeLeft = (endAt) => {
+const getTimeLeft = (endAt, t, language) => {
   const now = new Date();
   const endDate = new Date(endAt);
   const diff = endDate - now;
 
-  if (diff <= 0) return "Expiré";
+  if (diff <= 0) return t("expired", language);
 
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff / (1000 * 60)) % 60);
@@ -97,7 +97,7 @@ const getTimeLeft = (endAt) => {
 export default function ShopPage() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("Tous");
+  const [filter, setFilter] = useState(""); // Will be set after language is loaded
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeLefts, setTimeLefts] = useState({});
@@ -105,6 +105,13 @@ export default function ShopPage() {
   const navigate = useNavigate();
   const { t, language, theme } = useSettings();
   const { preloadMusic, playDashboardMusic } = useMusic();
+
+  // Initialize filter with translated "All" once language is available
+  useEffect(() => {
+    if (language && !filter) {
+      setFilter(t("all", language));
+    }
+  }, [language, t, filter]);
 
   // Charger les articles et démarrer la musique
   useEffect(() => {
@@ -131,7 +138,7 @@ export default function ShopPage() {
       const newTimeLefts = {};
       items.forEach(item => {
         if (item.endAt) {
-          newTimeLefts[item.id] = getTimeLeft(item.endAt);
+          newTimeLefts[item.id] = getTimeLeft(item.endAt, t, language);
         }
       });
       setTimeLefts(newTimeLefts);
@@ -139,8 +146,7 @@ export default function ShopPage() {
 
     updateTimeLefts();
     const interval = setInterval(updateTimeLefts, 1000);
-    return () => clearInterval(interval);
-  }, [items]);
+    return () => clearInterval(interval);    }, [items, t, language]);
 
   const handleBuyItem = async (itemId, item) => {
     try {
@@ -158,7 +164,7 @@ export default function ShopPage() {
 
   const filteredItems = items.filter((item) => {
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "Tous" || item.type === filter;
+    const matchFilter = filter === t("all", language) || item.type === filter;
     return matchSearch && matchFilter;
   });
 
@@ -189,7 +195,7 @@ export default function ShopPage() {
     return (
       <ModernPageLayout 
         title={t("shop", language)} 
-        subtitle="Chargement..."
+        subtitle={t("loading", language)}
         showBackButton={false}
       >
         <div className="flex items-center justify-center min-h-64">
@@ -213,7 +219,7 @@ export default function ShopPage() {
     return (
       <ModernPageLayout 
         title={t("shop", language)} 
-        subtitle="Erreur de chargement"
+        subtitle={t("loadingError", language)}
         showBackButton={false}
       >
         <ModernCard className="text-center">
@@ -222,7 +228,7 @@ export default function ShopPage() {
             variant="primary" 
             onClick={() => window.location.reload()}
           >
-            Réessayer
+            {t("retry", language)}
           </ModernButton>
         </ModernCard>
       </ModernPageLayout>
@@ -240,11 +246,11 @@ export default function ShopPage() {
             : 'bg-white/60 border-white/40 text-gray-800'
         }`}
       >
-        <option value="Tous">{t("all", language) || "Tous"}</option>
-        <option value="HERO">{t("heroes", language) || "Héros"}</option>
-        <option value="EQUIPMENT">{t("equipment", language) || "Équipement"}</option>
-        <option value="GOLD">{t("gold", language) || "Or"}</option>
-        <option value="DIAMOND">{t("diamonds", language) || "Diamants"}</option>
+        <option value={t("all", language)}>{t("all", language)}</option>
+        <option value="HERO">{t("heroes", language)}</option>
+        <option value="EQUIPMENT">{t("equipment", language)}</option>
+        <option value="GOLD">{t("gold", language)}</option>
+        <option value="DIAMOND">{t("diamonds", language)}</option>
       </select>
     </div>
   );
@@ -252,14 +258,14 @@ export default function ShopPage() {
   return (
     <ModernPageLayout 
       title={t("shop", language)}
-      subtitle="Découvrez nos offres exclusives"
+      subtitle={t("discoverExclusiveOffers", language)}
       headerActions={headerActions}
     >
       {/* Barre de recherche moderne */}
       <ModernSearchBar
         value={search}
         onChange={setSearch}
-        placeholder={t("searchItem", language) || "Rechercher un article..."}
+        placeholder={t("searchItem", language)}
         className="mb-8 max-w-2xl mx-auto"
       />
 
@@ -285,14 +291,13 @@ export default function ShopPage() {
             }`}>
               {/* Badge promotion */}
               {isOnSale(item) && (
-                <div className="absolute top-2 right-2 z-10">
-                  <motion.div
-                    className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg"
-                    animate={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    🔥 PROMO
-                  </motion.div>
+                <div className="absolute top-2 right-2 z-10">                    <motion.div
+                      className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg"
+                      animate={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      🔥 PROMO
+                    </motion.div>
                 </div>
               )}
               
@@ -365,7 +370,7 @@ export default function ShopPage() {
                               ? theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
                               : theme === 'dark' ? 'text-green-300' : 'text-green-700'
                         }`}>
-                          {currency.amount === 0 ? "GRATUIT" : formatPrice(currency.amount)}
+                          {currency.amount === 0 ? t("free", language) : formatPrice(currency.amount)}
                         </span>
                         <span className={`text-sm font-medium ${
                           currency.type === "gold"
@@ -374,7 +379,7 @@ export default function ShopPage() {
                               ? theme === 'dark' ? 'text-purple-400/80' : 'text-purple-600/80'
                               : theme === 'dark' ? 'text-green-400/80' : 'text-green-600/80'
                         }`}>
-                          {currency.type === "gold" ? "Or" : currency.type === "diamonds" ? "Diamants" : ""}
+                          {currency.type === "gold" ? t("gold", language) : currency.type === "diamonds" ? t("diamonds", language) : ""}
                         </span>
                       </div>
                       
@@ -392,7 +397,7 @@ export default function ShopPage() {
                                 ? 'bg-green-500/20 border border-green-500/30 text-green-400'
                                 : 'bg-green-100/80 border border-green-300/50 text-green-600'
                         }`}>
-                          Stock: {item.stock}
+                          {t("stock", language)}: {item.stock}
                         </div>
                       )}
                     </motion.div>
@@ -414,7 +419,7 @@ export default function ShopPage() {
                               ? 'bg-green-500/20 border border-green-500/30 text-green-400'
                               : 'bg-green-100/80 border border-green-300/50 text-green-600'
                       }`}>
-                        Stock: {item.stock}
+                        {t("stock", language)}: {item.stock}
                       </div>
                     </div>
                   )}
@@ -430,7 +435,7 @@ export default function ShopPage() {
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">⚠️</span>
                       <span className="text-sm font-medium">
-                        Coût mixte : Nécessite TOUTES les devises affichées
+                        {t("mixedCost", language)}
                       </span>
                     </div>
                   </div>
@@ -439,7 +444,7 @@ export default function ShopPage() {
                 {/* Temps restant si applicable */}
                 {item.endAt && (
                   <div className={`flex items-center space-x-2 mb-4 px-3 py-2 rounded-lg ${
-                    timeLefts[item.id] === "Expiré"
+                    timeLefts[item.id] === t("expired", language)
                       ? theme === 'dark'
                         ? 'bg-red-500/20 border border-red-500/30'
                         : 'bg-red-100/80 border border-red-300/50'
@@ -448,31 +453,31 @@ export default function ShopPage() {
                         : 'bg-orange-100/80 border border-orange-300/50'
                   }`}>
                     <FaClock className={`${
-                      timeLefts[item.id] === "Expiré" ? 'text-red-500' : 'text-orange-500'
+                      timeLefts[item.id] === t("expired", language) ? 'text-red-500' : 'text-orange-500'
                     }`} />
                     <span className={`text-sm font-medium ${
-                      timeLefts[item.id] === "Expiré" 
+                      timeLefts[item.id] === t("expired", language) 
                         ? 'text-red-500 font-bold' 
                         : theme === 'dark' ? 'text-orange-300' : 'text-orange-700'
                     }`}>
-                      {timeLefts[item.id] || "Calculé..."}
+                      {timeLefts[item.id] || t("calculating", language)}
                     </span>
                   </div>
                 )}
 
                 {/* Bouton d'achat */}
                 <ModernButton
-                  variant={getButtonVariantForCurrency(item, item.stock === 0 || timeLefts[item.id] === "Expiré")}
-                  disabled={item.stock === 0 || timeLefts[item.id] === "Expiré"}
+                  variant={getButtonVariantForCurrency(item, item.stock === 0 || timeLefts[item.id] === t("expired", language))}
+                  disabled={item.stock === 0 || timeLefts[item.id] === t("expired", language)}
                   onClick={() => handleBuyItem(item.id, item)}
                   icon={<FaShoppingCart />}
                   className="w-full"
                 >
                   {item.stock === 0 
-                    ? t("outOfStock", language) || "Rupture de stock"
-                    : timeLefts[item.id] === "Expiré"
-                    ? t("expired", language) || "Expiré"
-                    : t("buy", language) || "Acheter"
+                    ? t("outOfStock", language)
+                    : timeLefts[item.id] === t("expired", language)
+                    ? t("expired", language)
+                    : t("buy", language)
                   }
                 </ModernButton>
               </div>
@@ -495,12 +500,12 @@ export default function ShopPage() {
             <h3 className={`text-xl font-bold mb-2 ${
               theme === 'dark' ? 'text-white' : 'text-gray-900'
             }`}>
-              Aucun article trouvé
+              {t("noItemsFound", language)}
             </h3>
             <p className={`${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Essayez de modifier votre recherche ou vos filtres
+              {t("modifySearchFilters", language)}
             </p>
           </ModernCard>
         </motion.div>
