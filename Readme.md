@@ -1,4 +1,4 @@
-# 🚀SecureStack- Guide de Déploiement et Architecture
+# 🚀Epic7- Guide de Déploiement et Architecture
 
 ---
 
