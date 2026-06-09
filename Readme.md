@@ -1,199 +1,237 @@
-# 🚀Epic7- Guide de Déploiement et Architecture
+# Epic7
+
+Epic7 est une application web full-stack développée avec un backend Spring Boot et un frontend React.
+Le projet met en œuvre une architecture applicative classique autour d’une API REST, d’une base PostgreSQL, d’un cache Redis et d’un environnement local conteneurisé avec Docker Compose.
+
+L’objectif du projet est de construire une application structurée autour de la gestion d’utilisateurs, de héros, d’équipements et de mécaniques de combat, avec une séparation claire entre la logique backend, l’interface frontend et les services d’infrastructure.
 
 ---
 
-## 📦 Prérequis
+## Stack technique
 
-Avant de commencer, installez :
+### Backend
 
-- [Java 17+](https://adoptium.net/)
-- [Maven](https://maven.apache.org/)
-- [Docker + Docker Compose](https://www.docker.com/)
-- [Node.js (LTS)](https://nodejs.org/)
+* Java 17
+* Spring Boot
+* Maven
+* Spring Data JPA
+* PostgreSQL
+* Redis
+* JWT pour l’authentification
+* API REST
+
+### Frontend
+
+* React
+* Vite
+* Tailwind CSS
+
+
+### Environnement
+
+* Docker
+* Docker Compose
+* Git
 
 ---
 
-## 🧱 Architecture Générale
+## Architecture du projet
 
-```
+```text
 Epic7/
-├── backend/               # Serveur Spring Boot
+├── backend/
 │   ├── docker-compose.yml
-│   ├── .env               # Variables d'environnement (non versionnées)
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/com/epic7/backend/
-│   │   │   │   ├── controller/         # Contrôleurs REST (API)
-│   │   │   │   ├── service/            # Logique métier (Combat, Guildes, RTA)
-│   │   │   │   ├── repository/         # Interfaces JPA vers PostgreSQL
-│   │   │   │   ├── model/              # Entités (Hero, Equipment, Guild, etc.)
-│   │   │   │   ├── config/             # Configuration Spring, JWT, Seeds
-│   │   │   │   ├── dto/                # Objets de transfert (DTO)
-│   │   │   │   ├── security/           # Filtre JWT
-│   │   │   │   └── utils/              # Aides diverses (JWT, Mapper)
+│   │   │   │   ├── controller/     # Contrôleurs REST
+│   │   │   │   ├── service/        # Logique métier
+│   │   │   │   ├── repository/     # Accès aux données via JPA
+│   │   │   │   ├── model/          # Entités métier
+│   │   │   │   ├── dto/            # Objets de transfert
+│   │   │   │   ├── config/         # Configuration Spring
+│   │   │   │   ├── security/       # Gestion de la sécurité et JWT
+│   │   │   │   └── utils/          # Fonctions utilitaires
 │   │   │   └── resources/
 │   │   │       └── application.properties
 │   └── pom.xml
 │
-├── epic7-frontend/        # Frontend React + Vite + Tailwind
-│   ├── public/            # Images, icônes, sprites des héros
-│   ├── src/
-│   │   ├── pages/         # Pages principales (Login, Dashboard, Battle...)
-│   │   ├── components/    # Composants réutilisables (Battle, Héros, Equip...)
-│   │   ├── context/       # Contexte global (Settings, Battle...)
-│   │   ├── services/      # Appels API (heroService, userService...)
-│   │   └── api/           # Axios instance configurée
-│   └── package.json
+└── epic7-frontend/
+    ├── public/
+    ├── src/
+    │   ├── pages/                 # Pages principales
+    │   ├── components/            # Composants réutilisables
+    │   ├── context/               # Contextes React
+    │   ├── services/              # Services d’appel API
+    │   └── api/                   # Configuration Axios
+    └── package.json
 ```
 
 ---
 
-## ⚙️ Installation Backend
+## Fonctionnalités principales
 
-### 1. Cloner le projet
+* Authentification des utilisateurs avec JWT
+* Exposition d’une API REST côté backend
+* Gestion des entités métier avec Spring Data JPA
+* Persistance des données dans PostgreSQL
+* Utilisation de Redis pour certains traitements applicatifs
+* Interface utilisateur React consommant l’API backend
+* Séparation entre contrôleurs, services, repositories, DTO et modèles
+* Environnement local reproductible avec Docker Compose
+
+---
+
+## Installation
+
+### Prérequis
+
+Avant de lancer le projet, installer :
+
+* Java 17 ou supérieur
+* Maven
+* Node.js LTS
+* Docker
+* Docker Compose
+
+---
+
+## Lancement du backend
+
+Se placer dans le dossier backend :
+
 ```bash
-git clone https://github.com/Armvda11/Epic7.git
-cd Epic7/backend
+cd backend
 ```
-    
 
+Créer un fichier `.env` à partir du modèle suivant :
 
-
-### 2. Créer le fichier `.env`
 ```env
 POSTGRES_DB=epic7
 POSTGRES_USER=epic7_user
-POSTGRES_PASSWORD=password
+POSTGRES_PASSWORD=change_me_local_only
 REDIS_HOST=redis
 REDIS_PORT=6379
 ```
 
-### 3. Lancer les services Docker
+Lancer les services nécessaires au backend :
+
 ```bash
 docker-compose up -d
 ```
 
-Vérifie que les services tournent :
+Vérifier que PostgreSQL et Redis sont bien démarrés :
+
 ```bash
 docker ps
 ```
 
-### 4. Lancer le backend
+Lancer l’application Spring Boot :
+
 ```bash
 ./mvnw spring-boot:run
 ```
 
-📍 Accessible à : `http://localhost:8080`
+L’API backend est disponible par défaut sur :
+
+```text
+http://localhost:8080
+```
 
 ---
 
-## 🎨 Installation Frontend
+## Lancement du frontend
 
-### 1. Aller dans le dossier frontend
+Se placer dans le dossier frontend :
+
 ```bash
-cd ../epic7-frontend
+cd epic7-frontend
+```
+
+Installer les dépendances :
+
+```bash
 npm install
 ```
 
-### 2. Configurer l'URL de l'API
+Créer un fichier `.env` avec l’URL de l’API backend :
 
-Dans `.env` :
 ```env
 VITE_API_URL=http://localhost:8080/api
 ```
 
-### 3. Démarrer le frontend
+Lancer le serveur de développement :
+
 ```bash
 npm run dev
 ```
 
-🌐 Interface sur : `http://localhost:5173`
+L’interface frontend est disponible par défaut sur :
+
+```text
+http://localhost:5173
+```
 
 ---
 
-## 🛠️ Services Docker
+## Services Docker
 
-| Service     | Port | Description                 |
-|-------------|------|-----------------------------|
-| PostgreSQL  | 5432 | Base de données             |
-| Redis       | 6379 | File matchmaking / combat   |
-| Spring Boot | 8080 | Serveur API (hors conteneur) |
+| Service     | Port | Rôle                               |
+| ----------- | ---: | ---------------------------------- |
+| PostgreSQL  | 5432 | Base de données relationnelle      |
+| Redis       | 6379 | Cache / service applicatif         |
+| Spring Boot | 8080 | API backend, lancée hors conteneur |
 
-### Accès rapide :
+---
+
+## Commandes utiles
+
+Accéder à PostgreSQL :
+
 ```bash
-# Accès PostgreSQL :
 docker exec -it epic7-postgres psql -U epic7_user -d epic7
-
-# Accès Redis :
-docker exec -it epic7-redis redis-cli
-> ping
 ```
 
----
+Accéder à Redis :
 
-## 🧪 Débogage
-
-- Logs backend : `./mvnw spring-boot:run`
-- Rebuild Node : `rm -rf node_modules && npm install`
-- Vérifier PostgreSQL : `docker logs epic7-postgres`
-- Vérifier Redis : `docker logs epic7-redis`
-
----
-
-## 🐳 Gestion des conteneurs Docker
-
-### Commandes de base
 ```bash
-# Vérifier les conteneurs en cours d'exécution
-docker ps
+docker exec -it epic7-redis redis-cli
+```
 
-# Vérifier tous les conteneurs (même arrêtés)
-docker ps -a
+Arrêter les services Docker :
 
-# Arrêter les conteneurs
+```bash
 docker-compose down
+```
 
-# Redémarrer les conteneurs
-docker-compose up -d
+Supprimer les services et les volumes locaux :
 
-# Voir les logs en temps réel
-docker-compose logs -f
-
-# Arrêter et supprimer les conteneurs (garde les volumes)
-docker-compose down
-
-# Arrêter et supprimer les conteneurs ET les volumes (⚠️ perte de données)
+```bash
 docker-compose down -v
+```
 
-# Supprimer toutes les images, conteneurs, volumes et réseaux inutilisés
-docker system prune -a --volumes
+Afficher les logs des services :
 
-# Supprimer un conteneur spécifique
-docker rm epic7-postgres
-docker rm epic7-redis
-
-# Redémarrage complet (arrêt, suppression et recréation)
-docker-compose down && docker-compose up -d
+```bash
+docker-compose logs -f
 ```
 
 ---
 
-## 🤝 Aide & Maintenance
+## Vérifications
 
-> Si un bug étrange surgit, invoquez les forces anciennes :
-> - `git reset --hard`
-> - `docker system prune`
-> - `rm -rf target/`
+Compiler et tester le backend :
 
-Et si tout échoue…  
-C'est la faute de **Wilkens**
+```bash
+cd backend
+./mvnw test
+```
 
+Compiler le frontend :
 
-> NB : Si il n'y a que des meufs comme personnages dans le projet n'oubliez pas que **Wilkens** est un membre du groupe
-
-Aussi n'oubliez pas :
-> Celui qui pousse du code qui ne marche que chez lui... sera maudit à jamais.
+```bash
+cd epic7-frontend
+npm run build
+```
 
 ---
-
-Bon développement à toute l'équipe
